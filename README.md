@@ -28,43 +28,75 @@ This makes it easy to review past conversations, track your development process,
 
 ## Installation
 
-### 1. Create the scripts directory
+### Quick Install (Recommended)
+
+Clone the repository and run the installation script:
+
+```bash
+git clone https://github.com/yourusername/claude-code-utils.git
+cd claude-code-utils
+./install.sh
+```
+
+The install script will:
+- Create necessary directories (`~/.claude/scripts/`, `~/claude-conversations/`)
+- Copy scripts to `~/.claude/scripts/`
+- Set executable permissions
+- Update `~/.claude/settings.json` with the SessionEnd hook (backs up existing settings)
+
+**Note:** The script uses `jq` for JSON manipulation if available. If not installed, it will provide manual configuration instructions. Install with: `brew install jq` (macOS) or `apt-get install jq` (Linux).
+
+### Manual Installation
+
+If you prefer to install manually:
+
+#### 1. Create the scripts directory
 
 ```bash
 mkdir -p ~/.claude/scripts
 ```
 
-### 2. Copy the scripts
+#### 2. Copy the scripts
 
 Copy both `export-conversation.sh` and `pretty-print-transcript.py` to `~/.claude/scripts/`:
 
 ```bash
-cp export-conversation.sh ~/.claude/scripts/
-cp pretty-print-transcript.py ~/.claude/scripts/
+cp hooks/export-conversation.sh ~/.claude/scripts/
+cp scripts/pretty-print-transcript.py ~/.claude/scripts/
 ```
 
-### 3. Make scripts executable
+#### 3. Make scripts executable
 
 ```bash
 chmod +x ~/.claude/scripts/export-conversation.sh
 chmod +x ~/.claude/scripts/pretty-print-transcript.py
 ```
 
-### 4. Configure the SessionEnd hook
+#### 4. Configure the SessionEnd hook
 
 Add the following to your `~/.claude/settings.json`:
 
 ```json
 {
   "hooks": {
-    "SessionEnd": "~/.claude/scripts/export-conversation.sh \"{{cwd}}\" \"{{transcript_path}}\""
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/export-conversation.sh"
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
 If you already have other hooks configured, just add the `SessionEnd` entry to your existing `hooks` object.
 
-### 5. Create the conversations directory (optional)
+#### 5. Create the conversations directory (optional)
 
 The script will create this automatically, but you can create it manually if you prefer:
 
