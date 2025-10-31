@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """
-Analyze Claude Code conversation sessions for technical decision points using Gemini 2.5 Flash.
+Analyze Claude Code conversation sessions using Gemini 2.5 Flash.
 
-This script extracts technical decisions from conversation transcripts, identifying:
-- What was decided
-- Alternatives discussed
-- Reasoning given
-- Whether decisions were revised
+This script provides multiple analysis types for conversation transcripts:
+- decisions: Technical decisions, alternatives, and reasoning
+- errors: Error patterns, root causes, and resolutions
 
 Usage:
-    python3 analyze_session_decisions.py <session_id>
-    python3 analyze_session_decisions.py --project <project_name>
+    python3 analyze_session.py <session_id> --type=decisions
+    python3 analyze_session.py <session_id> --type=errors
+    python3 analyze_session.py <session_id> --type=errors --output=analysis.md
 """
 
 import argparse
@@ -18,7 +17,7 @@ import sqlite3
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict
 import google.generativeai as genai
 from dotenv import load_dotenv
 
@@ -26,7 +25,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-ANALYSIS_PROMPT = """Review this Claude Code conversation transcript and identify moments where a technical decision was made.
+# Analysis prompts for different analysis types
+ANALYSIS_PROMPTS: Dict[str, str] = {
+    "decisions": """Review this Claude Code conversation transcript and identify moments where a technical decision was made.
 
 For each decision, extract:
 - What was decided
@@ -56,7 +57,45 @@ Focus on architectural, technical, and implementation decisions. Skip minor form
 CONVERSATION TRANSCRIPT:
 
 {transcript}
+""",
+
+    "errors": """Analyze this Claude Code conversation transcript for error patterns and problem resolution.
+
+For each significant error or obstacle encountered:
+
+1. **Error/Problem:** What went wrong (be specific)
+2. **Context:** What was being attempted when the error occurred
+3. **Root Cause:** Why it happened (if discussed or evident)
+4. **Detection:** How was it discovered (test failure, runtime error, Claude noticed, user spotted, tool error)
+5. **Resolution:** How it was fixed
+6. **Time to Fix:** Approximate effort (quick fix, moderate debugging, extensive troubleshooting)
+7. **Prevention:** Any safeguards added to prevent recurrence
+
+Then provide an **Error Pattern Summary**:
+
+- **Most Common Error Types:** (e.g., syntax, logic, configuration, API misunderstanding, tooling issues)
+- **Longest to Resolve:** Which issues took the most back-and-forth
+- **Quick Wins:** Errors that were fixed immediately
+- **Root Cause Patterns:** Recurring reasons for errors (unclear requirements, wrong assumptions, missing documentation)
+- **Prevention Strategies:** What was learned or implemented to avoid future errors
+- **Tool-Specific Issues:** If certain tools (Edit, Bash, Read, etc.) had higher error rates
+
+Focus on meaningful errors that required debugging or rework. Skip typos or trivial formatting issues.
+
+---
+
+CONVERSATION TRANSCRIPT:
+
+{transcript}
 """
+}
+
+
+# Human-readable names for analysis types
+ANALYSIS_NAMES = {
+    "decisions": "Technical Decision Analysis",
+    "errors": "Error Pattern Analysis"
+}
 
 
 def get_session_transcript(session_id: str, db_path: str) -> Optional[str]:
@@ -125,13 +164,14 @@ def get_session_transcript(session_id: str, db_path: str) -> Optional[str]:
         return None
 
 
-def analyze_with_gemini(transcript_path: str, api_key: str) -> str:
+def analyze_with_gemini(transcript_path: str, api_key: str, analysis_type: str) -> str:
     """
     Analyze transcript using Gemini 2.5 Flash.
 
     Args:
         transcript_path: Path to conversation transcript
         api_key: Google AI API key
+        analysis_type: Type of analysis to perform
 
     Returns:
         Analysis text
@@ -140,14 +180,20 @@ def analyze_with_gemini(transcript_path: str, api_key: str) -> str:
     with open(transcript_path, 'r', encoding='utf-8') as f:
         transcript = f.read()
 
+    # Get the appropriate prompt
+    prompt_template = ANALYSIS_PROMPTS.get(analysis_type)
+    if not prompt_template:
+        raise ValueError(f"Unknown analysis type: {analysis_type}")
+
     # Configure Gemini
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-2.0-flash-exp')
 
     # Create prompt
-    prompt = ANALYSIS_PROMPT.format(transcript=transcript)
+    prompt = prompt_template.format(transcript=transcript)
 
-    print(f"🤖 Analyzing with Gemini 2.5 Flash...")
+    analysis_name = ANALYSIS_NAMES.get(analysis_type, analysis_type)
+    print(f"🤖 Running {analysis_name} with Gemini 2.5 Flash...")
     print(f"📊 Transcript size: {len(transcript):,} characters")
 
     # Generate analysis
@@ -159,10 +205,26 @@ def analyze_with_gemini(transcript_path: str, api_key: str) -> str:
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description='Analyze Claude Code conversation for technical decision points'
+        description='Analyze Claude Code conversation sessions',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Analysis Types:
+  decisions    Technical decisions, alternatives, and reasoning
+  errors       Error patterns, root causes, and resolutions
+
+Examples:
+  %(prog)s abc123 --type=decisions
+  %(prog)s abc123 --type=errors --output=error-analysis.md
+        """
     )
     parser.add_argument('session_id', nargs='?', help='Session UUID to analyze')
-    parser.add_argument('--project', help='Analyze all sessions for a project')
+    parser.add_argument(
+        '--type',
+        choices=['decisions', 'errors'],
+        default='decisions',
+        help='Type of analysis to perform (default: decisions)'
+    )
+    parser.add_argument('--project', help='Analyze all sessions for a project (not yet implemented)')
     parser.add_argument(
         '--db',
         default=str(Path.home() / 'claude-conversations' / 'conversations.db'),
@@ -199,7 +261,7 @@ def main():
 
     # Analyze
     try:
-        analysis = analyze_with_gemini(transcript_path, api_key)
+        analysis = analyze_with_gemini(transcript_path, api_key, args.type)
 
         # Output
         if args.output:
@@ -209,8 +271,9 @@ def main():
                 f.write(analysis)
             print(f"\n✅ Analysis saved to {output_path}")
         else:
+            analysis_name = ANALYSIS_NAMES.get(args.type, args.type.upper())
             print("\n" + "="*100)
-            print("TECHNICAL DECISION ANALYSIS")
+            print(analysis_name.upper())
             print("="*100 + "\n")
             print(analysis)
 
