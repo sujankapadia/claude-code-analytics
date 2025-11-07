@@ -1,0 +1,12 @@
+# Analysis Type Metadata
+# This file contains metadata for each analysis type prompt
+
+decisions:
+  name: "Technical Decision Analysis"
+  description: "Extract technical decisions, alternatives considered, and reasoning"
+  file: "decisions.md"
+
+errors:
+  name: "Error Pattern Analysis"
+  description: "Identify error patterns, root causes, and resolutions"
+  file: "errors.md"

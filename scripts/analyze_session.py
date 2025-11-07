@@ -20,82 +20,36 @@ from pathlib import Path
 from typing import Optional, Dict
 import google.generativeai as genai
 from dotenv import load_dotenv
+import yaml
+from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
 # Load environment variables from .env file
 load_dotenv()
 
 
-# Analysis prompts for different analysis types
-ANALYSIS_PROMPTS: Dict[str, str] = {
-    "decisions": """Review this Claude Code conversation transcript and identify moments where a technical decision was made.
+def load_prompts() -> tuple[Dict[str, str], Environment]:
+    """
+    Load analysis prompts from Jinja2 template files.
 
-For each decision, extract:
-- What was decided
-- What alternatives were discussed (if any)
-- The reasoning given
-- Whether it was later changed/revisited
+    Returns:
+        Tuple of (metadata dict, jinja2 environment)
+    """
+    script_dir = Path(__file__).parent
+    prompts_dir = script_dir.parent / "prompts"
 
-Format your response as a structured report with:
+    # Load metadata
+    metadata_file = prompts_dir / "metadata.yaml"
+    with open(metadata_file, 'r') as f:
+        metadata = yaml.safe_load(f)
 
-1. **Executive Summary** (2-3 sentences about the project)
+    # Create Jinja2 environment
+    env = Environment(loader=FileSystemLoader(str(prompts_dir)))
 
-2. **Key Technical Decisions** (numbered list, each with):
-   - What was decided
-   - Alternatives discussed
-   - Reasoning given
-   - Changes/revisions (if any)
-
-3. **Revised Decisions** (if any decisions were changed later):
-   - Original decision
-   - Revised to
-   - Reason for change
-
-Focus on architectural, technical, and implementation decisions. Skip minor formatting or style choices.
-
----
-
-CONVERSATION TRANSCRIPT:
-
-{transcript}
-""",
-
-    "errors": """Analyze this Claude Code conversation transcript for error patterns and problem resolution.
-
-For each significant error or obstacle encountered:
-
-1. **Error/Problem:** What went wrong (be specific)
-2. **Context:** What was being attempted when the error occurred
-3. **Root Cause:** Why it happened (if discussed or evident)
-4. **Detection:** How was it discovered (test failure, runtime error, Claude noticed, user spotted, tool error)
-5. **Resolution:** How it was fixed
-6. **Time to Fix:** Approximate effort (quick fix, moderate debugging, extensive troubleshooting)
-7. **Prevention:** Any safeguards added to prevent recurrence
-
-Then provide an **Error Pattern Summary**:
-
-- **Most Common Error Types:** (e.g., syntax, logic, configuration, API misunderstanding, tooling issues)
-- **Longest to Resolve:** Which issues took the most back-and-forth
-- **Quick Wins:** Errors that were fixed immediately
-- **Root Cause Patterns:** Recurring reasons for errors (unclear requirements, wrong assumptions, missing documentation)
-- **Prevention Strategies:** What was learned or implemented to avoid future errors
-- **Tool-Specific Issues:** If certain tools (Edit, Bash, Read, etc.) had higher error rates
-
-Focus on meaningful errors that required debugging or rework. Skip typos or trivial formatting issues.
-
----
-
-CONVERSATION TRANSCRIPT:
-
-{transcript}
-"""
-}
+    return metadata, env
 
 
-# Human-readable names for analysis types
-ANALYSIS_NAMES = {
-    "decisions": "Technical Decision Analysis",
-    "errors": "Error Pattern Analysis"
-}
+# Load prompt metadata and Jinja2 environment
+PROMPT_METADATA, JINJA_ENV = load_prompts()
 
 
 def get_session_transcript(session_id: str, db_path: str) -> Optional[str]:
@@ -180,19 +134,24 @@ def analyze_with_gemini(transcript_path: str, api_key: str, analysis_type: str) 
     with open(transcript_path, 'r', encoding='utf-8') as f:
         transcript = f.read()
 
-    # Get the appropriate prompt
-    prompt_template = ANALYSIS_PROMPTS.get(analysis_type)
-    if not prompt_template:
+    # Get metadata for this analysis type
+    metadata = PROMPT_METADATA.get(analysis_type)
+    if not metadata:
         raise ValueError(f"Unknown analysis type: {analysis_type}")
+
+    # Load and render Jinja2 template
+    try:
+        template_file = metadata['file']
+        template = JINJA_ENV.get_template(template_file)
+        prompt = template.render(transcript=transcript)
+    except TemplateNotFound:
+        raise ValueError(f"Template file not found: {metadata['file']}")
 
     # Configure Gemini
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-2.0-flash-exp')
 
-    # Create prompt
-    prompt = prompt_template.format(transcript=transcript)
-
-    analysis_name = ANALYSIS_NAMES.get(analysis_type, analysis_type)
+    analysis_name = metadata['name']
     print(f"🤖 Running {analysis_name} with Gemini 2.5 Flash...")
     print(f"📊 Transcript size: {len(transcript):,} characters")
 
@@ -271,7 +230,9 @@ Examples:
                 f.write(analysis)
             print(f"\n✅ Analysis saved to {output_path}")
         else:
-            analysis_name = ANALYSIS_NAMES.get(args.type, args.type.upper())
+            # Get analysis name from metadata
+            metadata = PROMPT_METADATA.get(args.type, {})
+            analysis_name = metadata.get('name', args.type.upper())
             print("\n" + "="*100)
             print(analysis_name.upper())
             print("="*100 + "\n")
