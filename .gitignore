@@ -4,6 +4,9 @@ claude-code-conversations/
 # Environment variables
 .env
 
+# Playwright MCP test artifacts
+.playwright-mcp/
+
 # Python
 __pycache__/
 *.py[cod]
