@@ -6,6 +6,10 @@ A Streamlit application for analyzing Claude Code conversation transcripts.
 
 import streamlit as st
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure page
 st.set_page_config(

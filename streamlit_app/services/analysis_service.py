@@ -182,8 +182,11 @@ class AnalysisService:
         genai.configure(api_key=self.api_key)
         model = genai.GenerativeModel("gemini-2.0-flash-exp")
 
-        # Generate analysis
-        response = model.generate_content(prompt)
+        # Generate analysis with low temperature for more deterministic output
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(temperature=0.1)
+        )
 
         # Extract token usage if available
         usage_metadata = getattr(response, "usage_metadata", None)

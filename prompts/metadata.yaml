@@ -10,3 +10,8 @@ errors:
   name: "Error Pattern Analysis"
   description: "Identify error patterns, root causes, and resolutions"
   file: "errors.md"
+
+agent_usage:
+  name: "AI Agent Usage Analysis"
+  description: "Analyze how AI agents are used for prototyping, experimentation, and discovery"
+  file: "agent_usage.md"
