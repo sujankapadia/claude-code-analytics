@@ -123,24 +123,40 @@ class OpenRouterProvider(LLMProvider):
         """Generate text using OpenRouter API."""
         model_name = model or self.default_model
 
+        # Verify API key is set
+        if not self.api_key:
+            raise ValueError("OpenRouter API key is not set")
+
         # OpenRouter uses OpenAI-compatible chat completions API
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/yourusername/claude-code-utils",
+            "X-Title": "Claude Code Analytics",
+        }
+
+        payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": kwargs.get('temperature', 0.1),
+        }
+
         response = requests.post(
             f"{self.base_url}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": model_name,
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": kwargs.get('temperature', 0.1),
-            },
+            headers=headers,
+            json=payload,
             timeout=300,  # 5 minute timeout for long analysis
         )
 
-        response.raise_for_status()
+        # Better error handling
+        if response.status_code != 200:
+            error_detail = response.text
+            raise ValueError(
+                f"OpenRouter API error (status {response.status_code}): {error_detail}"
+            )
+
         data = response.json()
 
         # Extract response
@@ -199,6 +215,12 @@ def create_provider(
     gemini_key = gemini_api_key or os.getenv("GOOGLE_API_KEY")
 
     if openrouter_key:
+        # Validate key format
+        if not openrouter_key.startswith("sk-or-"):
+            raise ValueError(
+                f"Invalid OpenRouter API key format. Keys should start with 'sk-or-'. "
+                f"Got: {openrouter_key[:10]}..."
+            )
         return OpenRouterProvider(
             api_key=openrouter_key,
             default_model=default_model or "deepseek/deepseek-v3.2"
