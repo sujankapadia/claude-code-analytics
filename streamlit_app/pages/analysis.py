@@ -192,23 +192,37 @@ try:
     if isinstance(analysis_service.provider, OpenRouterProvider):
         st.subheader("Model Selection")
 
-        # Quick select models
-        model_options = {label: model_id for label, model_id in OpenRouterProvider.QUICK_SELECT_MODELS}
-
-        selected_model_label = st.selectbox(
-            "Choose model:",
-            options=list(model_options.keys()),
-            index=4,  # Default to DeepSeek V3.2
-            help="Quick select from curated list of newest premium models. Default uses env var OPENROUTER_MODEL or DeepSeek V3.2."
+        # Radio button to choose between quick select and browse all
+        model_selection_mode = st.radio(
+            "Choose model selection method:",
+            ["Quick Select (13 curated models)", "Browse All Models (300+)"],
+            index=0,
+            help="Quick Select shows recommended models. Browse All lets you choose from the full catalog."
         )
 
-        selected_model = model_options[selected_model_label]
+        if model_selection_mode == "Quick Select (13 curated models)":
+            # Quick select dropdown
+            model_options = {label: model_id for label, model_id in OpenRouterProvider.QUICK_SELECT_MODELS}
 
-        # Advanced: All models expander
-        with st.expander("🔍 Advanced: Browse All Models"):
-            st.markdown("Load the full catalog of 300+ models from OpenRouter:")
+            selected_model_label = st.selectbox(
+                "Choose model:",
+                options=list(model_options.keys()),
+                index=4,  # Default to DeepSeek V3.2
+                help="Curated list of newest premium models from 2025."
+            )
 
-            if st.button("Load All Models", help="Fetches the complete list from OpenRouter API"):
+            selected_model = model_options[selected_model_label]
+
+        else:
+            # Browse all models mode
+            import pandas as pd
+
+            # Use session state to cache the models
+            if "all_openrouter_models" not in st.session_state:
+                st.session_state.all_openrouter_models = None
+
+            # Auto-load models when switching to this mode
+            if st.session_state.all_openrouter_models is None:
                 with st.spinner("Fetching models from OpenRouter..."):
                     try:
                         all_models = OpenRouterProvider.fetch_all_models()
@@ -223,32 +237,57 @@ try:
                         # Sort by newest first
                         text_models.sort(key=lambda m: m['created'], reverse=True)
 
-                        st.success(f"✅ Loaded {len(text_models)} models!")
-
-                        # Create searchable dataframe
-                        import pandas as pd
-
-                        df_data = []
-                        for m in text_models[:100]:  # Limit to 100 for performance
-                            prompt_price = float(m['pricing']['prompt']) * 1_000_000
-                            completion_price = float(m['pricing']['completion']) * 1_000_000
-                            df_data.append({
-                                'Model ID': m['id'],
-                                'Name': m['name'],
-                                'Input $/1M': f"${prompt_price:.2f}",
-                                'Output $/1M': f"${completion_price:.2f}",
-                                'Context': f"{m['context_length']:,}",
-                            })
-
-                        df = pd.DataFrame(df_data)
-
-                        st.markdown("**Top 100 newest models:**")
-                        st.dataframe(df, use_container_width=True, height=400)
-
-                        st.info("💡 To use a model from this list, copy the Model ID and set it as OPENROUTER_MODEL environment variable, or select from quick list above.")
+                        # Store in session state (limit to 100 for performance)
+                        st.session_state.all_openrouter_models = text_models[:100]
 
                     except Exception as e:
-                        st.error(f"Failed to fetch models: {e}")
+                        st.error(f"❌ Failed to fetch models: {e}")
+                        st.session_state.all_openrouter_models = []
+
+            # Display models if loaded
+            if st.session_state.all_openrouter_models:
+                text_models = st.session_state.all_openrouter_models
+                st.success(f"✅ Loaded {len(text_models)} models")
+
+                # Create dataframe
+                df_data = []
+                for m in text_models:
+                    prompt_price = float(m['pricing']['prompt']) * 1_000_000
+                    completion_price = float(m['pricing']['completion']) * 1_000_000
+                    df_data.append({
+                        'Model ID': m['id'],
+                        'Name': m['name'],
+                        'Input $/1M': f"${prompt_price:.2f}",
+                        'Output $/1M': f"${completion_price:.2f}",
+                        'Context': f"{m['context_length']:,}",
+                    })
+
+                df = pd.DataFrame(df_data)
+
+                st.markdown("**Select a model (click the checkbox):**")
+
+                # Use dataframe with selection mode
+                event = st.dataframe(
+                    df,
+                    use_container_width=True,
+                    height=400,
+                    hide_index=True,
+                    on_select="rerun",
+                    selection_mode="single-row",
+                )
+
+                # Check if a row was selected
+                if event.selection and event.selection.rows:
+                    selected_row_idx = event.selection.rows[0]
+                    selected_model = text_models[selected_row_idx]['id']
+                    selected_model_name = text_models[selected_row_idx]['name']
+
+                    st.success(f"✅ Selected: **{selected_model_name}**")
+                    st.code(selected_model, language="text")
+                else:
+                    st.warning("⚠️ Please select a model from the table above by clicking its checkbox.")
+                    # Don't allow analysis to run without selection
+                    selected_model = None
 
         st.divider()
 
