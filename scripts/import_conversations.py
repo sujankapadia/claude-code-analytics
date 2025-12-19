@@ -166,6 +166,7 @@ def process_session(
 ) -> Tuple[int, int]:
     """
     Process a single session JSONL file and import into database.
+    Supports incremental updates - if session exists, only imports new messages.
 
     Args:
         session_file: Path to session JSONL file
@@ -178,12 +179,19 @@ def process_session(
     # Extract session_id from filename (remove .jsonl extension)
     session_id = session_file.stem
 
-    # Check if session already imported
+    # Check if session already exists and get max message index
     cursor = conn.cursor()
-    cursor.execute("SELECT session_id FROM sessions WHERE session_id = ?", (session_id,))
-    if cursor.fetchone():
-        logger.debug(f"    Skipping session {session_id} (already imported)")
-        return (0, 0)
+    cursor.execute("""
+        SELECT MAX(message_index)
+        FROM messages
+        WHERE session_id = ?
+    """, (session_id,))
+    result = cursor.fetchone()
+    max_message_index = result[0] if result and result[0] is not None else -1
+
+    # Track if this is an incremental update
+    is_incremental = max_message_index >= 0
+    skip_until_index = max_message_index  # Import messages after this index
 
     # Parse JSONL file
     entries = parse_jsonl_file(session_file)
@@ -192,7 +200,7 @@ def process_session(
         return (0, 0)
 
     # Extract messages, tool uses, and tool results
-    # This follows the same logic as pretty-print-transcript.py
+    # We need to process ALL messages to get correct indices, then filter for import
     messages = []
     tool_uses = {}
     tool_results = {}
@@ -228,8 +236,8 @@ def process_session(
             })
 
             # Extract tool uses and tool results from message content
-            # (matches logic from pretty-print-transcript.py lines 54-96)
-            if isinstance(content, list):
+            # Only collect tool uses for messages we'll actually import
+            if isinstance(content, list) and current_message_index > skip_until_index:
                 for item in content:
                     if isinstance(item, dict):
                         # Tool use embedded in message content
@@ -257,23 +265,51 @@ def process_session(
         logger.warning(f"    ⚠️  No messages found in {session_file.name}")
         return (0, 0)
 
-    start_time = messages[0]['timestamp']
-    end_time = messages[-1]['timestamp']
-    message_count = len(messages)
-    tool_use_count = len(tool_uses)
+    # Filter messages to only those we need to import
+    new_messages = [msg for idx, msg in enumerate(messages) if idx > skip_until_index]
 
-    # Insert session
-    try:
-        cursor.execute("""
-            INSERT INTO sessions (session_id, project_id, start_time, end_time, message_count, tool_use_count)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (session_id, project_id, start_time, end_time, message_count, tool_use_count))
-    except sqlite3.IntegrityError as e:
-        logger.warning(f"    ⚠️  Session {session_id} already exists: {e}")
+    if not new_messages and is_incremental:
+        logger.info(f"    ℹ️  No new messages (session up to date)")
         return (0, 0)
 
-    # Insert messages
+    start_time = messages[0]['timestamp']
+    end_time = messages[-1]['timestamp']
+    total_message_count = len(messages)
+
+    # Calculate actual tool use count from database for incremental updates
+    if is_incremental:
+        cursor.execute("SELECT COUNT(*) FROM tool_uses WHERE session_id = ?", (session_id,))
+        existing_tool_count = cursor.fetchone()[0]
+        total_tool_use_count = existing_tool_count + len(tool_uses)
+    else:
+        total_tool_use_count = len(tool_uses)
+
+    # Insert or update session
+    if is_incremental:
+        # Update existing session with new end_time and counts
+        cursor.execute("""
+            UPDATE sessions
+            SET end_time = ?, message_count = ?, tool_use_count = ?
+            WHERE session_id = ?
+        """, (end_time, total_message_count, total_tool_use_count, session_id))
+        logger.info(f"    🔄 Updating session (incremental): +{len(new_messages)} messages, +{len(tool_uses)} tool uses")
+    else:
+        # Insert new session
+        try:
+            cursor.execute("""
+                INSERT INTO sessions (session_id, project_id, start_time, end_time, message_count, tool_use_count)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (session_id, project_id, start_time, end_time, total_message_count, total_tool_use_count))
+        except sqlite3.IntegrityError as e:
+            logger.warning(f"    ⚠️  Session {session_id} already exists: {e}")
+            return (0, 0)
+
+    # Insert only new messages with their correct indices
     for idx, msg in enumerate(messages):
+        # Skip messages already in database
+        if idx <= skip_until_index:
+            continue
+
         content_text = extract_text_from_content(msg['content'])
         usage = msg.get('usage', {})
         cursor.execute("""
@@ -311,7 +347,8 @@ def process_session(
             tool_data['timestamp']
         ))
 
-    return (message_count, tool_use_count)
+    # Return count of newly imported items
+    return (len(new_messages), len(tool_uses))
 
 
 def import_project(

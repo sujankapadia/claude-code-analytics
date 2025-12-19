@@ -29,6 +29,7 @@ This makes it easy to review past conversations, track your development process,
 
 ### Analytics & Database Features
 - **SQLite database** - Normalized schema with projects, sessions, messages, and tool uses
+- **Incremental import** - Efficiently updates database with only new messages from active sessions
 - **Message-level tool tracking** - Each tool use is linked to its message via `message_index`
 - **Full-text search** - FTS5 search index for fast content search across all conversations
 - **Token tracking** - Comprehensive token usage statistics including cache metrics
@@ -169,7 +170,7 @@ Create and populate the SQLite database:
 # Create the database schema
 python3 scripts/create_database.py
 
-# Import all conversations
+# Import all conversations (initial import)
 python3 scripts/import_conversations.py
 
 # Create full-text search index (optional)
@@ -177,6 +178,13 @@ python3 scripts/create_fts_index.py
 ```
 
 The database will be created at `~/claude-conversations/conversations.db`.
+
+**Incremental Import:** The import script supports incremental updates! Run it anytime to import only new messages from active or completed sessions. It automatically:
+- Detects existing sessions in the database
+- Imports only messages newer than the last imported message
+- Updates session metadata (end_time, message counts)
+- Preserves all existing data with zero duplicates
+- Works efficiently even while sessions are still active
 
 ### 3. Launch the Dashboard
 
