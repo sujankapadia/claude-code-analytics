@@ -18,6 +18,8 @@ CLAUDE_DIR="$HOME/.claude"
 SCRIPTS_DIR="$CLAUDE_DIR/scripts"
 CONVERSATIONS_DIR="$HOME/claude-conversations"
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/claude-code-analytics"
+CONFIG_FILE="$CONFIG_DIR/.env"
 
 # Check for required commands
 if ! command -v python3 &> /dev/null; then
@@ -37,6 +39,7 @@ fi
 echo "📁 Creating directories..."
 mkdir -p "$SCRIPTS_DIR"
 mkdir -p "$CONVERSATIONS_DIR"
+mkdir -p "$CONFIG_DIR"
 
 # Copy scripts
 echo "📋 Copying scripts..."
@@ -47,6 +50,16 @@ cp "$SCRIPT_DIR/scripts/pretty-print-transcript.py" "$SCRIPTS_DIR/"
 echo "🔧 Setting permissions..."
 chmod +x "$SCRIPTS_DIR/export-conversation.sh"
 chmod +x "$SCRIPTS_DIR/pretty-print-transcript.py"
+
+# Set up configuration file
+echo "⚙️  Setting up configuration..."
+if [ ! -f "$CONFIG_FILE" ]; then
+    cp "$SCRIPT_DIR/.env.example" "$CONFIG_FILE"
+    echo -e "${GREEN}✓ Created configuration file at $CONFIG_FILE${NC}"
+    echo -e "${YELLOW}  Edit this file to customize settings (optional)${NC}"
+else
+    echo -e "${GREEN}✓ Configuration file already exists at $CONFIG_FILE${NC}"
+fi
 
 # Configure settings.json
 echo "⚙️  Configuring settings.json..."
@@ -115,6 +128,9 @@ echo "Files installed:"
 echo "  $SCRIPTS_DIR/export-conversation.sh"
 echo "  $SCRIPTS_DIR/pretty-print-transcript.py"
 echo ""
+echo "Configuration:"
+echo "  $CONFIG_FILE"
+echo ""
 echo "Debug logs available at:"
 echo "  $CLAUDE_DIR/export-debug.log"
 echo ""
@@ -124,5 +140,24 @@ if [ "$USE_JQ" = false ]; then
     echo ""
 fi
 
-echo "To test the installation, start a new Claude Code session and exit it."
+echo "Next steps:"
+echo ""
+echo "Required for basic features (export, browse, search):"
+echo "  1. Create database: python3 scripts/create_database.py"
+echo "  2. Import conversations: python3 scripts/import_conversations.py"
+echo "  3. Launch dashboard: ./run_dashboard.sh"
+echo ""
+echo "Required for AI analysis features:"
+echo "  4. Edit configuration: $CONFIG_FILE"
+echo "     Set OPENROUTER_API_KEY or GOOGLE_API_KEY"
+echo "     (Get keys from https://openrouter.ai/keys or https://aistudio.google.com/app/apikey)"
+echo ""
+echo "Optional customization:"
+echo "  - Edit $CONFIG_FILE to customize:"
+echo "    - Data directories"
+echo "    - Pagination settings"
+echo "    - Search results per page"
+echo "    - Display settings"
+echo ""
+echo "To test the export hook, start a new Claude Code session and exit it."
 echo "You should see a new conversation file in $CONVERSATIONS_DIR"

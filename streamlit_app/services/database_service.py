@@ -1,10 +1,15 @@
 """Database service layer for conversation analytics."""
 
 import sqlite3
+import sys
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+import config
 from streamlit_app.models import (
     Project,
     Session,
@@ -24,10 +29,10 @@ class DatabaseService:
         Initialize database service.
 
         Args:
-            db_path: Path to SQLite database. Defaults to ~/claude-conversations/conversations.db
+            db_path: Path to SQLite database. Defaults to config.DATABASE_PATH
         """
         if db_path is None:
-            db_path = str(Path.home() / "claude-conversations" / "conversations.db")
+            db_path = str(config.DATABASE_PATH)
         self.db_path = db_path
 
     def _get_connection(self) -> sqlite3.Connection:

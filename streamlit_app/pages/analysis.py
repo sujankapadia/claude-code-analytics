@@ -9,6 +9,7 @@ from datetime import datetime
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+import config
 from streamlit_app.services import DatabaseService, AnalysisService, OpenRouterProvider
 from streamlit_app.models import AnalysisType
 
@@ -356,8 +357,8 @@ try:
 
                 # Save to file if requested
                 if save_to_file:
-                    output_dir = Path.home() / "claude-conversations" / "analyses"
-                    output_dir.mkdir(exist_ok=True)
+                    output_dir = config.ANALYSIS_OUTPUT_DIR
+                    output_dir.mkdir(parents=True, exist_ok=True)
 
                     output_path = output_dir / filename
 

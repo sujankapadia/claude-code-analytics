@@ -2,17 +2,13 @@
 
 import streamlit as st
 import sys
-import os
 from pathlib import Path
 from datetime import datetime
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+import config
 from streamlit_app.services import DatabaseService
 
 # Initialize service
@@ -151,8 +147,8 @@ try:
     ]
 
     # Auto-pagination for large conversations (configurable via .env)
-    PAGINATION_THRESHOLD = int(os.getenv('PAGINATION_THRESHOLD', '500'))
-    MESSAGES_PER_PAGE = int(os.getenv('MESSAGES_PER_PAGE', '100'))
+    PAGINATION_THRESHOLD = config.PAGINATION_THRESHOLD
+    MESSAGES_PER_PAGE = config.MESSAGES_PER_PAGE
 
     total_messages = len(messages)
     use_pagination = total_messages > PAGINATION_THRESHOLD
@@ -239,8 +235,9 @@ try:
                 st.markdown(f"🔧 **{tool.tool_name}**{error_indicator}")
 
                 if tool.tool_result:
-                    result_text = tool.tool_result[:2000]
-                    if len(tool.tool_result) > 2000:
+                    max_length = config.TOOL_RESULT_MAX_LENGTH
+                    result_text = tool.tool_result[:max_length]
+                    if len(tool.tool_result) > max_length:
                         result_text += "\n... (output truncated)"
                     st.code(result_text, language="text")
 

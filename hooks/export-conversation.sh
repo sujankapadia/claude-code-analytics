@@ -3,8 +3,17 @@
 # Exports Claude Code conversation on SessionEnd hook
 # Creates both JSONL backup and pretty-printed text version
 
-# Setup debug logging
-DEBUG_LOG="$HOME/.claude/export-debug.log"
+# Load configuration from standard location
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/claude-code-analytics"
+ENV_FILE="$CONFIG_DIR/.env"
+
+if [ -f "$ENV_FILE" ]; then
+    # Load env vars, handling comments and blank lines
+    export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
+fi
+
+# Setup debug logging (use env var or default)
+DEBUG_LOG="${CLAUDE_EXPORT_DEBUG_LOG:-$HOME/.claude/export-debug.log}"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$DEBUG_LOG"
@@ -58,8 +67,10 @@ fi
 FILE_SIZE=$(wc -l < "$TRANSCRIPT_PATH")
 log "Transcript file size: $FILE_SIZE lines"
 
-# Create backup directory structure
-BACKUP_ROOT="$HOME/claude-conversations"
+# Create backup directory structure (use env var or default)
+BACKUP_ROOT="${CLAUDE_CONVERSATIONS_DIR:-$HOME/claude-conversations}"
+# Expand ~ if present
+BACKUP_ROOT="${BACKUP_ROOT/#\~/$HOME}"
 SESSION_NAME=$(basename "$(dirname "$TRANSCRIPT_PATH")")
 PROJECT_DIR="$BACKUP_ROOT/$SESSION_NAME"
 

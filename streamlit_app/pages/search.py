@@ -9,6 +9,7 @@ from collections import defaultdict
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+import config
 from streamlit_app.services import DatabaseService
 
 # Initialize service
@@ -105,7 +106,7 @@ with st.expander("Filters", expanded=True):
 if "search_page" not in st.session_state:
     st.session_state.search_page = 0
 
-RESULTS_PER_PAGE = 10
+RESULTS_PER_PAGE = config.SEARCH_RESULTS_PER_PAGE
 
 # Execute search
 if search_query:

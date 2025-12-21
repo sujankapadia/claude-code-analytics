@@ -12,7 +12,12 @@ Usage:
 
 import sqlite3
 import os
+import sys
 from pathlib import Path
+
+# Add parent directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+import config
 
 
 # SQLite schema definition
@@ -225,9 +230,8 @@ def create_database(db_path: str) -> None:
 
 def main():
     """Main entry point for the script."""
-    # Default database path
-    home_dir = Path.home()
-    db_path = home_dir / "claude-conversations" / "conversations.db"
+    # Use config for database path
+    db_path = config.DATABASE_PATH
 
     print("🚀 Creating Claude Code conversation analytics database...")
     print(f"📍 Database location: {db_path}\n")

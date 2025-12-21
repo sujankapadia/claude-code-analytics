@@ -18,6 +18,10 @@ from datetime import datetime
 from typing import Dict, List, Tuple, Optional, Any
 import logging
 
+# Add parent directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+import config
+
 
 # Configure logging
 logging.basicConfig(
@@ -35,14 +39,14 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         '--db',
         type=str,
-        default=str(Path.home() / 'claude-conversations' / 'conversations.db'),
-        help='Path to SQLite database (default: ~/claude-conversations/conversations.db)'
+        default=str(config.DATABASE_PATH),
+        help=f'Path to SQLite database (default: {config.DATABASE_PATH})'
     )
     parser.add_argument(
         '--source',
         type=str,
-        default=str(Path.home() / '.claude' / 'projects'),
-        help='Path to Claude projects directory (default: ~/.claude/projects/)'
+        default=str(config.CLAUDE_CODE_PROJECTS_DIR),
+        help=f'Path to Claude projects directory (default: {config.CLAUDE_CODE_PROJECTS_DIR})'
     )
     return parser.parse_args()
 
