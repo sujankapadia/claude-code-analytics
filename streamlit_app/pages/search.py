@@ -201,7 +201,7 @@ if search_query:
                                 # Snippet with HTML markup
                                 st.markdown(snippet, unsafe_allow_html=True)
 
-                                # View in conversation link
+                                # View in conversation link (no hash - will be set via JS)
                                 view_url = f"conversation?session_id={session_id}&message_index={message_index}"
                                 st.markdown(f"[View in Conversation →]({view_url})")
 
@@ -220,7 +220,7 @@ if search_query:
                                 preview = content[:200] + "..." if len(content) > 200 else content
                                 st.code(preview, language="text")
 
-                                # View in conversation link
+                                # View in conversation link (no hash - will be set via JS)
                                 view_url = f"conversation?session_id={session_id}&message_index={message_index}"
                                 st.markdown(f"[View in Conversation →]({view_url})")
 

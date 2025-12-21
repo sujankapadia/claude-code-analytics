@@ -206,18 +206,17 @@ try:
         # Divider between messages
         st.markdown('<div class="msg-divider"></div>', unsafe_allow_html=True)
 
-    # Scroll to target message if deep linking
+    # Scroll to target message using scrollIntoView
     if target_message_index is not None:
         import streamlit.components.v1 as components
         components.html(f"""
         <script>
-            // Wait for parent page to fully load
             setTimeout(function() {{
                 const targetElement = window.parent.document.getElementById('msg-{target_message_index}');
                 if (targetElement) {{
-                    targetElement.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                    targetElement.scrollIntoView({{ behavior: 'instant', block: 'center' }});
                 }}
-            }}, 1000);
+            }}, 100);
         </script>
         """, height=0)
 
