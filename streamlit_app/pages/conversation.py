@@ -2,8 +2,13 @@
 
 import streamlit as st
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -145,17 +150,56 @@ try:
         if (m.content and m.content.strip()) or (m.message_index in tools_by_message)
     ]
 
-    st.write(f"**Showing {len(messages)} message(s)**")
+    # Auto-pagination for large conversations (configurable via .env)
+    PAGINATION_THRESHOLD = int(os.getenv('PAGINATION_THRESHOLD', '500'))
+    MESSAGES_PER_PAGE = int(os.getenv('MESSAGES_PER_PAGE', '100'))
 
-    # Scroll to bottom button
-    if len(messages) > 5:
+    total_messages = len(messages)
+    use_pagination = total_messages > PAGINATION_THRESHOLD
+
+    if use_pagination:
+        # Calculate which page to show
+        if target_message_index is not None:
+            # Find position of target message in filtered list
+            target_position = next(
+                (i for i, m in enumerate(messages) if m.message_index == target_message_index),
+                0
+            )
+            # Calculate page number (0-indexed)
+            initial_page = target_position // MESSAGES_PER_PAGE
+        else:
+            initial_page = 0
+
+        # Initialize or update page state
+        page_state_key = f"conversation_page_{session_id}"
+        if page_state_key not in st.session_state:
+            st.session_state[page_state_key] = initial_page
+
+        current_page = st.session_state[page_state_key]
+        total_pages = (total_messages + MESSAGES_PER_PAGE - 1) // MESSAGES_PER_PAGE
+
+        # Paginate messages
+        start_idx = current_page * MESSAGES_PER_PAGE
+        end_idx = min(start_idx + MESSAGES_PER_PAGE, total_messages)
+        messages_to_display = messages[start_idx:end_idx]
+
+        # Show pagination info
+        st.info(f"📚 Large conversation ({total_messages:,} messages) - using pagination for better performance")
+        st.write(f"**Showing messages {start_idx + 1}-{end_idx} of {total_messages:,}**")
+    else:
+        # Show all messages
+        messages_to_display = messages
+        st.write(f"**Showing {len(messages)} message(s)**")
+
+    # Scroll to bottom button (only for non-paginated view)
+    if not use_pagination and len(messages) > 5:
         if st.button("⬇️ Scroll to Bottom"):
             st.markdown('<script>window.scrollTo(0, document.body.scrollHeight);</script>', unsafe_allow_html=True)
 
     st.divider()
 
     # Display messages in simple terminal style
-    for msg in messages:
+    for msg in messages_to_display:
         # Determine if this message should be highlighted
         is_target = target_message_index is not None and msg.message_index == target_message_index
 
@@ -206,22 +250,71 @@ try:
         # Divider between messages
         st.markdown('<div class="msg-divider"></div>', unsafe_allow_html=True)
 
-    # Scroll to target message using scrollIntoView
+    # Pagination controls (for paginated view)
+    if use_pagination:
+        st.divider()
+
+        # Callback functions for pagination
+        def go_to_prev_page():
+            st.session_state[page_state_key] = max(0, st.session_state[page_state_key] - 1)
+
+        def go_to_next_page():
+            st.session_state[page_state_key] = min(total_pages - 1, st.session_state[page_state_key] + 1)
+
+        def update_page_from_input():
+            new_page = st.session_state[f"page_input_{session_id}"] - 1
+            st.session_state[page_state_key] = max(0, min(total_pages - 1, new_page))
+
+        col1, col2, col3 = st.columns([1, 2, 1])
+
+        with col1:
+            if current_page > 0:
+                st.button("← Previous Page", key=f"prev_btn_{session_id}", on_click=go_to_prev_page)
+
+        with col2:
+            st.markdown(f"<center>**Page {current_page + 1} of {total_pages}**</center>", unsafe_allow_html=True)
+
+            # Jump to page using callback
+            st.number_input(
+                "Jump to page:",
+                min_value=1,
+                max_value=total_pages,
+                value=current_page + 1,
+                key=f"page_input_{session_id}",
+                on_change=update_page_from_input
+            )
+
+        with col3:
+            if current_page < total_pages - 1:
+                st.button("Next Page →", key=f"next_btn_{session_id}", on_click=go_to_next_page)
+
+    # Scroll handling - use deep linking approach for consistent behavior
+    import streamlit.components.v1 as components
+
+    # Determine which message to scroll to
     if target_message_index is not None:
-        import streamlit.components.v1 as components
+        # Deep linking from search - scroll to target message
+        scroll_to_message = target_message_index
+    elif use_pagination and len(messages_to_display) > 0:
+        # Regular pagination - scroll to first message on page
+        scroll_to_message = messages_to_display[0].message_index
+    else:
+        scroll_to_message = None
+
+    if scroll_to_message is not None:
         components.html(f"""
         <script>
             setTimeout(function() {{
-                const targetElement = window.parent.document.getElementById('msg-{target_message_index}');
+                const targetElement = window.parent.document.getElementById('msg-{scroll_to_message}');
                 if (targetElement) {{
-                    targetElement.scrollIntoView({{ behavior: 'instant', block: 'center' }});
+                    targetElement.scrollIntoView({{ behavior: 'instant', block: 'start' }});
                 }}
             }}, 100);
         </script>
         """, height=0)
 
-    # Scroll to top button at bottom
-    if len(messages) > 5:
+    # Scroll to top button at bottom (for non-paginated view)
+    if not use_pagination and len(messages_to_display) > 5:
         st.divider()
         if st.button("⬆️ Scroll to Top"):
             st.markdown('<script>window.scrollTo(0, 0);</script>', unsafe_allow_html=True)
