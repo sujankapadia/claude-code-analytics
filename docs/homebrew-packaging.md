@@ -52,6 +52,23 @@ If submitting to the main Homebrew repository (not required for personal tap):
 - Must meet all quality and stability requirements
 - PR review process can take weeks
 
+### Claude Code Dependency
+
+**Important Discovery**: Claude Code is available via Homebrew as a **cask** (not a formula):
+```bash
+brew install --cask claude-code
+```
+
+**Key Limitation**: Homebrew formulas **cannot depend on casks**. Only casks can depend on formulas.
+
+**Our Approach**:
+1. **Do NOT add Claude Code as a dependency** - it's technically impossible
+2. **Use the caveats section** to inform users Claude Code is required
+3. **Provide installation instructions** in the caveats
+4. **The analytics tool works independently** - it processes exported data, doesn't need Claude Code running
+
+This is the correct Homebrew pattern for optional runtime requirements that aren't formulas.
+
 ## Installation Experience
 
 ### User Workflow
@@ -181,6 +198,14 @@ class ClaudeCodeAnalytics < Formula
   def caveats
     <<~EOS
       Claude Code Analytics has been installed!
+
+      ⚠️  REQUIREMENT: This tool analyzes Claude Code conversations.
+      If you haven't installed Claude Code yet:
+
+        brew install --cask claude-code
+
+      The analytics tool processes exported conversation data and works
+      independently - Claude Code doesn't need to be running.
 
       To get started:
         1. Launch the dashboard:
@@ -385,6 +410,46 @@ python3 "$SCRIPT_DIR/scripts/search_fts.py" "$@"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 python3 "$SCRIPT_DIR/scripts/analyze_session.py" "$@"
 ```
+
+## Dependency Strategy
+
+### Claude Code Requirement
+
+**Problem**: Our tool analyzes Claude Code conversations, but Claude Code is a cask, not a formula.
+
+**Homebrew Limitation**: Formulas cannot depend on casks (only casks can depend on formulas).
+
+**Solution**: Use the `caveats` section to inform users about the Claude Code requirement.
+
+```ruby
+def caveats
+  <<~EOS
+    ⚠️  REQUIREMENT: This tool analyzes Claude Code conversations.
+    If you haven't installed Claude Code yet:
+
+      brew install --cask claude-code
+
+    The analytics tool processes exported conversation data and works
+    independently - Claude Code doesn't need to be running.
+  EOS
+end
+```
+
+### Why This Works
+
+1. **No Hard Dependency**: The analytics tool works on exported data files
+2. **Claude Code Not Required at Runtime**: It only needs the exported `.jsonl` files
+3. **User Choice**: Users might already have Claude Code installed via other means
+4. **Clear Communication**: The caveats section provides installation instructions
+5. **Homebrew Best Practice**: This is the recommended approach for optional runtime requirements
+
+### Alternative Considered (Rejected)
+
+We could create a meta-cask that depends on both:
+- `claude-code` (cask)
+- `claude-code-analytics` (formula)
+
+**Why Rejected**: Adds complexity, and our tool works independently of Claude Code's runtime.
 
 ## Configuration Considerations
 
