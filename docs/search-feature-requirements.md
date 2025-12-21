@@ -6,35 +6,56 @@
 **Last Updated:** 2025-12-20
 
 ### Completed ✅
+
+**Backend (Phase 1)**
 - [x] Create FTS5 indexes (3,100 messages, 2,372 tool uses indexed)
 - [x] Add SearchResult data model to `database_models.py`
-- [x] Update `search_messages()` to use correct `fts_messages` table
+- [x] Update `search_messages()` to use correct `fts_messages` table with offset/date params
 - [x] Implement `search_tool_inputs()` method with FTS5
 - [x] Implement `search_tool_results()` method with FTS5
 - [x] Implement `search_all()` combined search method
-- [x] Implement `get_unique_tool_names()` for filter dropdown
-- [x] Implement `get_mcp_tool_stats()` for MCP analysis
+- [x] Implement `get_unique_tool_names()` for filter dropdown (35 unique tools)
+- [x] Implement `get_mcp_tool_stats()` for MCP analysis (154 uses, 5 servers)
+- [x] Test all search methods successfully
+
+**UI (Phase 1)**
+- [x] Create search page UI (`pages/search.py`)
+- [x] Implement unified search input with scope selector (All/Messages/Tool Inputs/Tool Results)
+- [x] Add filter controls:
+  - [x] Project dropdown (All Projects + 15 projects)
+  - [x] Date range selector (All Time, Last 7/30/90 Days, Custom)
+  - [x] Tool name dropdown (All Tools + 35 tools)
+- [x] Implement results display grouped by session
+- [x] Add pagination controls (10 results per page, Previous/Next buttons)
+- [x] Add search result count summary ("X results across Y sessions")
+- [x] Style results with role badges, timestamps, snippets
+- [x] Test search page with multiple queries successfully
+
+**Deep Linking (Phase 2)**
+- [x] Update conversation page to read query params (`session_id`, `message_index`)
+- [x] Add message IDs (`msg-{index}`) to conversation display
+- [x] Implement highlight CSS with gold border and yellow background
+- [x] Add fade animation (3s from 30% to 15% opacity)
+- [x] Add JavaScript scroll injection (smooth scroll to center)
+- [x] Generate deep link URLs in search results
+- [x] Test deep linking end-to-end successfully
 
 ### In Progress 🚧
-- [ ] Create search page UI (`pages/search.py`)
-- [ ] Implement results display grouped by session
-- [ ] Add pagination controls
-- [ ] Add deep linking support to conversation page
+- [ ] MCP Analysis section/tab
 
 ### Not Started 📋
-- [ ] MCP Analysis section/tab
-- [ ] Search result highlighting and snippets
-- [ ] Loading states and error handling
-- [ ] Mobile responsiveness
-- [ ] Performance optimization
+- [ ] Loading states polish
+- [ ] Mobile responsiveness testing
+- [ ] Performance optimization for large result sets
+- [ ] Search tips/empty states
+- [ ] Keyboard shortcuts
 
-### Current Todo List
-1. ✅ Add search methods to DatabaseService
-2. ✅ Create SearchResult data model
-3. ⏳ Create search page UI with filters
-4. ⏳ Implement search results display grouped by session
-5. ⏳ Add deep linking support to conversation page
-6. ⏳ Add pagination to search results
+### Testing Results
+- ✅ Backend: All 6 search methods working (5 message results, 35 tools, git/error searches working)
+- ✅ UI: Search page loads, filters work, pagination tested (Page 1 ↔ Page 2)
+- ✅ Scope Filter: Successfully tested Messages scope (10 results across 4 sessions)
+- ✅ Deep Linking: URL navigation works, session loads correctly from query params
+- ✅ FTS5 Highlighting: Search terms wrapped in `<mark>` tags and displayed correctly
 
 ---
 
