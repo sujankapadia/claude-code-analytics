@@ -40,22 +40,36 @@
 - [x] Generate deep link URLs in search results
 - [x] Test deep linking end-to-end successfully
 
-### In Progress 🚧
-- [ ] MCP Analysis section/tab
+**MCP Analysis (Phase 3)**
+- [x] Add MCP analysis section to search page
+- [x] Display total MCP uses and session count (154 uses, 7 sessions)
+- [x] Show MCP usage by server (6 servers: playwright, context7, figma, github, jaeger, jellico)
+- [x] Display top 10 MCP tools with usage counts
+- [x] Add expandable "Show all tools" section (23 total MCP tools)
+- [x] Format display names (remove mcp__ prefix, replace __ with →)
+- [x] Test MCP analysis display in running app
 
-### Not Started 📋
-- [ ] Loading states polish
+### Completed - Optional Polish 🎨
+- [x] Loading states (using st.spinner in search execution)
+- [x] Error handling (try/catch blocks with expandable error details)
+- [x] Empty states ("👆 Enter a search term to get started")
+- [x] Result count summaries ("X results across Y sessions")
+
+### Not Implemented (Future Enhancements) 📋
 - [ ] Mobile responsiveness testing
-- [ ] Performance optimization for large result sets
-- [ ] Search tips/empty states
-- [ ] Keyboard shortcuts
+- [ ] Performance optimization for large result sets (>10K messages)
+- [ ] Search tips/help documentation
+- [ ] Keyboard shortcuts (Enter to search, etc.)
+- [ ] Search history/saved searches
+- [ ] Export results to CSV/JSON
 
-### Testing Results
-- ✅ Backend: All 6 search methods working (5 message results, 35 tools, git/error searches working)
-- ✅ UI: Search page loads, filters work, pagination tested (Page 1 ↔ Page 2)
-- ✅ Scope Filter: Successfully tested Messages scope (10 results across 4 sessions)
-- ✅ Deep Linking: URL navigation works, session loads correctly from query params
-- ✅ FTS5 Highlighting: Search terms wrapped in `<mark>` tags and displayed correctly
+### Testing Results ✅
+- **Backend:** All 6 search methods working (5 message results, 35 tools, git/error searches working)
+- **UI:** Search page loads, filters work, pagination tested (Page 1 ↔ Page 2)
+- **Scope Filter:** Successfully tested Messages scope (10 results across 4 sessions)
+- **Deep Linking:** URL navigation works, session loads correctly from query params
+- **FTS5 Highlighting:** Search terms wrapped in `<mark>` tags and displayed correctly
+- **MCP Analysis:** Expandable section shows 154 uses, 6 servers, top 10 tools, all 23 tools list
 
 ---
 
