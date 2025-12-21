@@ -72,10 +72,11 @@ def create_fts_index(db_path: str):
 
         cursor.execute("""
             INSERT INTO fts_messages (
-                content, role, project_name, session_id,
+                rowid, content, role, project_name, session_id,
                 message_id, timestamp, message_index
             )
             SELECT
+                m.message_id,
                 m.content,
                 m.role,
                 p.project_name,
@@ -97,10 +98,11 @@ def create_fts_index(db_path: str):
 
         cursor.execute("""
             INSERT INTO fts_tool_uses (
-                tool_name, tool_input, tool_result, project_name,
+                rowid, tool_name, tool_input, tool_result, project_name,
                 session_id, tool_use_id, timestamp
             )
             SELECT
+                t.rowid,
                 t.tool_name,
                 t.tool_input,
                 t.tool_result,
