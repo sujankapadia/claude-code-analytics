@@ -16,26 +16,60 @@ if "db_service" not in st.session_state:
 
 db_service = st.session_state.db_service
 
-# Minimal custom CSS
+# Custom CSS for message styling and highlighting
 st.markdown("""
 <style>
     .msg-divider {
         border-top: 1px solid #333;
         margin: 1.5rem 0;
     }
+
+    /* Highlight animation for target message */
+    .message-highlight {
+        border-left: 4px solid #ffd700;
+        padding-left: 1rem;
+        margin-left: -1rem;
+        background-color: rgba(255, 215, 0, 0.15);
+        animation: fadeHighlight 3s ease-in-out;
+    }
+
+    @keyframes fadeHighlight {
+        0% {
+            background-color: rgba(255, 215, 0, 0.3);
+        }
+        70% {
+            background-color: rgba(255, 215, 0, 0.3);
+        }
+        100% {
+            background-color: rgba(255, 215, 0, 0.15);
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("💬 View Conversation")
 
-# Check if a session is selected
-if "selected_session_id" not in st.session_state:
+# Check for deep link via query parameters
+query_params = st.query_params
+target_message_index = None
+
+if "session_id" in query_params:
+    # Deep link from search results
+    session_id = query_params["session_id"]
+    if "message_index" in query_params:
+        try:
+            target_message_index = int(query_params["message_index"])
+        except (ValueError, TypeError):
+            target_message_index = None
+elif "selected_session_id" in st.session_state:
+    # Normal navigation from browser
+    session_id = st.session_state.selected_session_id
+else:
+    # No session selected
     st.info("No session selected. Go to **Browse Sessions** to select a session.")
     if st.button("Browse Sessions →"):
         st.switch_page("pages/browser.py")
     st.stop()
-
-session_id = st.session_state.selected_session_id
 
 # Get session info
 try:
@@ -122,6 +156,13 @@ try:
 
     # Display messages in simple terminal style
     for msg in messages:
+        # Determine if this message should be highlighted
+        is_target = target_message_index is not None and msg.message_index == target_message_index
+
+        # Create container with ID for deep linking
+        message_id = f"msg-{msg.message_index}"
+        container_class = "message-highlight" if is_target else ""
+
         # Build header line
         role_emoji = "👤" if msg.role == "user" else "🤖"
         role_label = msg.role.upper()
@@ -138,6 +179,8 @@ try:
                 token_parts.append(f"⚡{msg.cache_read_input_tokens:,}")
             header_parts.append(f"`{' '.join(token_parts)}`")
 
+        # Start message container with ID
+        st.markdown(f'<div id="{message_id}" class="{container_class}">', unsafe_allow_html=True)
         st.markdown(" · ".join(header_parts))
 
         # Message content
@@ -157,8 +200,25 @@ try:
                         result_text += "\n... (output truncated)"
                     st.code(result_text, language="text")
 
+        # Close message container
+        st.markdown('</div>', unsafe_allow_html=True)
+
         # Divider between messages
         st.markdown('<div class="msg-divider"></div>', unsafe_allow_html=True)
+
+    # Scroll to target message if deep linking
+    if target_message_index is not None:
+        st.markdown(f"""
+        <script>
+            // Wait for page to fully load
+            setTimeout(function() {{
+                const targetElement = document.getElementById('msg-{target_message_index}');
+                if (targetElement) {{
+                    targetElement.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                }}
+            }}, 500);
+        </script>
+        """, unsafe_allow_html=True)
 
     # Scroll to top button at bottom
     if len(messages) > 5:
