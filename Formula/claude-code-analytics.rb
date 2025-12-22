@@ -5,7 +5,8 @@ class ClaudeCodeAnalytics < Formula
   homepage "https://github.com/sujankapadia/claude-code-utils"
   # Temporary: Using branch for local testing (replace with tag for release)
   url "https://github.com/sujankapadia/claude-code-utils/archive/refs/heads/feature/homebrew-packaging.tar.gz"
-  sha256 :no_check  # Skip checksum for testing
+  version "1.0.0-dev"  # Temporary version for testing
+  sha256 "8088b0dd4f16ef2f187418324097a92da7d848deba1c3639b1ae45f914ef1f59"
   license "MIT"
 
   depends_on "python@3.11"
@@ -21,31 +22,34 @@ class ClaudeCodeAnalytics < Formula
   # For now, testing without resources (will use system Python packages if available)
 
   def install
-    # Create virtualenv and install Python dependencies
-    virtualenv_install_with_resources
-
-    # Install all files to libexec
+    # Install all files to libexec first
     libexec.install Dir["*"]
 
+    # Create a minimal virtualenv (without trying to install resources since we don't have them yet)
+    # For testing purposes, we'll use system Python packages
+    # TODO: Before release, add Python resources and use virtualenv_install_with_resources
+
     # Create wrapper scripts for CLI commands
+    # For testing, use system python3 (which should have packages installed)
+    # TODO: Before release, use virtualenv Python: #{Formula["python@3.11"].opt_bin}/python3
     (bin/"claude-code-analytics").write <<~EOS
       #!/bin/bash
-      cd "#{libexec}" && "#{libexec}/#{Formula["python@3.11"].opt_bin}/python3" -m streamlit run streamlit_app/app.py "$@"
+      cd "#{libexec}" && python3 -m streamlit run streamlit_app/app.py "$@"
     EOS
 
     (bin/"claude-code-import").write <<~EOS
       #!/bin/bash
-      "#{libexec}/#{Formula["python@3.11"].opt_bin}/python3" "#{libexec}/scripts/import_conversations.py" "$@"
+      cd "#{libexec}" && python3 scripts/import_conversations.py "$@"
     EOS
 
     (bin/"claude-code-search").write <<~EOS
       #!/bin/bash
-      "#{libexec}/#{Formula["python@3.11"].opt_bin}/python3" "#{libexec}/scripts/search_fts.py" "$@"
+      cd "#{libexec}" && python3 scripts/search_fts.py "$@"
     EOS
 
     (bin/"claude-code-analyze").write <<~EOS
       #!/bin/bash
-      "#{libexec}/#{Formula["python@3.11"].opt_bin}/python3" "#{libexec}/scripts/analyze_session.py" "$@"
+      cd "#{libexec}" && python3 scripts/analyze_session.py "$@"
     EOS
 
     chmod 0755, bin/"claude-code-analytics"
