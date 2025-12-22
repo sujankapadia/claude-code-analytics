@@ -1,5 +1,0 @@
-[console_scripts]
-claude-code-analytics = claude_code_analytics.cli:dashboard
-claude-code-analyze = claude_code_analytics.cli:analyze
-claude-code-import = claude_code_analytics.cli:import_conversations
-claude-code-search = claude_code_analytics.cli:search
