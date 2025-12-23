@@ -95,8 +95,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Import script auto-creates database if missing
 - Search index automatically rebuilds after imports (no stale data)
 - Hook script uses standard config location (not hardcoded paths)
+- **File permissions** - Sensitive files now created with secure permissions (600/700)
 
 ### Security
+- **Secure file permissions** - All sensitive files now use restrictive permissions
+  - Configuration file (`.env` with API keys): 600 (owner read/write only)
+  - Database (`conversations.db`): 600 (owner read/write only)
+  - Exported conversations (`.jsonl`, `.txt`): 600 (owner read/write only)
+  - Settings backup: 600 (owner read/write only)
+  - Data directories: 700 (owner full access only)
+  - Prevents unauthorized access to sensitive data on multi-user systems
 - All API keys stored in config file (not environment variables)
 - Config file location follows XDG standard
 - No sensitive data stored in database

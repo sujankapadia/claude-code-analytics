@@ -47,11 +47,15 @@ else
     USE_JQ=true
 fi
 
-# Create directories
+# Create directories with secure permissions
 echo "📁 Creating directories..."
 mkdir -p "$SCRIPTS_DIR"
 mkdir -p "$CONVERSATIONS_DIR"
 mkdir -p "$CONFIG_DIR"
+
+# Set secure permissions on sensitive directories
+chmod 700 "$CONVERSATIONS_DIR"
+chmod 700 "$CONFIG_DIR"
 
 # Copy scripts
 echo "📋 Copying scripts..."
@@ -67,10 +71,13 @@ chmod +x "$SCRIPTS_DIR/pretty-print-transcript.py"
 echo "⚙️  Setting up configuration..."
 if [ ! -f "$CONFIG_FILE" ]; then
     cp "$SCRIPT_DIR/claude_code_analytics/.env.example" "$CONFIG_FILE"
+    chmod 600 "$CONFIG_FILE"
     echo -e "${GREEN}✓ Created configuration file at $CONFIG_FILE${NC}"
     echo -e "${YELLOW}  Edit this file to customize settings (optional)${NC}"
 else
     echo -e "${GREEN}✓ Configuration file already exists at $CONFIG_FILE${NC}"
+    # Ensure existing config has secure permissions
+    chmod 600 "$CONFIG_FILE"
 fi
 
 # Install Python package
@@ -90,8 +97,9 @@ echo "⚙️  Configuring settings.json..."
 HOOK_COMMAND="bash ~/.claude/scripts/export-conversation.sh"
 
 if [ -f "$SETTINGS_FILE" ]; then
-    # Backup existing settings
+    # Backup existing settings with secure permissions
     cp "$SETTINGS_FILE" "$SETTINGS_FILE.backup"
+    chmod 600 "$SETTINGS_FILE.backup"
     echo -e "${GREEN}✓ Backed up existing settings to $SETTINGS_FILE.backup${NC}"
 
     if [ "$USE_JQ" = true ]; then

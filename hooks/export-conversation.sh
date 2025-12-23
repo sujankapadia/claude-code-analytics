@@ -76,6 +76,7 @@ PROJECT_DIR="$BACKUP_ROOT/$SESSION_NAME"
 
 log "Creating backup directory: $PROJECT_DIR"
 mkdir -p "$PROJECT_DIR"
+chmod 700 "$PROJECT_DIR"
 
 # Generate timestamp for filename
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
@@ -87,6 +88,7 @@ log "Copying transcript to: $JSONL_FILE"
 cp "$TRANSCRIPT_PATH" "$JSONL_FILE"
 
 if [ $? -eq 0 ]; then
+    chmod 600 "$JSONL_FILE"
     EXPORTED_SIZE=$(wc -l < "$JSONL_FILE")
     log "Successfully copied. Exported file size: $EXPORTED_SIZE lines"
 else
@@ -104,8 +106,9 @@ PRETTY_PRINTER="$HOME/.claude/scripts/pretty-print-transcript.py"
 if [ -f "$PRETTY_PRINTER" ]; then
     log "Pretty printer found, executing..."
     python3 "$PRETTY_PRINTER" "$JSONL_FILE" > "$PRETTY_FILE" 2>&1
-    
+
     if [ $? -eq 0 ]; then
+        chmod 600 "$PRETTY_FILE"
         log "✅ SUCCESS: Conversation exported"
         log "   Location: $PROJECT_DIR/"
         log "   Files: ${BASE_FILENAME}.jsonl and ${BASE_FILENAME}.txt"

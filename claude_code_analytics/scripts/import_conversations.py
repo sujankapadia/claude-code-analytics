@@ -441,6 +441,10 @@ def main():
     conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA foreign_keys = ON")
 
+    # Set secure permissions on database file
+    import os
+    os.chmod(str(db_path), 0o600)
+
     try:
         # Find all project directories
         project_dirs = [d for d in source_path.iterdir() if d.is_dir()]

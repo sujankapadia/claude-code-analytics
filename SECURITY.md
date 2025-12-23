@@ -61,9 +61,23 @@ Instead, please report it privately by:
 - No data sent to third parties (except when using AI analysis features)
 
 **Access Control:**
-- Database file has user-only permissions by default
-- Config file should be readable only by you: `chmod 600 ~/.config/claude-code-analytics/.env`
+- All sensitive files are automatically created with secure permissions:
+  - Configuration file (`.env` with API keys): `600` (owner read/write only)
+  - Database (`conversations.db`): `600` (owner read/write only)
+  - Exported conversations (`.jsonl`, `.txt`): `600` (owner read/write only)
+  - Settings backup: `600` (owner read/write only)
+  - Data directories: `700` (owner full access only)
+- These permissions prevent unauthorized access on multi-user systems
 - Exported conversations in `~/claude-conversations/` contain your code and conversations
+- **Note for existing users:** Files created before this update may have less restrictive permissions. To secure them:
+  ```bash
+  chmod 600 ~/.config/claude-code-analytics/.env
+  chmod 600 ~/claude-conversations/conversations.db
+  chmod 600 ~/claude-conversations/*/*.jsonl
+  chmod 600 ~/claude-conversations/*/*.txt
+  chmod 700 ~/claude-conversations
+  chmod 700 ~/.config/claude-code-analytics
+  ```
 
 ### For Developers
 
