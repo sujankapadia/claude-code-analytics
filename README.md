@@ -506,7 +506,7 @@ The SQLite database uses a normalized schema:
 - **fts_messages** - FTS5 full-text search index
 - **Views** - Pre-aggregated statistics for performance
 
-See `docs/database.md` for complete schema documentation.
+See the technical documentation in `docs/technical/` for more details.
 
 ### File Organization
 
@@ -671,9 +671,12 @@ claude-code-utils/
 │   ├── errors.md                    # Error patterns prompt
 │   └── agent_usage.md               # AI agent usage analysis
 ├── docs/                            # Documentation
-│   ├── database.md                  # Database schema details
-│   ├── search-feature.md            # Search implementation
-│   └── deep-linking-implementation.md
+│   ├── index.html                   # Landing page (GitHub Pages)
+│   └── technical/                   # Technical documentation
+│       ├── agent-knowledge-retention.md
+│       ├── deep-linking-implementation.md
+│       ├── mcp-server-analytics.md
+│       └── search-feature-requirements.md
 ├── install.sh                       # Automated installer
 ├── run_dashboard.sh                 # Dashboard launcher
 └── README.md                        # This file
@@ -681,9 +684,10 @@ claude-code-utils/
 
 ## Documentation
 
-- **[Database Schema](docs/database.md)** - Complete schema documentation
-- **[Search Feature](docs/search-feature.md)** - Full-text search implementation
-- **[Deep Linking](docs/deep-linking-implementation.md)** - Technical details on search-to-conversation navigation
+- **[Deep Linking](docs/technical/deep-linking-implementation.md)** - Technical details on search-to-conversation navigation
+- **[Search Feature](docs/technical/search-feature-requirements.md)** - Full-text search implementation
+- **[MCP Server Analytics](docs/technical/mcp-server-analytics.md)** - Analytics for MCP servers
+- **[Agent Knowledge Retention](docs/technical/agent-knowledge-retention.md)** - Knowledge retention strategies
 - **[Custom Prompts](prompts/README.md)** - How to create custom analysis prompts
 
 ## Future Roadmap
