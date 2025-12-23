@@ -2,23 +2,35 @@
 
 ## Supported Versions
 
-We release patches for security vulnerabilities for the following versions:
+This project is currently in active development and has not had an official release. All users should run the latest version from the `main` branch:
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
-| < 1.0   | :x:                |
+```bash
+git pull
+./install.sh
+```
+
+Security fixes are applied directly to the main branch and are immediately available to all users.
 
 ## Reporting a Vulnerability
 
 If you discover a security vulnerability, please **do not** open a public GitHub issue.
 
-Instead, please report it by emailing: [Your security contact email - TO BE ADDED]
+Instead, please report it privately by:
+
+1. **Opening a GitHub Security Advisory** (preferred method):
+   - Go to the [Security tab](https://github.com/sujankapadia/claude-code-utils/security/advisories) of this repository
+   - Click "Report a vulnerability"
+   - Fill in the details privately
+
+2. **Opening a private issue**:
+   - Create a new issue with the `security` label
+   - Mark it as private if possible
+   - We will respond and move discussion to a secure channel
 
 **Please include the following information:**
-- Type of issue (e.g., SQL injection, XSS, authentication bypass, etc.)
+- Type of issue (e.g., SQL injection, command injection, path traversal, etc.)
 - Full paths of source file(s) related to the manifestation of the issue
-- The location of the affected source code (tag/branch/commit or direct URL)
+- The location of the affected source code (branch/commit or direct URL)
 - Any special configuration required to reproduce the issue
 - Step-by-step instructions to reproduce the issue
 - Proof-of-concept or exploit code (if possible)
@@ -28,8 +40,9 @@ Instead, please report it by emailing: [Your security contact email - TO BE ADDE
 
 - We will acknowledge receipt of your vulnerability report within 48 hours
 - We will send a more detailed response within 7 days indicating the next steps
-- We will keep you informed of the progress towards a fix and announcement
+- We will keep you informed of the progress towards a fix
 - We may ask for additional information or guidance
+- We will credit you in the fix commit (unless anonymity requested)
 
 ## Security Best Practices
 
@@ -55,9 +68,10 @@ Instead, please report it by emailing: [Your security contact email - TO BE ADDE
 ### For Developers
 
 **Dependency Management:**
-- All Python dependencies are pinned in requirements.txt
+- All Python dependencies are specified in `pyproject.toml`
 - Regular dependency updates for security patches
 - Use `git pull && ./install.sh` to get latest secure versions
+- The installation script uses pip to install the package and all dependencies
 
 **Database Security:**
 - SQLite database is local-only, not exposed to network
@@ -121,15 +135,18 @@ When we learn of a security issue, we will:
 
 ## Security Updates
 
-Security updates are released as:
-- **Patch versions** (1.0.1, 1.0.2) for security fixes
-- Tagged releases on GitHub
+Since this project is unreleased and in active development:
+- Security fixes are applied directly to the `main` branch
+- No version tags or formal releases yet
+- All users run the latest commit
 
 Users should update regularly:
 ```bash
 git pull
 ./install.sh
 ```
+
+When the project reaches a stable release (1.0.0), security updates will be released as patch versions (1.0.1, 1.0.2) with tagged releases on GitHub.
 
 ## Contact
 
@@ -138,8 +155,7 @@ For security-related questions (non-vulnerability):
 - Tag with `security` label
 
 For vulnerability reports:
-- Email: [TO BE ADDED]
-- PGP key: [TO BE ADDED - optional]
+- Use GitHub Security Advisories (see "Reporting a Vulnerability" section above)
 
 ## Acknowledgments
 
@@ -153,4 +169,4 @@ We appreciate the security research community and will acknowledge reporters of 
 
 ---
 
-**Last updated:** December 2024
+**Last updated:** December 2025
