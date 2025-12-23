@@ -55,9 +55,9 @@ Instead, please report it by emailing: [Your security contact email - TO BE ADDE
 ### For Developers
 
 **Dependency Management:**
-- All Python dependencies are pinned with SHA256 checksums in Homebrew formula
+- All Python dependencies are pinned in requirements.txt
 - Regular dependency updates for security patches
-- Use `brew upgrade claude-code-analytics` to get latest secure versions
+- Use `git pull && ./install.sh` to get latest secure versions
 
 **Database Security:**
 - SQLite database is local-only, not exposed to network
@@ -123,11 +123,12 @@ When we learn of a security issue, we will:
 
 Security updates are released as:
 - **Patch versions** (1.0.1, 1.0.2) for security fixes
-- **Revision bumps** in Homebrew formula for dependency updates
+- Tagged releases on GitHub
 
 Users should update regularly:
 ```bash
-brew upgrade claude-code-analytics
+git pull
+./install.sh
 ```
 
 ## Contact

@@ -138,7 +138,7 @@ The configuration file is automatically created during installation at:
 ~/.config/claude-code-analytics/.env
 ```
 
-This location follows the [XDG Base Directory specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html) and works across different installation methods (git clone, Homebrew, pip).
+This location follows the [XDG Base Directory specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html).
 
 ### Configuration Variables
 

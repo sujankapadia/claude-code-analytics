@@ -8,9 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Homebrew formula for easy installation on macOS and Linux
-- Platform compatibility documentation
-- Packaging considerations documentation
+- None
 
 ## [1.0.0] - TBD
 
@@ -70,9 +68,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Search implementation details
   - Deep linking technical guide
   - Custom prompt creation guide
-  - Homebrew packaging plan
-  - Platform compatibility analysis
-  - Packaging considerations
 
 ### Changed
 - Analytics Dashboard: Changed "Sessions by Project" chart to "Messages by Project" (more meaningful metric)
@@ -95,7 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Release History
 
 ### Version Numbering
-- **1.0.0** - Initial Homebrew release
+- **1.0.0** - Initial release
 - **1.x.x** - New features (backward compatible)
 - **2.x.x** - Breaking changes (if needed)
 
