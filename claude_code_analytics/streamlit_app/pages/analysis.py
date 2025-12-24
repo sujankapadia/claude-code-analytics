@@ -112,6 +112,18 @@ if not api_key_configured:
     """)
     st.stop()
 
+# Check for URL parameters (coming from search page)
+query_params = st.query_params
+url_session_id = query_params.get("session_id")
+url_message_index = query_params.get("message_index")
+
+# Convert message_index to int if present
+if url_message_index:
+    try:
+        url_message_index = int(url_message_index)
+    except (ValueError, TypeError):
+        url_message_index = None
+
 # Session selector
 st.subheader("Select Session")
 
@@ -129,9 +141,14 @@ try:
         for s in sessions
     }
 
-    # Pre-select if coming from browser
+    # Pre-select if coming from URL or browser
     default_index = 0
-    if "selected_session_id" in st.session_state:
+    if url_session_id:
+        # Priority to URL parameter
+        matching_keys = [k for k, v in session_options.items() if v == url_session_id]
+        if matching_keys:
+            default_index = list(session_options.keys()).index(matching_keys[0])
+    elif "selected_session_id" in st.session_state:
         selected_id = st.session_state.selected_session_id
         matching_keys = [k for k, v in session_options.items() if v == selected_id]
         if matching_keys:
@@ -225,17 +242,24 @@ try:
     # Analysis Scope selector
     st.subheader("Analysis Scope")
 
+    # Determine default scope mode based on URL parameters
+    scope_options = ["Entire Session", "Date/Time Range", "Around Search Hit"]
+    default_scope_index = 2 if url_message_index is not None else 0
+
     scope_mode = st.radio(
         "Choose scope:",
-        ["Entire Session", "Date/Time Range"],
+        scope_options,
+        index=default_scope_index,
         horizontal=True,
         help="Select which portion of the session to analyze"
     )
 
-    # Initialize time range variables
+    # Initialize scope variables
     start_time = None
     end_time = None
     estimated_tokens = None
+    selected_message_index = None
+    context_window = 20  # Default
 
     if scope_mode == "Date/Time Range":
         st.markdown("_Filter messages by timestamp to reduce token usage and focus analysis._")
@@ -318,6 +342,64 @@ try:
                 st.warning("⚠️ No messages found in the selected time range. Adjust your selection.")
                 st.stop()
 
+        except Exception as e:
+            st.error(f"Error loading messages: {e}")
+            st.stop()
+
+    elif scope_mode == "Around Search Hit":
+        st.markdown("_Analyze a specific message with configurable context before and after._")
+
+        # Message index input
+        default_msg_index = url_message_index if url_message_index is not None else 0
+        selected_message_index = st.number_input(
+            "Message Index",
+            min_value=0,
+            value=default_msg_index,
+            help="The message index to focus analysis on (from search results)"
+        )
+
+        # Context window slider
+        context_window = st.slider(
+            "Context Window",
+            min_value=1,
+            max_value=20,
+            value=20,
+            help="Number of messages before and after the search hit to include"
+        )
+
+        # Preview: Get messages around index and estimate tokens
+        try:
+            messages_around, tool_uses_around, formatted_preview = analysis_service.get_messages_around_index(
+                session_id=selected_session_id,
+                message_index=selected_message_index,
+                context_window=context_window
+            )
+
+            if messages_around:
+                estimated_tokens = analysis_service.estimate_token_count(formatted_preview)
+
+                # Display preview info
+                col1, col2 = st.columns(2)
+                col1.metric("Messages in Context", len(messages_around))
+                col2.metric("Tool Uses in Context", len(tool_uses_around))
+
+                # Token estimation with color-coded warnings
+                if estimated_tokens > 200000:
+                    st.error(f"🔴 Very large: ~{estimated_tokens:,} tokens (may fail or be very expensive)")
+                elif estimated_tokens > 100000:
+                    st.warning(f"🟡 Large: ~{estimated_tokens:,} tokens (may be expensive)")
+                else:
+                    st.info(f"🟢 Estimated tokens: ~{estimated_tokens:,}")
+
+                # Show snippet of the target message
+                st.caption(f"**Target message {selected_message_index}** will be highlighted in the analysis transcript")
+            else:
+                st.warning("⚠️ No messages found around the specified index. Adjust your selection.")
+                st.stop()
+
+        except ValueError as e:
+            st.error(f"❌ {e}")
+            st.stop()
         except Exception as e:
             st.error(f"Error loading messages: {e}")
             st.stop()
@@ -485,7 +567,7 @@ try:
 
         with st.spinner("Analyzing conversation... This may take a minute."):
             try:
-                # Run analysis with optional time range
+                # Run analysis with optional scope parameters
                 result = analysis_service.analyze_session(
                     selected_session_id,
                     selected_analysis_type,
@@ -493,6 +575,8 @@ try:
                     model=selected_model,
                     start_time=start_time,
                     end_time=end_time,
+                    message_index=selected_message_index,
+                    context_window=context_window,
                 )
 
                 st.success("✅ Analysis complete!")

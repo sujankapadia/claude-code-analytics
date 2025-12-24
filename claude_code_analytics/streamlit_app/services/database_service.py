@@ -717,6 +717,445 @@ class DatabaseService:
 
         return [dict(row) for row in rows]
 
+    def count_search_results_for_session(
+        self,
+        query: str,
+        session_id: str,
+        scope: str = "All",
+        tool_name: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> int:
+        """
+        Count total search results for a specific session.
+
+        Args:
+            query: Search query
+            session_id: Session to count results for
+            scope: Search scope (All, Messages, Tool Inputs, Tool Results)
+            tool_name: Optional tool name filter
+            start_date: Optional start date filter
+            end_date: Optional end date filter
+
+        Returns:
+            Total count of matches in this session
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        if scope == "Messages":
+            sql = """
+                SELECT COUNT(*) as count
+                FROM fts_messages
+                JOIN messages m ON fts_messages.rowid = m.message_id
+                WHERE fts_messages MATCH ? AND m.session_id = ?
+            """
+            params = [query, session_id]
+
+            if start_date:
+                sql += " AND m.timestamp >= ?"
+                params.append(start_date)
+            if end_date:
+                sql += " AND m.timestamp <= ?"
+                params.append(end_date)
+
+        elif scope == "Tool Inputs":
+            sql = """
+                SELECT COUNT(*) as count
+                FROM fts_tool_uses
+                JOIN tool_uses t ON fts_tool_uses.rowid = t.rowid
+                WHERE fts_tool_uses MATCH 'tool_input:' || ? AND t.session_id = ?
+            """
+            params = [query, session_id]
+
+            if tool_name:
+                sql += " AND t.tool_name = ?"
+                params.append(tool_name)
+            if start_date:
+                sql += " AND t.timestamp >= ?"
+                params.append(start_date)
+            if end_date:
+                sql += " AND t.timestamp <= ?"
+                params.append(end_date)
+
+        elif scope == "Tool Results":
+            sql = """
+                SELECT COUNT(*) as count
+                FROM fts_tool_uses
+                JOIN tool_uses t ON fts_tool_uses.rowid = t.rowid
+                WHERE fts_tool_uses MATCH 'tool_result:' || ? AND t.session_id = ?
+            """
+            params = [query, session_id]
+
+            if tool_name:
+                sql += " AND t.tool_name = ?"
+                params.append(tool_name)
+            if start_date:
+                sql += " AND t.timestamp >= ?"
+                params.append(start_date)
+            if end_date:
+                sql += " AND t.timestamp <= ?"
+                params.append(end_date)
+
+        else:  # All
+            sql = """
+                SELECT COUNT(*) as count FROM (
+                    SELECT m.session_id
+                    FROM fts_messages
+                    JOIN messages m ON fts_messages.rowid = m.message_id
+                    WHERE fts_messages MATCH ? AND m.session_id = ?
+            """
+            params = [query, session_id]
+
+            if start_date:
+                sql += " AND m.timestamp >= ?"
+                params.append(start_date)
+            if end_date:
+                sql += " AND m.timestamp <= ?"
+                params.append(end_date)
+
+            sql += """
+                    UNION ALL
+                    SELECT t.session_id
+                    FROM fts_tool_uses
+                    JOIN tool_uses t ON fts_tool_uses.rowid = t.rowid
+                    WHERE fts_tool_uses MATCH 'tool_input:' || ? AND t.session_id = ?
+            """
+            params.extend([query, session_id])
+
+            if tool_name:
+                sql += " AND t.tool_name = ?"
+                params.append(tool_name)
+            if start_date:
+                sql += " AND t.timestamp >= ?"
+                params.append(start_date)
+            if end_date:
+                sql += " AND t.timestamp <= ?"
+                params.append(end_date)
+
+            sql += """
+                    UNION ALL
+                    SELECT t.session_id
+                    FROM fts_tool_uses
+                    JOIN tool_uses t ON fts_tool_uses.rowid = t.rowid
+                    WHERE fts_tool_uses MATCH 'tool_result:' || ? AND t.session_id = ?
+            """
+            params.extend([query, session_id])
+
+            if tool_name:
+                sql += " AND t.tool_name = ?"
+                params.append(tool_name)
+            if start_date:
+                sql += " AND t.timestamp >= ?"
+                params.append(start_date)
+            if end_date:
+                sql += " AND t.timestamp <= ?"
+                params.append(end_date)
+
+            sql += ")"
+
+        cursor.execute(sql, params)
+        result = cursor.fetchone()
+        conn.close()
+
+        return result["count"] if result else 0
+
+    def search_grouped_by_session(
+        self,
+        query: str,
+        scope: str = "All",
+        project_id: Optional[str] = None,
+        tool_name: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        sessions_per_page: int = 3,
+        page: int = 0,
+    ) -> Dict[str, Any]:
+        """
+        Search with results grouped by session, paginated by sessions.
+
+        Args:
+            query: Search query
+            scope: Search scope (All, Messages, Tool Inputs, Tool Results)
+            project_id: Optional filter by project
+            tool_name: Optional filter by tool name
+            start_date: Optional start date filter
+            end_date: Optional end date filter
+            sessions_per_page: Number of sessions to show per page
+            page: Page number (0-indexed)
+
+        Returns:
+            Dictionary with:
+                - results_by_session: Dict[session_id, List[results]]
+                - has_more: bool indicating if there are more pages
+                - total_sessions: Total number of sessions with matches
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        # Step 1: Get session IDs for this page
+        if scope == "Messages":
+            session_sql = """
+                SELECT
+                    m.session_id,
+                    MAX(m.timestamp) as latest_match
+                FROM fts_messages
+                JOIN messages m ON fts_messages.rowid = m.message_id
+                JOIN sessions s ON m.session_id = s.session_id
+                WHERE fts_messages MATCH ?
+            """
+            params = [query]
+
+            if project_id:
+                session_sql += " AND s.project_id = ?"
+                params.append(project_id)
+            if start_date:
+                session_sql += " AND m.timestamp >= ?"
+                params.append(start_date)
+            if end_date:
+                session_sql += " AND m.timestamp <= ?"
+                params.append(end_date)
+
+            # Add GROUP BY for Messages scope
+            session_sql += "\n            GROUP BY m.session_id"
+
+        elif scope == "Tool Inputs":
+            session_sql = """
+                SELECT
+                    t.session_id,
+                    MAX(t.timestamp) as latest_match
+                FROM fts_tool_uses
+                JOIN tool_uses t ON fts_tool_uses.rowid = t.rowid
+                JOIN sessions s ON t.session_id = s.session_id
+                WHERE fts_tool_uses MATCH 'tool_input:' || ?
+            """
+            params = [query]
+
+            if project_id:
+                session_sql += " AND s.project_id = ?"
+                params.append(project_id)
+            if tool_name:
+                session_sql += " AND t.tool_name = ?"
+                params.append(tool_name)
+            if start_date:
+                session_sql += " AND t.timestamp >= ?"
+                params.append(start_date)
+            if end_date:
+                session_sql += " AND t.timestamp <= ?"
+                params.append(end_date)
+
+            # Add GROUP BY for Tool Inputs scope
+            session_sql += "\n            GROUP BY t.session_id"
+
+        elif scope == "Tool Results":
+            session_sql = """
+                SELECT
+                    t.session_id,
+                    MAX(t.timestamp) as latest_match
+                FROM fts_tool_uses
+                JOIN tool_uses t ON fts_tool_uses.rowid = t.rowid
+                JOIN sessions s ON t.session_id = s.session_id
+                WHERE fts_tool_uses MATCH 'tool_result:' || ?
+            """
+            params = [query]
+
+            if project_id:
+                session_sql += " AND s.project_id = ?"
+                params.append(project_id)
+            if tool_name:
+                session_sql += " AND t.tool_name = ?"
+                params.append(tool_name)
+            if start_date:
+                session_sql += " AND t.timestamp >= ?"
+                params.append(start_date)
+            if end_date:
+                session_sql += " AND t.timestamp <= ?"
+                params.append(end_date)
+
+            # Add GROUP BY for Tool Results scope
+            session_sql += "\n            GROUP BY t.session_id"
+
+        else:  # All - union of all types
+            session_sql = """
+                SELECT session_id, MAX(latest_match) as latest_match
+                FROM (
+                    SELECT m.session_id, m.timestamp as latest_match
+                    FROM fts_messages
+                    JOIN messages m ON fts_messages.rowid = m.message_id
+                    JOIN sessions s ON m.session_id = s.session_id
+                    WHERE fts_messages MATCH ?
+            """
+            params = [query]
+
+            if project_id:
+                session_sql += " AND s.project_id = ?"
+                params.append(project_id)
+            if start_date:
+                session_sql += " AND m.timestamp >= ?"
+                params.append(start_date)
+            if end_date:
+                session_sql += " AND m.timestamp <= ?"
+                params.append(end_date)
+
+            session_sql += """
+                    UNION ALL
+                    SELECT t.session_id, t.timestamp as latest_match
+                    FROM fts_tool_uses
+                    JOIN tool_uses t ON fts_tool_uses.rowid = t.rowid
+                    JOIN sessions s ON t.session_id = s.session_id
+                    WHERE fts_tool_uses MATCH 'tool_input:' || ?
+            """
+            params.append(query)
+
+            if project_id:
+                session_sql += " AND s.project_id = ?"
+                params.append(project_id)
+            if tool_name:
+                session_sql += " AND t.tool_name = ?"
+                params.append(tool_name)
+            if start_date:
+                session_sql += " AND t.timestamp >= ?"
+                params.append(start_date)
+            if end_date:
+                session_sql += " AND t.timestamp <= ?"
+                params.append(end_date)
+
+            session_sql += """
+                    UNION ALL
+                    SELECT t.session_id, t.timestamp as latest_match
+                    FROM fts_tool_uses
+                    JOIN tool_uses t ON fts_tool_uses.rowid = t.rowid
+                    JOIN sessions s ON t.session_id = s.session_id
+                    WHERE fts_tool_uses MATCH 'tool_result:' || ?
+            """
+            params.append(query)
+
+            if project_id:
+                session_sql += " AND s.project_id = ?"
+                params.append(project_id)
+            if tool_name:
+                session_sql += " AND t.tool_name = ?"
+                params.append(tool_name)
+            if start_date:
+                session_sql += " AND t.timestamp >= ?"
+                params.append(start_date)
+            if end_date:
+                session_sql += " AND t.timestamp <= ?"
+                params.append(end_date)
+
+            session_sql += """
+                )
+            """
+
+        # Add ordering and pagination
+        session_sql += """
+            ORDER BY latest_match DESC
+            LIMIT ? OFFSET ?
+        """
+        offset = page * sessions_per_page
+        params.extend([sessions_per_page + 1, offset])  # Get one extra to check for more pages
+
+        cursor.execute(session_sql, params)
+        session_rows = cursor.fetchall()
+
+        # Check if there are more pages
+        has_more = len(session_rows) > sessions_per_page
+        session_ids = [row['session_id'] for row in session_rows[:sessions_per_page]]
+
+        # Get total session count (without pagination)
+        total_sql = session_sql.replace("LIMIT ? OFFSET ?", "")
+        total_params = params[:-2]  # Remove the limit/offset params
+        cursor.execute(f"SELECT COUNT(*) as total FROM ({total_sql})", total_params)
+        total_sessions = cursor.fetchone()['total']
+
+        if not session_ids:
+            conn.close()
+            return {
+                'results_by_session': {},
+                'has_more': False,
+                'total_sessions': 0
+            }
+
+        # Step 2: Get all results for these sessions
+        results_by_session = {}
+        placeholders = ','.join('?' * len(session_ids))
+
+        if scope == "Messages":
+            results = self.search_messages(
+                query=query,
+                project_id=project_id,
+                start_date=start_date,
+                end_date=end_date,
+                limit=10000,  # Large limit to get all results for selected sessions
+                offset=0
+            )
+            # Filter to only selected sessions
+            for result in results:
+                if result['session_id'] in session_ids:
+                    if result['session_id'] not in results_by_session:
+                        results_by_session[result['session_id']] = []
+                    results_by_session[result['session_id']].append(result)
+
+        elif scope == "Tool Inputs":
+            results = self.search_tool_inputs(
+                query=query,
+                project_id=project_id,
+                tool_name=tool_name,
+                start_date=start_date,
+                end_date=end_date,
+                limit=10000,
+                offset=0
+            )
+            for result in results:
+                if result['session_id'] in session_ids:
+                    if result['session_id'] not in results_by_session:
+                        results_by_session[result['session_id']] = []
+                    results_by_session[result['session_id']].append(result)
+
+        elif scope == "Tool Results":
+            results = self.search_tool_results(
+                query=query,
+                project_id=project_id,
+                tool_name=tool_name,
+                start_date=start_date,
+                end_date=end_date,
+                limit=10000,
+                offset=0
+            )
+            for result in results:
+                if result['session_id'] in session_ids:
+                    if result['session_id'] not in results_by_session:
+                        results_by_session[result['session_id']] = []
+                    results_by_session[result['session_id']].append(result)
+
+        else:  # All
+            results = self.search_all(
+                query=query,
+                project_id=project_id,
+                tool_name=tool_name,
+                start_date=start_date,
+                end_date=end_date,
+                limit=10000,
+                offset=0
+            )
+            for result in results:
+                if result['session_id'] in session_ids:
+                    if result['session_id'] not in results_by_session:
+                        results_by_session[result['session_id']] = []
+                    results_by_session[result['session_id']].append(result)
+
+        # Sort results within each session by timestamp
+        for session_id in results_by_session:
+            results_by_session[session_id].sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+
+        conn.close()
+
+        return {
+            'results_by_session': results_by_session,
+            'has_more': has_more,
+            'total_sessions': total_sessions
+        }
+
     def get_unique_tool_names(self) -> List[str]:
         """Get list of all tool names used."""
         conn = self._get_connection()

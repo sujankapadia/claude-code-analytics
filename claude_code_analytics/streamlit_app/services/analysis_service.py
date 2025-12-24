@@ -155,6 +155,139 @@ class AnalysisService:
 
         return "\n".join(lines)
 
+    def format_messages_with_highlight(
+        self,
+        messages: List[Message],
+        tool_uses: List[ToolUse],
+        highlight_index: int
+    ) -> str:
+        """
+        Format messages with one message highlighted as the search hit.
+
+        Args:
+            messages: List of Message objects
+            tool_uses: List of ToolUse objects
+            highlight_index: message_index to highlight as search hit
+
+        Returns:
+            Formatted transcript string with markers
+        """
+        # Create mapping of message_index to tool uses for quick lookup
+        tools_by_message = {}
+        for tool in tool_uses:
+            if tool.message_index not in tools_by_message:
+                tools_by_message[tool.message_index] = []
+            tools_by_message[tool.message_index].append(tool)
+
+        lines = []
+
+        for msg in messages:
+            # Format timestamp
+            timestamp = msg.timestamp if isinstance(msg.timestamp, str) else msg.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
+            # Check if this is the highlighted message
+            is_highlight = msg.message_index == highlight_index
+
+            if is_highlight:
+                lines.append(f"\n>>> SEARCH HIT - Message {msg.message_index} <<<")
+
+            # Add message header and content
+            lines.append(f"[{msg.role.capitalize()} - {timestamp}]")
+            if msg.content:
+                lines.append(msg.content)
+
+            # Add tool uses for this message
+            if msg.message_index in tools_by_message:
+                for tool in tools_by_message[msg.message_index]:
+                    lines.append(f"\n[Tool: {tool.tool_name} - {tool.timestamp if isinstance(tool.timestamp, str) else tool.timestamp.strftime('%Y-%m-%d %H:%M:%S')}]")
+
+                    # Add tool input (parse JSON if possible for readability)
+                    if tool.tool_input:
+                        try:
+                            tool_input_dict = json.loads(tool.tool_input)
+                            lines.append("Input:")
+                            for key, value in tool_input_dict.items():
+                                # Truncate long values
+                                value_str = str(value)
+                                if len(value_str) > 200:
+                                    value_str = value_str[:200] + "..."
+                                lines.append(f"  {key}: {value_str}")
+                        except (json.JSONDecodeError, TypeError):
+                            lines.append(f"Input: {tool.tool_input[:200]}...")
+
+                    # Add tool result
+                    if tool.tool_result:
+                        result_preview = tool.tool_result[:500] + "..." if len(tool.tool_result) > 500 else tool.tool_result
+                        lines.append(f"Result: {result_preview}")
+
+                    if tool.is_error:
+                        lines.append("(Error)")
+
+            if is_highlight:
+                lines.append(f">>> END SEARCH HIT <<<\n")
+            else:
+                lines.append("")  # Blank line between messages
+
+        return "\n".join(lines)
+
+    def get_messages_around_index(
+        self,
+        session_id: str,
+        message_index: int,
+        context_window: int = 20
+    ) -> tuple[List[Message], List[ToolUse], str]:
+        """
+        Get messages around a specific message index with context window.
+
+        Args:
+            session_id: Session UUID
+            message_index: The message_index to center the window around
+            context_window: Number of messages before and after (default 20)
+
+        Returns:
+            Tuple of (messages, tool_uses, formatted_transcript)
+        """
+        # Get all messages for the session to find the range
+        all_messages = self.db_service.get_messages_for_session(session_id)
+
+        if not all_messages:
+            return ([], [], "")
+
+        # Find the target message and its position
+        target_position = None
+        for i, msg in enumerate(all_messages):
+            if msg.message_index == message_index:
+                target_position = i
+                break
+
+        if target_position is None:
+            raise ValueError(f"Message index {message_index} not found in session {session_id}")
+
+        # Calculate the range
+        start_pos = max(0, target_position - context_window)
+        end_pos = min(len(all_messages) - 1, target_position + context_window)
+
+        # Get messages in range
+        messages_in_range = all_messages[start_pos:end_pos + 1]
+
+        # Get tool uses for these messages
+        min_index = messages_in_range[0].message_index
+        max_index = messages_in_range[-1].message_index
+        all_tool_uses = self.db_service.get_tool_uses_for_session(session_id)
+        tool_uses_in_range = [
+            t for t in all_tool_uses
+            if min_index <= t.message_index <= max_index
+        ]
+
+        # Format with highlight
+        formatted = self.format_messages_with_highlight(
+            messages_in_range,
+            tool_uses_in_range,
+            message_index
+        )
+
+        return (messages_in_range, tool_uses_in_range, formatted)
+
     def estimate_token_count(self, text: str) -> int:
         """
         Estimate token count for text using tiktoken.
@@ -254,6 +387,8 @@ class AnalysisService:
         model: Optional[str] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
+        message_index: Optional[int] = None,
+        context_window: int = 20,
     ) -> AnalysisResult:
         """
         Analyze a session with the specified analysis type.
@@ -265,6 +400,8 @@ class AnalysisService:
             model: Model to use (provider-specific). If None, uses provider's default.
             start_time: Optional start time for filtering messages (inclusive)
             end_time: Optional end time for filtering messages (inclusive)
+            message_index: Optional message index for search hit context mode
+            context_window: Number of messages before/after for search hit (default 20)
 
         Returns:
             AnalysisResult with the analysis output
@@ -273,10 +410,22 @@ class AnalysisService:
             ValueError: If analysis type not found or custom_prompt missing
             FileNotFoundError: If transcript not found
         """
-        # Determine if we should use time-range filtering
+        # Determine the scope mode
+        use_search_hit = message_index is not None
         use_time_filter = start_time is not None or end_time is not None
 
-        if use_time_filter:
+        if use_search_hit:
+            # Search hit context mode
+            _, _, transcript = self.get_messages_around_index(
+                session_id=session_id,
+                message_index=message_index,
+                context_window=context_window
+            )
+
+            if not transcript.strip():
+                raise ValueError(f"No messages found around message index {message_index}")
+
+        elif use_time_filter:
             # Get messages and tool uses from database with time filter
             messages = self.db_service.get_messages_in_range(
                 session_id=session_id,

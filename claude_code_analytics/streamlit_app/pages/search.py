@@ -90,6 +90,7 @@ with st.expander("Filters", expanded=True):
     with col3:
         # Tool name filter (only show if searching tools)
         tool_name = None
+        selected_tool = "All Tools"  # Default
         if scope in ["All", "Tool Inputs", "Tool Results"]:
             try:
                 tool_names = db_service.get_unique_tool_names()
@@ -107,74 +108,66 @@ if "search_page" not in st.session_state:
 
 RESULTS_PER_PAGE = config.SEARCH_RESULTS_PER_PAGE
 
+# Reset page when search query or filters change (BEFORE executing search)
+if "last_search_state" not in st.session_state:
+    st.session_state.last_search_state = {}
+
+# Build current search state
+current_state = {
+    "query": search_query,
+    "scope": scope,
+    "project": selected_project,
+    "date_range": date_range,
+    "tool": selected_tool,
+}
+
+# Reset page if search state changed
+if current_state != st.session_state.last_search_state:
+    st.session_state.search_page = 0
+    st.session_state.last_search_state = current_state
+
 # Execute search
 if search_query:
     with st.spinner("Searching..."):
         try:
-            offset = st.session_state.search_page * RESULTS_PER_PAGE
+            # Use SQL-based session-grouped search with pagination
+            search_result = db_service.search_grouped_by_session(
+                query=search_query,
+                scope=scope,
+                project_id=project_id,
+                tool_name=tool_name,
+                start_date=start_date,
+                end_date=end_date,
+                sessions_per_page=3,
+                page=st.session_state.search_page
+            )
 
-            # Call appropriate search method based on scope
-            if scope == "Messages":
-                results = db_service.search_messages(
-                    query=search_query,
-                    project_id=project_id,
-                    start_date=start_date,
-                    end_date=end_date,
-                    limit=RESULTS_PER_PAGE + 1,  # Get one extra to check if there are more
-                    offset=offset
-                )
-            elif scope == "Tool Inputs":
-                results = db_service.search_tool_inputs(
-                    query=search_query,
-                    project_id=project_id,
-                    tool_name=tool_name,
-                    start_date=start_date,
-                    end_date=end_date,
-                    limit=RESULTS_PER_PAGE + 1,
-                    offset=offset
-                )
-            elif scope == "Tool Results":
-                results = db_service.search_tool_results(
-                    query=search_query,
-                    project_id=project_id,
-                    tool_name=tool_name,
-                    start_date=start_date,
-                    end_date=end_date,
-                    limit=RESULTS_PER_PAGE + 1,
-                    offset=offset
-                )
-            else:  # All
-                results = db_service.search_all(
-                    query=search_query,
-                    project_id=project_id,
-                    tool_name=tool_name,
-                    start_date=start_date,
-                    end_date=end_date,
-                    limit=RESULTS_PER_PAGE + 1,
-                    offset=offset
-                )
+            results_by_session = search_result['results_by_session']
+            has_more = search_result['has_more']
+            total_unique_sessions = search_result['total_sessions']
 
-            # Check if there are more results
-            has_more = len(results) > RESULTS_PER_PAGE
-            display_results = results[:RESULTS_PER_PAGE]
-
-            # Group results by session
-            results_by_session = defaultdict(list)
-            for result in display_results:
-                results_by_session[result['session_id']].append(result)
+            # Calculate total results on page
+            total_results_on_page = sum(len(results) for results in results_by_session.values())
 
             # Display result count
             st.divider()
-            total_results = len(display_results)
-            unique_sessions = len(results_by_session)
+            unique_sessions_on_page = len(results_by_session)
 
-            if total_results > 0:
-                st.success(f"**{total_results} results** across **{unique_sessions} sessions**")
+            if total_results_on_page > 0:
+                # Show page info and more indicator
+                page_num = st.session_state.search_page + 1
+                if has_more:
+                    st.success(f"**Showing {total_results_on_page} results from {unique_sessions_on_page} session(s) on page {page_num}** · Total: {total_unique_sessions} session(s) with matches")
+                else:
+                    if st.session_state.search_page == 0:
+                        st.success(f"**{total_results_on_page} results** across **{total_unique_sessions} session(s)**")
+                    else:
+                        st.success(f"**Showing {total_results_on_page} results from {unique_sessions_on_page} session(s) on page {page_num}** (last page)")
             else:
                 st.info("No results found. Try different search terms or adjust filters.")
 
             # Display results grouped by session
-            if display_results:
+            if results_by_session:
                 for session_id, session_results in results_by_session.items():
                     # Get session info from first result
                     first_result = session_results[0]
@@ -201,9 +194,16 @@ if search_query:
                                 # Snippet with HTML markup
                                 st.markdown(snippet, unsafe_allow_html=True)
 
-                                # View in conversation link (no hash - will be set via JS)
-                                view_url = f"conversation?session_id={session_id}&message_index={message_index}"
-                                st.markdown(f"[View in Conversation →]({view_url})")
+                                # Action buttons
+                                col_view, col_analyze = st.columns([3, 1])
+                                with col_view:
+                                    # View in conversation link
+                                    view_url = f"conversation?session_id={session_id}&message_index={message_index}"
+                                    st.markdown(f"[View in Conversation →]({view_url})")
+                                with col_analyze:
+                                    # Analyze with context button
+                                    analyze_url = f"analysis?session_id={session_id}&message_index={message_index}"
+                                    st.markdown(f"[🔬 Analyze]({analyze_url})")
 
                             else:
                                 # Tool result
@@ -220,9 +220,16 @@ if search_query:
                                 preview = content[:200] + "..." if len(content) > 200 else content
                                 st.code(preview, language="text")
 
-                                # View in conversation link (no hash - will be set via JS)
-                                view_url = f"conversation?session_id={session_id}&message_index={message_index}"
-                                st.markdown(f"[View in Conversation →]({view_url})")
+                                # Action buttons
+                                col_view, col_analyze = st.columns([3, 1])
+                                with col_view:
+                                    # View in conversation link
+                                    view_url = f"conversation?session_id={session_id}&message_index={message_index}"
+                                    st.markdown(f"[View in Conversation →]({view_url})")
+                                with col_analyze:
+                                    # Analyze with context button
+                                    analyze_url = f"analysis?session_id={session_id}&message_index={message_index}"
+                                    st.markdown(f"[🔬 Analyze]({analyze_url})")
 
                             st.divider()
 
@@ -251,14 +258,6 @@ if search_query:
                 st.code(traceback.format_exc())
 else:
     st.info("👆 Enter a search term to get started")
-
-# Reset page when search changes
-if "last_search_query" not in st.session_state:
-    st.session_state.last_search_query = ""
-
-if search_query != st.session_state.last_search_query:
-    st.session_state.search_page = 0
-    st.session_state.last_search_query = search_query
 
 # MCP Analysis Section
 st.divider()
