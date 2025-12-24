@@ -5,6 +5,8 @@ import sys
 import subprocess
 from pathlib import Path
 from datetime import datetime
+import pandas as pd
+import altair as alt
 
 # Add parent directory to path for imports
 
@@ -151,6 +153,178 @@ try:
     col2.metric("Tool Uses", session.tool_use_count)
     col3.metric("User Msgs", session.user_message_count)
     col4.metric("Assistant Msgs", session.assistant_message_count)
+
+    # Token usage chart in expander
+    with st.expander("📈 View Token Usage Over Time", expanded=False):
+        try:
+            # Get token timeline from database service
+            timeline_data = db_service.get_token_timeline_for_session(selected_session_id)
+
+            if timeline_data and len(timeline_data) > 0:
+                # Parse session start time for calculating days elapsed
+                from datetime import datetime as dt
+                session_start = dt.fromisoformat(timeline_data[0]['timestamp'].replace('Z', '+00:00'))
+
+                # Transform data for chart
+                chart_data = []
+                for point in timeline_data:
+                    timestamp = dt.fromisoformat(point['timestamp'].replace('Z', '+00:00'))
+                    days_elapsed = (timestamp - session_start).total_seconds() / 86400
+
+                    chart_data.append({
+                        'Days from Start': round(days_elapsed, 2),
+                        'Cumulative Tokens': point['cumulative_tokens'],
+                        'Date': timestamp.strftime('%Y-%m-%d %H:%M'),
+                    })
+
+                # Create DataFrame
+                df_chart = pd.DataFrame(chart_data)
+
+                # Create Altair chart
+                chart = alt.Chart(df_chart).mark_line(
+                    point=True,
+                    color='#2E86AB'
+                ).encode(
+                    x=alt.X('Days from Start:Q', title='Days from Session Start'),
+                    y=alt.Y('Cumulative Tokens:Q', title='Cumulative Tokens', axis=alt.Axis(format=',')),
+                    tooltip=[
+                        alt.Tooltip('Date:N', title='Date'),
+                        alt.Tooltip('Days from Start:Q', title='Days Elapsed', format='.1f'),
+                        alt.Tooltip('Cumulative Tokens:Q', title='Cumulative Tokens', format=',')
+                    ]
+                ).properties(
+                    height=400,
+                    title='Cumulative Token Usage Over Session Duration'
+                ).interactive()
+
+                # Display chart
+                st.altair_chart(chart, use_container_width=True)
+
+                # Show summary stats
+                col1, col2, col3 = st.columns(3)
+                total_tokens = timeline_data[-1]['cumulative_tokens']
+                total_days = chart_data[-1]['Days from Start']
+                avg_per_day = total_tokens / total_days if total_days > 0 else 0
+
+                col1.metric("Total Tokens", f"{total_tokens:,}")
+                col2.metric("Duration", f"{total_days:.1f} days")
+                col3.metric("Avg/Day", f"{avg_per_day:,.0f}")
+
+                st.info("💡 **Tip**: Hover over the chart to see token counts at specific dates. Use this to identify high-activity periods for targeted analysis.")
+            else:
+                st.warning("No token data available for this session.")
+
+        except Exception as e:
+            st.error(f"Error creating token usage chart: {e}")
+            import traceback
+            with st.expander("Error details"):
+                st.code(traceback.format_exc())
+
+    st.divider()
+
+    # Analysis Scope selector
+    st.subheader("Analysis Scope")
+
+    scope_mode = st.radio(
+        "Choose scope:",
+        ["Entire Session", "Date/Time Range"],
+        horizontal=True,
+        help="Select which portion of the session to analyze"
+    )
+
+    # Initialize time range variables
+    start_time = None
+    end_time = None
+    estimated_tokens = None
+
+    if scope_mode == "Date/Time Range":
+        st.markdown("_Filter messages by timestamp to reduce token usage and focus analysis._")
+
+        # Parse session timestamps
+        from datetime import datetime as dt
+        session_start = dt.fromisoformat(session.start_time) if isinstance(session.start_time, str) else session.start_time
+        session_end = dt.fromisoformat(session.end_time) if isinstance(session.end_time, str) else session.end_time
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            start_date = st.date_input(
+                "Start Date",
+                value=session_start.date(),
+                min_value=session_start.date(),
+                max_value=session_end.date(),
+                help="Select the start date for analysis"
+            )
+            start_time_input = st.time_input(
+                "Start Time",
+                value=session_start.time(),
+                help="Select the start time for analysis"
+            )
+
+        with col2:
+            end_date = st.date_input(
+                "End Date",
+                value=session_end.date(),
+                min_value=session_start.date(),
+                max_value=session_end.date(),
+                help="Select the end date for analysis"
+            )
+            end_time_input = st.time_input(
+                "End Time",
+                value=session_end.time(),
+                help="Select the end time for analysis"
+            )
+
+        # Combine date and time
+        start_time = dt.combine(start_date, start_time_input)
+        end_time = dt.combine(end_date, end_time_input)
+
+        # Validate range
+        if start_time > end_time:
+            st.error("⚠️ Start time must be before end time!")
+            st.stop()
+
+        # Preview: Get messages in range and estimate tokens
+        try:
+            messages_in_range = db_service.get_messages_in_range(
+                session_id=selected_session_id,
+                start_time=start_time,
+                end_time=end_time
+            )
+            tool_uses_in_range = db_service.get_tool_uses_in_range(
+                session_id=selected_session_id,
+                start_time=start_time,
+                end_time=end_time
+            )
+
+            # Format and estimate tokens
+            if messages_in_range:
+                transcript_preview = analysis_service.format_messages_simple(messages_in_range, tool_uses_in_range)
+                estimated_tokens = analysis_service.estimate_token_count(transcript_preview)
+
+                # Display preview info
+                col1, col2 = st.columns(2)
+                col1.metric("Messages in Range", len(messages_in_range))
+                col2.metric("Tool Uses in Range", len(tool_uses_in_range))
+
+                # Token estimation with color-coded warnings
+                if estimated_tokens > 200000:
+                    st.error(f"🔴 Very large: ~{estimated_tokens:,} tokens (may fail or be very expensive)")
+                elif estimated_tokens > 100000:
+                    st.warning(f"🟡 Large: ~{estimated_tokens:,} tokens (may be expensive)")
+                else:
+                    st.info(f"🟢 Estimated tokens: ~{estimated_tokens:,}")
+            else:
+                st.warning("⚠️ No messages found in the selected time range. Adjust your selection.")
+                st.stop()
+
+        except Exception as e:
+            st.error(f"Error loading messages: {e}")
+            st.stop()
+
+    else:
+        # Entire session mode - estimate from full session (if needed)
+        st.info(f"📊 Analyzing all {session.message_count} messages and {session.tool_use_count} tool uses in this session")
 
     st.divider()
 
@@ -311,12 +485,14 @@ try:
 
         with st.spinner("Analyzing conversation... This may take a minute."):
             try:
-                # Run analysis
+                # Run analysis with optional time range
                 result = analysis_service.analyze_session(
                     selected_session_id,
                     selected_analysis_type,
                     custom_prompt=custom_prompt,
                     model=selected_model,
+                    start_time=start_time,
+                    end_time=end_time,
                 )
 
                 st.success("✅ Analysis complete!")

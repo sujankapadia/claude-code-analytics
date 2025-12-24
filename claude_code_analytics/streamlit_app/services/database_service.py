@@ -230,6 +230,58 @@ class DatabaseService:
             }
         return {}
 
+    def get_token_timeline_for_session(self, session_id: str) -> List[Dict[str, Any]]:
+        """
+        Get cumulative token usage timeline for a session.
+
+        Returns ordered list of data points showing cumulative tokens over time,
+        suitable for visualization in charts.
+
+        Args:
+            session_id: Session UUID
+
+        Returns:
+            List of dictionaries with keys:
+                - timestamp: ISO format timestamp
+                - cumulative_tokens: Running total of input + output tokens
+                - input_tokens: Input tokens for this message
+                - output_tokens: Output tokens for this message
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                timestamp,
+                input_tokens,
+                output_tokens
+            FROM messages
+            WHERE session_id = ?
+            ORDER BY timestamp
+            """,
+            (session_id,),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+
+        # Calculate cumulative totals
+        cumulative_tokens = 0
+        timeline = []
+
+        for row in rows:
+            input_tok = row["input_tokens"] or 0
+            output_tok = row["output_tokens"] or 0
+            cumulative_tokens += input_tok + output_tok
+
+            timeline.append({
+                "timestamp": row["timestamp"],
+                "cumulative_tokens": cumulative_tokens,
+                "input_tokens": input_tok,
+                "output_tokens": output_tok,
+            })
+
+        return timeline
+
     # =========================================================================
     # Tool use queries
     # =========================================================================
