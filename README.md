@@ -508,6 +508,35 @@ The SQLite database uses a normalized schema:
 
 See the technical documentation in `docs/technical/` for more details.
 
+### Project Identification
+
+**Important**: Claude Code uses the **working directory path** as the project identifier, not a separate project name or git repository name.
+
+When you run `claude-code` in a directory like `/Users/username/dev/my-project`, Claude Code:
+
+1. **Encodes the path** by replacing `/` with `-`:
+   - `/Users/username/dev/my-project` → `-Users-username-dev-my-project`
+
+2. **Stores sessions** in `~/.claude/projects/{encoded-path}/`:
+   ```
+   ~/.claude/projects/
+     └── -Users-username-dev-my-project/
+         ├── session-uuid-1.jsonl
+         ├── session-uuid-2.jsonl
+         └── ...
+   ```
+
+3. **Analytics tool decodes** the path back to display in the dashboard:
+   - `project_id` (database): `-Users-username-dev-my-project` (as stored by Claude Code)
+   - `project_name` (display): `/Users/username/dev/my-project` (decoded for readability)
+
+This means:
+- **Same directory = same project** across all your sessions
+- Different paths to the same repo = different projects (e.g., `/home/user/project` vs `/home/user/repos/project`)
+- Subdirectories are treated as separate projects (e.g., `/project` vs `/project/subdir`)
+
+The analytics dashboard groups all conversations by these directory paths, so you'll see all your work for a specific codebase location together.
+
 ### File Organization
 
 Exported conversations are organized by project:
