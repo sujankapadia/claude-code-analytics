@@ -8,6 +8,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Analysis Scoping Features** - Analyze specific portions of conversations instead of entire sessions
+  - **Time-Range Filtering** - Analyze messages within specific date/time ranges
+    - Database methods for filtering messages and tool uses by timestamp
+    - Token estimation with tiktoken for cost preview
+    - Interactive date/time pickers in UI
+  - **Search Hit Context Window** - Analyze search results with surrounding context
+    - Configurable context window (messages before/after)
+    - Integration with search page via "Analyze with Context" buttons
+    - Highlighted search hit markers in formatted transcripts
+    - Message-level deep linking from search results
+  - Session-grouped search pagination with proper session discovery
+  - Token usage preview before running analysis
+
+- **Interactive Token Timeline Visualization** - Visual analysis of token usage over time
+  - Cumulative token usage chart showing growth throughout conversation
+  - Hover tooltips with per-message token breakdowns
+  - Input vs output token visualization
+
+- **GitHub Pages Deployment** - Project website and documentation
+  - Landing page with feature overview and getting started guide
+  - Social media preview support (Open Graph, Twitter Card metadata)
+  - Reorganized documentation structure optimized for web viewing
+  - Jekyll configuration for proper GitHub Pages rendering
+
+- **Custom Streamlit Styling** - Improved visual design
+  - Enhanced colors, spacing, and typography
+  - Better readability and user experience
+  - Consistent design language across all pages
+
+- **Technical Documentation**
+  - Analysis scoping feature specification (ANALYSIS_SCOPING_FEATURE.md)
+  - Updated SECURITY.md for unreleased project status
+
 - **Python Package** - Installable via pip with setuptools
   - Package name: `claude-code-analytics`
   - Entry points for CLI commands
@@ -91,6 +124,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI workflow: Prioritize package commands over direct Python script execution
 
 ### Fixed
+- **Search Pagination Bugs** - Critical fixes to session-grouped search results
+  - Missing GROUP BY in "All" scope causing only 1 session to appear instead of 3
+  - Session filtering now uses SQL WHERE IN clause instead of Python filtering
+  - "All" scope now correctly returns superset of all result types
+  - Search snippets now properly highlight matched text in all scopes
 - Projects missing from analytics chart due to ordering mismatch
 - Import script auto-creates database if missing
 - Search index automatically rebuilds after imports (no stale data)
