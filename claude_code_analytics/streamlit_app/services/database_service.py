@@ -607,6 +607,7 @@ class DatabaseService:
                     'message' as result_type,
                     m.role as detail,
                     m.content as matched_content,
+                    snippet(fts_messages, -1, '<mark>', '</mark>', '...', 64) as snippet,
                     m.timestamp,
                     s.project_id,
                     p.project_name
@@ -640,6 +641,7 @@ class DatabaseService:
                     'tool_input' as result_type,
                     t.tool_name as detail,
                     t.tool_input as matched_content,
+                    NULL as snippet,
                     t.timestamp,
                     s.project_id,
                     p.project_name
@@ -677,6 +679,7 @@ class DatabaseService:
                     'tool_result' as result_type,
                     t.tool_name as detail,
                     t.tool_result as matched_content,
+                    NULL as snippet,
                     t.timestamp,
                     s.project_id,
                     p.project_name
@@ -1045,6 +1048,7 @@ class DatabaseService:
 
             session_sql += """
                 )
+                GROUP BY session_id
             """
 
         # Add ordering and pagination
@@ -1076,73 +1080,253 @@ class DatabaseService:
                 'total_sessions': 0
             }
 
-        # Step 2: Get all results for these sessions
+        # Step 2: Get all results for these specific sessions
         results_by_session = {}
         placeholders = ','.join('?' * len(session_ids))
 
         if scope == "Messages":
-            results = self.search_messages(
-                query=query,
-                project_id=project_id,
-                start_date=start_date,
-                end_date=end_date,
-                limit=10000,  # Large limit to get all results for selected sessions
-                offset=0
-            )
-            # Filter to only selected sessions
+            # Custom query to filter by session_ids
+            sql = f"""
+                SELECT
+                    m.message_id,
+                    m.session_id,
+                    m.message_index,
+                    m.role,
+                    m.content,
+                    m.timestamp,
+                    s.project_id,
+                    p.project_name,
+                    snippet(fts_messages, -1, '<mark>', '</mark>', '...', 64) as snippet
+                FROM fts_messages
+                JOIN messages m ON fts_messages.rowid = m.message_id
+                JOIN sessions s ON m.session_id = s.session_id
+                JOIN projects p ON s.project_id = p.project_id
+                WHERE fts_messages MATCH ? AND m.session_id IN ({placeholders})
+            """
+            result_params = [query] + session_ids
+
+            if project_id:
+                sql += " AND s.project_id = ?"
+                result_params.append(project_id)
+            if start_date:
+                sql += " AND m.timestamp >= ?"
+                result_params.append(start_date)
+            if end_date:
+                sql += " AND m.timestamp <= ?"
+                result_params.append(end_date)
+
+            sql += " ORDER BY m.timestamp DESC"
+            cursor.execute(sql, result_params)
+            results = [dict(row) for row in cursor.fetchall()]
+
             for result in results:
-                if result['session_id'] in session_ids:
-                    if result['session_id'] not in results_by_session:
-                        results_by_session[result['session_id']] = []
-                    results_by_session[result['session_id']].append(result)
+                if result['session_id'] not in results_by_session:
+                    results_by_session[result['session_id']] = []
+                results_by_session[result['session_id']].append(result)
 
         elif scope == "Tool Inputs":
-            results = self.search_tool_inputs(
-                query=query,
-                project_id=project_id,
-                tool_name=tool_name,
-                start_date=start_date,
-                end_date=end_date,
-                limit=10000,
-                offset=0
-            )
+            # Custom query to filter by session_ids
+            sql = f"""
+                SELECT
+                    t.tool_use_id,
+                    t.session_id,
+                    t.message_index,
+                    t.tool_name,
+                    t.tool_input,
+                    t.timestamp,
+                    s.project_id,
+                    p.project_name
+                FROM fts_tool_uses
+                JOIN tool_uses t ON fts_tool_uses.rowid = t.rowid
+                JOIN sessions s ON t.session_id = s.session_id
+                JOIN projects p ON s.project_id = p.project_id
+                WHERE fts_tool_uses MATCH 'tool_input:' || ? AND t.session_id IN ({placeholders})
+            """
+            result_params = [query] + session_ids
+
+            if project_id:
+                sql += " AND s.project_id = ?"
+                result_params.append(project_id)
+            if tool_name:
+                sql += " AND t.tool_name = ?"
+                result_params.append(tool_name)
+            if start_date:
+                sql += " AND t.timestamp >= ?"
+                result_params.append(start_date)
+            if end_date:
+                sql += " AND t.timestamp <= ?"
+                result_params.append(end_date)
+
+            sql += " ORDER BY t.timestamp DESC"
+            cursor.execute(sql, result_params)
+            results = [dict(row) for row in cursor.fetchall()]
+
             for result in results:
-                if result['session_id'] in session_ids:
-                    if result['session_id'] not in results_by_session:
-                        results_by_session[result['session_id']] = []
-                    results_by_session[result['session_id']].append(result)
+                if result['session_id'] not in results_by_session:
+                    results_by_session[result['session_id']] = []
+                results_by_session[result['session_id']].append(result)
 
         elif scope == "Tool Results":
-            results = self.search_tool_results(
-                query=query,
-                project_id=project_id,
-                tool_name=tool_name,
-                start_date=start_date,
-                end_date=end_date,
-                limit=10000,
-                offset=0
-            )
+            # Custom query to filter by session_ids
+            sql = f"""
+                SELECT
+                    t.tool_use_id,
+                    t.session_id,
+                    t.message_index,
+                    t.tool_name,
+                    t.tool_result,
+                    t.is_error,
+                    t.timestamp,
+                    s.project_id,
+                    p.project_name
+                FROM fts_tool_uses
+                JOIN tool_uses t ON fts_tool_uses.rowid = t.rowid
+                JOIN sessions s ON t.session_id = s.session_id
+                JOIN projects p ON s.project_id = p.project_id
+                WHERE fts_tool_uses MATCH 'tool_result:' || ? AND t.session_id IN ({placeholders})
+            """
+            result_params = [query] + session_ids
+
+            if project_id:
+                sql += " AND s.project_id = ?"
+                result_params.append(project_id)
+            if tool_name:
+                sql += " AND t.tool_name = ?"
+                result_params.append(tool_name)
+            if start_date:
+                sql += " AND t.timestamp >= ?"
+                result_params.append(start_date)
+            if end_date:
+                sql += " AND t.timestamp <= ?"
+                result_params.append(end_date)
+
+            sql += " ORDER BY t.timestamp DESC"
+            cursor.execute(sql, result_params)
+            results = [dict(row) for row in cursor.fetchall()]
+
             for result in results:
-                if result['session_id'] in session_ids:
-                    if result['session_id'] not in results_by_session:
-                        results_by_session[result['session_id']] = []
-                    results_by_session[result['session_id']].append(result)
+                if result['session_id'] not in results_by_session:
+                    results_by_session[result['session_id']] = []
+                results_by_session[result['session_id']].append(result)
 
         else:  # All
-            results = self.search_all(
-                query=query,
-                project_id=project_id,
-                tool_name=tool_name,
-                start_date=start_date,
-                end_date=end_date,
-                limit=10000,
-                offset=0
-            )
+            # Custom UNION query to filter by session_ids
+            sql = f"""
+                SELECT * FROM (
+                    -- Messages
+                    SELECT
+                        m.session_id,
+                        m.message_index,
+                        'message' as result_type,
+                        m.role as detail,
+                        m.content as matched_content,
+                        snippet(fts_messages, -1, '<mark>', '</mark>', '...', 64) as snippet,
+                        m.timestamp,
+                        s.project_id,
+                        p.project_name
+                    FROM fts_messages
+                    JOIN messages m ON fts_messages.rowid = m.message_id
+                    JOIN sessions s ON m.session_id = s.session_id
+                    JOIN projects p ON s.project_id = p.project_id
+                    WHERE fts_messages MATCH ? AND m.session_id IN ({placeholders})
+            """
+            result_params = [query] + session_ids
+
+            if project_id:
+                sql += " AND s.project_id = ?"
+                result_params.append(project_id)
+            if start_date:
+                sql += " AND m.timestamp >= ?"
+                result_params.append(start_date)
+            if end_date:
+                sql += " AND m.timestamp <= ?"
+                result_params.append(end_date)
+
+            sql += """
+                    UNION ALL
+
+                    -- Tool inputs
+                    SELECT
+                        t.session_id,
+                        t.message_index,
+                        'tool_input' as result_type,
+                        t.tool_name as detail,
+                        t.tool_input as matched_content,
+                        NULL as snippet,
+                        t.timestamp,
+                        s.project_id,
+                        p.project_name
+                    FROM fts_tool_uses
+                    JOIN tool_uses t ON fts_tool_uses.rowid = t.rowid
+                    JOIN sessions s ON t.session_id = s.session_id
+                    JOIN projects p ON s.project_id = p.project_id
+                    WHERE fts_tool_uses MATCH 'tool_input:' || ?
+            """
+            sql += f" AND t.session_id IN ({placeholders})"
+            result_params.append(query)
+            result_params.extend(session_ids)
+
+            if project_id:
+                sql += " AND s.project_id = ?"
+                result_params.append(project_id)
+            if tool_name:
+                sql += " AND t.tool_name = ?"
+                result_params.append(tool_name)
+            if start_date:
+                sql += " AND t.timestamp >= ?"
+                result_params.append(start_date)
+            if end_date:
+                sql += " AND t.timestamp <= ?"
+                result_params.append(end_date)
+
+            sql += """
+                    UNION ALL
+
+                    -- Tool results
+                    SELECT
+                        t.session_id,
+                        t.message_index,
+                        'tool_result' as result_type,
+                        t.tool_name as detail,
+                        t.tool_result as matched_content,
+                        NULL as snippet,
+                        t.timestamp,
+                        s.project_id,
+                        p.project_name
+                    FROM fts_tool_uses
+                    JOIN tool_uses t ON fts_tool_uses.rowid = t.rowid
+                    JOIN sessions s ON t.session_id = s.session_id
+                    JOIN projects p ON s.project_id = p.project_id
+                    WHERE fts_tool_uses MATCH 'tool_result:' || ?
+            """
+            sql += f" AND t.session_id IN ({placeholders})"
+            result_params.append(query)
+            result_params.extend(session_ids)
+
+            if project_id:
+                sql += " AND s.project_id = ?"
+                result_params.append(project_id)
+            if tool_name:
+                sql += " AND t.tool_name = ?"
+                result_params.append(tool_name)
+            if start_date:
+                sql += " AND t.timestamp >= ?"
+                result_params.append(start_date)
+            if end_date:
+                sql += " AND t.timestamp <= ?"
+                result_params.append(end_date)
+
+            sql += """
+                )
+                ORDER BY timestamp DESC
+            """
+            cursor.execute(sql, result_params)
+            results = [dict(row) for row in cursor.fetchall()]
+
             for result in results:
-                if result['session_id'] in session_ids:
-                    if result['session_id'] not in results_by_session:
-                        results_by_session[result['session_id']] = []
-                    results_by_session[result['session_id']].append(result)
+                if result['session_id'] not in results_by_session:
+                    results_by_session[result['session_id']] = []
+                results_by_session[result['session_id']].append(result)
 
         # Sort results within each session by timestamp
         for session_id in results_by_session:
