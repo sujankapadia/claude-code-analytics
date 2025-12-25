@@ -88,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Custom analysis with user prompts
   - Jinja2-based prompt templates
   - Export analysis as markdown
+  - Customizable export filenames (user can edit before download/save)
 
 - **Installation Script** - Automated setup (`install.sh`)
   - Creates required directories
@@ -111,6 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Documentation**
   - Comprehensive README with prerequisites and quick start
+  - Project identification explanation (how Claude Code uses directory paths)
   - Database schema documentation
   - Search implementation details
   - Deep linking technical guide
