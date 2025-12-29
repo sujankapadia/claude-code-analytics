@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **GitHub Gist Publishing with Security Scanning** - Share analysis results as GitHub Gists with automatic security checks
+  - **Multi-layer Security Scanner** - Detect secrets, PII, and sensitive data before publishing
+    - Gitleaks integration (350+ secret patterns: API keys, tokens, credentials)
+    - Regex pattern scanner (emails, phone numbers, SSNs, credit cards, private IPs)
+    - Severity-based blocking (CRITICAL/HIGH blocks, MEDIUM/LOW warns)
+    - Configurable allowlists for false positives
+  - **GistPublisher Service** - GitHub API integration for gist creation
+    - Automatic security scanning before publication
+    - Support for analysis + optional session transcript
+    - Public or secret gist visibility options
+    - Auto-generated README with metadata and traceability
+  - **Analysis Page UI** - Publish button with configuration options
+    - Real-time security scan with progress indicators
+    - Detailed security findings with severity breakdown
+    - Gist configuration (visibility, session inclusion, description)
+    - Success/error handling with gist URL display
+  - **Configuration** - GitHub token management via `.env`
+  - **Testing** - Comprehensive test suite (unit, integration, live)
+    - 19 unit tests for scanner components
+    - Integration tests with realistic content samples
+    - Live tests with real GitHub API (all 5/5 passed)
+
 - **Analysis Scoping Features** - Analyze specific portions of conversations instead of entire sessions
   - **Time-Range Filtering** - Analyze messages within specific date/time ranges
     - Database methods for filtering messages and tool uses by timestamp

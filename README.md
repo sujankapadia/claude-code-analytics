@@ -132,6 +132,12 @@ The Streamlit-based dashboard is your primary interface for exploring conversati
   - Custom - Write your own analysis prompts
 - **Templated prompts** - Jinja2-based templates for easy customization
 - **Export results** - Save analysis as markdown files
+- **GitHub Gist publishing** - Share analysis with automatic security scanning:
+  - Multi-layer scanning (Gitleaks + Regex patterns) for secrets, PII, and sensitive data
+  - Blocks publication on CRITICAL/HIGH severity findings
+  - Optional session transcript inclusion
+  - Public or secret gist visibility
+  - Auto-generated README with metadata and traceability
 
 ### 📈 Comprehensive Analytics
 
@@ -263,6 +269,15 @@ OPENROUTER_MODEL=deepseek/deepseek-v3.2
 GOOGLE_API_KEY=your-api-key-here
 ```
 
+#### GitHub Integration (Optional - for Gist Publishing)
+
+```bash
+# GitHub Personal Access Token for publishing analysis as gists
+# Get your token from: https://github.com/settings/tokens/new
+# Required scope: 'gist' (create gists)
+GITHUB_TOKEN=ghp_your_token_here
+```
+
 ### Required vs Optional Settings
 
 **Required for basic features** (browse, search, analytics):
@@ -270,6 +285,9 @@ GOOGLE_API_KEY=your-api-key-here
 
 **Required for AI analysis features**:
 - Either `OPENROUTER_API_KEY` or `GOOGLE_API_KEY`
+
+**Required for GitHub Gist publishing**:
+- `GITHUB_TOKEN` - Personal Access Token with `gist` scope
 
 **Optional customization**:
 - All other settings have sensible defaults
@@ -366,6 +384,33 @@ The **AI Analysis** page lets you analyze sessions with LLMs:
 3. Select model (browse 300+ options or pick from curated list)
 4. Adjust temperature (default: 0.1 for deterministic analysis)
 5. Run analysis and optionally export to markdown
+
+### Publish to GitHub Gists
+
+After running an analysis, you can publish your results as a GitHub Gist with automatic security scanning:
+
+1. **Configure GitHub Token** - Add `GITHUB_TOKEN` to `~/.config/claude-code-analytics/.env`
+2. **Run Analysis** - Complete an analysis on any session
+3. **Configure Gist Options**:
+   - Choose visibility (Secret/unlisted or Public)
+   - Optionally include raw session transcript
+   - Customize gist description
+4. **Scan & Publish** - Click "Scan & Publish to Gist" button
+5. **Review Results**:
+   - ✅ **Safe**: Gist is published with URL and scan summary
+   - ❌ **Blocked**: Security findings prevent publication (review and remove sensitive data)
+
+**Security Scanning**:
+- **Gitleaks** - Detects 350+ secret patterns (API keys, tokens, credentials)
+- **Regex Patterns** - Catches PII (emails, phone numbers, SSNs, credit cards)
+- **Severity Levels**:
+  - CRITICAL/HIGH → Blocks publication
+  - MEDIUM/LOW → Informational warnings only
+
+The gist includes:
+- Analysis result with full metadata and traceability
+- Optional session transcript
+- Auto-generated README with tool attribution
 
 ## Advanced Usage
 
@@ -722,12 +767,12 @@ claude-code-utils/
 ## Future Roadmap
 
 - **Vector embeddings** - Semantic search across conversations
-- **PII detection** - Identify potential sensitive data
 - **Cost tracking** - Monitor LLM API costs per analysis
 - **Model comparison** - A/B test analysis quality across models
 - **Export formats** - HTML, PDF conversation exports
 - **Real-time analysis** - Analyze conversations as they happen
 - **Cloud sync** - Optional backup to cloud storage
+- **Presidio integration** - Advanced PII detection with entity recognition
 
 ## Contributing
 

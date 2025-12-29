@@ -11,8 +11,9 @@ import altair as alt
 # Add parent directory to path for imports
 
 from claude_code_analytics import config
-from claude_code_analytics.streamlit_app.services import DatabaseService, AnalysisService, OpenRouterProvider
+from claude_code_analytics.streamlit_app.services import DatabaseService, AnalysisService, OpenRouterProvider, GistPublisher
 from claude_code_analytics.streamlit_app.models import AnalysisType
+from claude_code_analytics.scanner import MultiLayerScanner
 
 
 def get_git_commit_id() -> str:
@@ -681,6 +682,104 @@ try:
             file_name=filename,
             mime="text/markdown",
         )
+
+        # GitHub Gist Publishing
+        st.divider()
+        st.markdown("#### 📤 Publish to GitHub Gist")
+        st.markdown("_Share your analysis as a GitHub Gist with automatic security scanning._")
+
+        # Check if GitHub token is configured
+        if not config.GITHUB_TOKEN:
+            st.warning("⚠️ GitHub token not configured. Set `GITHUB_TOKEN` in your `.env` file to enable gist publishing.")
+            st.markdown("""
+            **Setup Instructions:**
+            1. Create a Personal Access Token at [GitHub Settings](https://github.com/settings/tokens/new)
+            2. Grant the `gist` scope (create gists)
+            3. Add to `~/.config/claude-code-analytics/.env`:
+               ```
+               GITHUB_TOKEN=your_token_here
+               ```
+            4. Restart the Streamlit app
+            """)
+        else:
+            # Gist configuration options
+            col1, col2 = st.columns(2)
+
+            with col1:
+                gist_visibility = st.radio(
+                    "Visibility:",
+                    ["Secret (unlisted)", "Public"],
+                    index=0,
+                    help="Secret gists are unlisted but accessible via URL. Public gists appear in your profile."
+                )
+                is_public_gist = gist_visibility == "Public"
+
+            with col2:
+                include_session = st.checkbox(
+                    "Include raw session transcript",
+                    value=False,
+                    help="Attach the full conversation transcript alongside the analysis"
+                )
+
+            gist_description = st.text_input(
+                "Gist Description:",
+                value=f"Claude Code Analysis - {session.project_name}",
+                help="Brief description for your gist"
+            )
+
+            # Publish button
+            if st.button("🔒 Scan & Publish to Gist", type="primary", use_container_width=True):
+                try:
+                    # Initialize publisher and scanner
+                    with st.spinner("Initializing security scanner..."):
+                        publisher = GistPublisher(github_token=config.GITHUB_TOKEN)
+
+                    # Prepare session content if requested
+                    session_content = None
+                    if include_session:
+                        with st.spinner("Loading session transcript..."):
+                            # Get all messages for this session
+                            messages = db_service.get_messages(selected_session_id)
+                            tool_uses = db_service.get_tool_uses(selected_session_id)
+                            session_content = analysis_service.format_messages_simple(messages, tool_uses)
+
+                    # Run security scan and publish
+                    with st.spinner("🔍 Scanning content for secrets and PII..."):
+                        success, result_msg, findings = publisher.publish(
+                            analysis_content=formatted_result,
+                            session_content=session_content,
+                            description=gist_description,
+                            is_public=is_public_gist,
+                            analysis_filename=filename,
+                            session_filename="session_transcript.txt"
+                        )
+
+                    # Display results
+                    if success:
+                        st.success(f"✅ Successfully published to GitHub Gist!")
+                        st.markdown(f"**Gist URL:** [{result_msg}]({result_msg})")
+
+                        # Show scan summary if there were non-blocking findings
+                        if findings:
+                            with st.expander(f"🔍 Security Scan Results ({len(findings)} findings)", expanded=False):
+                                st.markdown(MultiLayerScanner.format_report(findings))
+                                st.info("All findings above are informational (LOW/MEDIUM severity) and did not block publication.")
+                    else:
+                        st.error("❌ Publication blocked due to security concerns")
+                        st.markdown(result_msg)
+
+                        # Show details about what was found
+                        if findings:
+                            st.warning(f"**Found {len(findings)} security issue(s)** that prevent publication.")
+                            st.markdown("Please review and remove sensitive data before publishing:")
+                            with st.expander("🔍 View Security Findings", expanded=True):
+                                st.markdown(result_msg)
+
+                except Exception as e:
+                    st.error(f"❌ Failed to publish gist: {e}")
+                    import traceback
+                    with st.expander("Error details"):
+                        st.code(traceback.format_exc())
 
 except Exception as e:
     st.error(f"Error loading sessions: {e}")
