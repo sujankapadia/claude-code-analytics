@@ -8,6 +8,7 @@ from .llm_providers import (
     OpenRouterProvider,
     create_provider,
 )
+from .gist_publisher import GistPublisher, SecurityError
 
 __all__ = [
     "DatabaseService",
@@ -16,4 +17,6 @@ __all__ = [
     "GeminiProvider",
     "OpenRouterProvider",
     "create_provider",
+    "GistPublisher",
+    "SecurityError",
 ]
