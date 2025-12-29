@@ -77,6 +77,12 @@ OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
 OPENROUTER_MODEL = os.getenv('OPENROUTER_MODEL', 'deepseek/deepseek-v3.2')
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 
+# =============================================================================
+# GitHub Integration
+# =============================================================================
+
+GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+
 
 # =============================================================================
 # Validation and Initialization
@@ -152,6 +158,9 @@ LLM API:
   OpenRouter Key:      {'✓ Set' if OPENROUTER_API_KEY else '✗ Not set'}
   Default Model:       {OPENROUTER_MODEL}
   Google Key:          {'✓ Set' if GOOGLE_API_KEY else '✗ Not set'}
+
+GitHub Integration:
+  GitHub Token:        {'✓ Set' if GITHUB_TOKEN else '✗ Not set'}
 """
 
 
