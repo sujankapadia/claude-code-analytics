@@ -131,6 +131,57 @@ def extract_tool_result_content(content: Any) -> str:
     return str(content)
 
 
+def normalize_timestamp(ts: Any) -> Optional[str]:
+    """
+    Normalize timestamp to ISO 8601 string format (UTC).
+
+    Handles various input formats:
+    - ISO 8601 string (e.g., "2025-10-14T01:28:17.999Z")
+    - Integer milliseconds since epoch (e.g., 1728875297999)
+    - Integer seconds since epoch (e.g., 1728875297)
+    - None
+
+    Args:
+        ts: Timestamp in various formats
+
+    Returns:
+        ISO 8601 string in UTC (e.g., "2025-10-14T01:28:17.999Z") or None
+    """
+    if ts is None:
+        return None
+
+    # Already an ISO string - validate and return
+    if isinstance(ts, str):
+        try:
+            # Validate by parsing - this will raise if invalid
+            datetime.fromisoformat(ts.replace('Z', '+00:00'))
+            return ts
+        except (ValueError, AttributeError):
+            logger.warning(f"  ⚠️  Invalid timestamp string: {ts}")
+            return None
+
+    # Integer timestamp - could be seconds or milliseconds
+    if isinstance(ts, (int, float)):
+        try:
+            # Heuristic: if > 10 billion, likely milliseconds (covers dates after 2286 as seconds)
+            if ts > 10_000_000_000:
+                dt = datetime.utcfromtimestamp(ts / 1000.0)
+            else:
+                dt = datetime.utcfromtimestamp(ts)
+
+            # Return in ISO 8601 format with milliseconds
+            iso_str = dt.isoformat(timespec='milliseconds')
+            # Add Z suffix for UTC
+            return iso_str + 'Z' if not iso_str.endswith('Z') else iso_str
+        except (ValueError, OSError) as e:
+            logger.warning(f"  ⚠️  Invalid timestamp number: {ts} ({e})")
+            return None
+
+    # Unknown type
+    logger.warning(f"  ⚠️  Unknown timestamp type: {type(ts).__name__} = {ts}")
+    return None
+
+
 def parse_jsonl_file(file_path: Path) -> List[Dict]:
     """
     Parse a JSONL file and return list of entries.
@@ -209,7 +260,7 @@ def process_session(
 
     for entry in entries:
         # Extract timestamp - could be 'ts' (milliseconds) or 'timestamp' (ISO string)
-        timestamp = entry.get('ts') or entry.get('timestamp')
+        timestamp = normalize_timestamp(entry.get('ts') or entry.get('timestamp'))
 
         # Message entry
         if 'message' in entry:
