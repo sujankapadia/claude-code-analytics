@@ -521,7 +521,7 @@ class DatabaseService:
         sql += " ORDER BY t.timestamp DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
-        cursor.execute(sql, params)
+        self._execute_fts_query(cursor, sql, params, query)
         rows = cursor.fetchall()
         conn.close()
 
@@ -593,7 +593,7 @@ class DatabaseService:
         sql += " ORDER BY t.timestamp DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
-        cursor.execute(sql, params)
+        self._execute_fts_query(cursor, sql, params, query)
         rows = cursor.fetchall()
         conn.close()
 
@@ -744,7 +744,7 @@ class DatabaseService:
         """
         params.extend([limit, offset])
 
-        cursor.execute(sql, params)
+        self._execute_fts_query(cursor, sql, params, query)
         rows = cursor.fetchall()
         conn.close()
 
@@ -887,7 +887,7 @@ class DatabaseService:
 
             sql += ")"
 
-        cursor.execute(sql, params)
+        self._execute_fts_query(cursor, sql, params, query)
         result = cursor.fetchone()
         conn.close()
 
@@ -1089,7 +1089,7 @@ class DatabaseService:
         offset = page * sessions_per_page
         params.extend([sessions_per_page + 1, offset])  # Get one extra to check for more pages
 
-        cursor.execute(session_sql, params)
+        self._execute_fts_query(cursor, session_sql, params, query)
         session_rows = cursor.fetchall()
 
         # Check if there are more pages
@@ -1099,7 +1099,9 @@ class DatabaseService:
         # Get total session count (without pagination)
         total_sql = session_sql.replace("LIMIT ? OFFSET ?", "")
         total_params = params[:-2]  # Remove the limit/offset params
-        cursor.execute(f"SELECT COUNT(*) as total FROM ({total_sql})", total_params)
+        self._execute_fts_query(
+            cursor, f"SELECT COUNT(*) as total FROM ({total_sql})", total_params, query
+        )
         total_sessions = cursor.fetchone()["total"]
 
         if not session_ids:
@@ -1142,7 +1144,7 @@ class DatabaseService:
                 result_params.append(end_date)
 
             sql += " ORDER BY m.timestamp DESC"
-            cursor.execute(sql, result_params)
+            self._execute_fts_query(cursor, sql, result_params, query)
             results = [dict(row) for row in cursor.fetchall()]
 
             for result in results:
@@ -1184,7 +1186,7 @@ class DatabaseService:
                 result_params.append(end_date)
 
             sql += " ORDER BY t.timestamp DESC"
-            cursor.execute(sql, result_params)
+            self._execute_fts_query(cursor, sql, result_params, query)
             results = [dict(row) for row in cursor.fetchall()]
 
             for result in results:
@@ -1227,7 +1229,7 @@ class DatabaseService:
                 result_params.append(end_date)
 
             sql += " ORDER BY t.timestamp DESC"
-            cursor.execute(sql, result_params)
+            self._execute_fts_query(cursor, sql, result_params, query)
             results = [dict(row) for row in cursor.fetchall()]
 
             for result in results:
@@ -1346,7 +1348,7 @@ class DatabaseService:
                 )
                 ORDER BY timestamp DESC
             """
-            cursor.execute(sql, result_params)
+            self._execute_fts_query(cursor, sql, result_params, query)
             results = [dict(row) for row in cursor.fetchall()]
 
             for result in results:
