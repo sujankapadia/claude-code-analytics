@@ -48,7 +48,7 @@ print(f"❌ Error: {error_message}")
 
 ## Controlling Verbosity
 
-Users can set the log level in their code:
+Users can set the log level programmatically when importing scripts:
 
 ```python
 import logging
@@ -56,13 +56,6 @@ logging.getLogger().setLevel(logging.WARNING)  # Show only warnings and errors
 
 from claude_code_analytics.scripts.import_conversations import main
 main()  # Runs quietly
-```
-
-Or via environment variable:
-
-```bash
-export PYTHONLOGLEVEL=WARNING
-python3 scripts/import_conversations.py
 ```
 
 ## Test and Demo Scripts
