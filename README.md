@@ -1,5 +1,10 @@
 # Claude Code Analytics
 
+[![Tests](https://github.com/sujankapadia/claude-code-utils/actions/workflows/tests.yml/badge.svg)](https://github.com/sujankapadia/claude-code-utils/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/sujankapadia/claude-code-utils/branch/main/graph/badge.svg)](https://codecov.io/gh/sujankapadia/claude-code-utils)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A analysis tool for [Claude Code](https://claude.com/claude-code) that automatically captures, archives, and analyzes your AI development conversations. Features an interactive dashboard, full-text search, and AI-powered insights across all your sessions.
 
 ## What It Does
