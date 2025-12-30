@@ -49,8 +49,20 @@ def mock_provider():
 @pytest.fixture
 def temp_prompts_dir():
     """Create temporary prompts directory with metadata and templates."""
+    import shutil
+
     temp_dir = tempfile.mkdtemp()
-    prompts_path = Path(temp_dir)
+
+    # Create the directory structure expected by analysis_service.py:
+    # temp_dir/
+    #   claude_code_analytics/
+    #     streamlit_app/
+    #       services/
+    #         analysis_service.py (mocked location)
+    #     prompts/  (this is what we need - at project_root / "prompts")
+    project_root = Path(temp_dir) / "claude_code_analytics"
+    prompts_path = project_root / "prompts"
+    prompts_path.mkdir(parents=True)
 
     # Create metadata.yaml
     metadata = {
@@ -74,11 +86,10 @@ def temp_prompts_dir():
     )
     (prompts_path / "error_patterns.j2").write_text("Find error patterns:\n{{ transcript }}")
 
-    yield prompts_path
+    # Return temp_dir (project root) so tests can construct the mock file path
+    yield Path(temp_dir)
 
     # Cleanup
-    import shutil
-
     shutil.rmtree(temp_dir)
 
 
@@ -183,23 +194,53 @@ class TestAnalysisServiceInit:
 
     def test_init_with_provider(self, mock_provider, temp_db, temp_prompts_dir):
         """Test initialization with provided LLM provider."""
-        with patch.object(Path, "parent", new_callable=lambda: temp_prompts_dir.parent):
+        # Patch __file__ to point to a location that makes prompts_dir resolve correctly
+        # temp_prompts_dir is the project root, so __file__ should be at:
+        # temp_prompts_dir/claude_code_analytics/streamlit_app/services/analysis_service.py
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
+        with patch(
+            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+        ):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
             assert service.provider == mock_provider
             assert service.db_path == temp_db
 
     def test_init_without_provider_with_env_var(self, temp_db, temp_prompts_dir):
         """Test initialization creates provider from environment."""
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
         with (
             patch.dict("os.environ", {"OPENROUTER_API_KEY": "sk-or-test"}, clear=False),
-            patch.object(Path, "parent", new_callable=lambda: temp_prompts_dir.parent),
+            patch(
+                "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+            ),
         ):
             service = AnalysisService(db_path=temp_db)
             assert service.provider is not None
 
     def test_api_key_property(self, mock_provider, temp_db, temp_prompts_dir):
         """Test api_key property for backwards compatibility."""
-        with patch.object(Path, "parent", new_callable=lambda: temp_prompts_dir.parent):
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
+        with patch(
+            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+        ):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
             assert service.api_key == "mock-key"
 
@@ -209,9 +250,18 @@ class TestPromptLoading:
 
     def test_load_prompts(self, mock_provider, temp_db, temp_prompts_dir):
         """Test loading prompts from metadata and templates."""
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
         with (
             patch.object(AnalysisService, "_load_prompts") as mock_load,
-            patch.object(Path, "parent", new_callable=lambda: temp_prompts_dir.parent),
+            patch(
+                "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+            ),
         ):
             mock_load.return_value = ({}, MagicMock())
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -219,11 +269,7 @@ class TestPromptLoading:
 
     def test_get_available_analysis_types(self, mock_provider, temp_db, temp_prompts_dir):
         """Test getting available analysis types."""
-        # Create a real service to test prompt loading
-        with patch("pathlib.Path.parent", new_callable=lambda: temp_prompts_dir.parent):
-            # We need to patch the parent path resolution
-            pass
-        # For now, test with mocked metadata
+        # For this test, use mocked metadata to avoid file system dependencies
         service = AnalysisService.__new__(AnalysisService)
         service.metadata = {
             "technical_decisions": MagicMock(
@@ -408,9 +454,18 @@ class TestTokenEstimation:
 class TestGetMessagesAroundIndex:
     """Test get_messages_around_index functionality."""
 
-    def test_get_messages_around_index_basic(self, mock_provider, temp_db):
+    def test_get_messages_around_index_basic(self, mock_provider, temp_db, temp_prompts_dir):
         """Test getting messages around a specific index."""
-        with patch("pathlib.Path"):
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
+        with patch(
+            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+        ):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             messages, tool_uses, formatted = service.get_messages_around_index(
@@ -421,9 +476,18 @@ class TestGetMessagesAroundIndex:
             assert isinstance(formatted, str)
             assert ">>> SEARCH HIT" in formatted
 
-    def test_get_messages_around_index_at_start(self, mock_provider, temp_db):
+    def test_get_messages_around_index_at_start(self, mock_provider, temp_db, temp_prompts_dir):
         """Test getting messages around index at start of session."""
-        with patch("pathlib.Path"):
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
+        with patch(
+            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+        ):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             messages, tool_uses, formatted = service.get_messages_around_index(
@@ -434,9 +498,18 @@ class TestGetMessagesAroundIndex:
             # Should include message 0 and 1 (can't go before 0)
             assert messages[0].message_index == 0
 
-    def test_get_messages_around_index_nonexistent(self, mock_provider, temp_db):
+    def test_get_messages_around_index_nonexistent(self, mock_provider, temp_db, temp_prompts_dir):
         """Test getting messages around nonexistent index raises error."""
-        with patch("pathlib.Path"):
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
+        with patch(
+            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+        ):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             with pytest.raises(ValueError) as exc_info:
@@ -444,9 +517,20 @@ class TestGetMessagesAroundIndex:
 
             assert "not found" in str(exc_info.value)
 
-    def test_get_messages_around_index_empty_session(self, mock_provider, temp_db):
+    def test_get_messages_around_index_empty_session(
+        self, mock_provider, temp_db, temp_prompts_dir
+    ):
         """Test getting messages for empty session returns empty results."""
-        with patch("pathlib.Path"):
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
+        with patch(
+            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+        ):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             messages, tool_uses, formatted = service.get_messages_around_index(
@@ -460,9 +544,18 @@ class TestGetMessagesAroundIndex:
 class TestAnalyzeSession:
     """Test analyze_session functionality."""
 
-    def test_analyze_session_with_search_hit_mode(self, mock_provider, temp_db):
+    def test_analyze_session_with_search_hit_mode(self, mock_provider, temp_db, temp_prompts_dir):
         """Test analyzing session with search hit context mode."""
-        with patch("pathlib.Path"):
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
+        with patch(
+            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+        ):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             result = service.analyze_session(
@@ -480,9 +573,18 @@ class TestAnalyzeSession:
             assert result.input_tokens == 100
             assert result.output_tokens == 50
 
-    def test_analyze_session_with_time_filter_mode(self, mock_provider, temp_db):
+    def test_analyze_session_with_time_filter_mode(self, mock_provider, temp_db, temp_prompts_dir):
         """Test analyzing session with time filter mode."""
-        with patch("pathlib.Path"):
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
+        with patch(
+            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+        ):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             start_time = datetime.fromisoformat("2025-01-01T10:00:00")
@@ -499,21 +601,44 @@ class TestAnalyzeSession:
             assert isinstance(result, AnalysisResult)
             assert result.result_text == "Mock analysis result"
 
-    def test_analyze_session_custom_without_prompt_raises_error(self, mock_provider, temp_db):
+    def test_analyze_session_custom_without_prompt_raises_error(
+        self, mock_provider, temp_db, temp_prompts_dir
+    ):
         """Test that CUSTOM analysis type requires custom_prompt."""
-        with patch("pathlib.Path"):
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
+        with patch(
+            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+        ):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             with pytest.raises(ValueError) as exc_info:
                 service.analyze_session(
-                    session_id="session1", analysis_type=AnalysisType.CUSTOM, custom_prompt=None
+                    session_id="session1",
+                    analysis_type=AnalysisType.CUSTOM,
+                    custom_prompt=None,
+                    message_index=1,  # Use search hit mode to avoid needing transcript file
                 )
 
             assert "custom_prompt is required" in str(exc_info.value)
 
-    def test_analyze_session_with_custom_model(self, mock_provider, temp_db):
+    def test_analyze_session_with_custom_model(self, mock_provider, temp_db, temp_prompts_dir):
         """Test analyzing session with custom model."""
-        with patch("pathlib.Path"):
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
+        with patch(
+            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+        ):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             result = service.analyze_session(
@@ -526,9 +651,20 @@ class TestAnalyzeSession:
 
             assert result.model_name == "custom-model"
 
-    def test_analyze_session_time_filter_no_messages(self, mock_provider, temp_db):
+    def test_analyze_session_time_filter_no_messages(
+        self, mock_provider, temp_db, temp_prompts_dir
+    ):
         """Test analyzing session with time filter that excludes all messages."""
-        with patch("pathlib.Path"):
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
+        with patch(
+            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+        ):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             start_time = datetime.fromisoformat("2025-01-02T00:00:00")
@@ -545,9 +681,18 @@ class TestAnalyzeSession:
 
             assert "No messages found" in str(exc_info.value)
 
-    def test_analyze_session_search_hit_no_messages(self, mock_provider, temp_db):
+    def test_analyze_session_search_hit_no_messages(self, mock_provider, temp_db, temp_prompts_dir):
         """Test analyzing session with message_index that has no messages around it."""
-        with patch("pathlib.Path"):
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
+        with patch(
+            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+        ):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             # Mock get_messages_around_index to return empty
@@ -566,9 +711,18 @@ class TestAnalyzeSession:
 class TestGetTranscriptPath:
     """Test get_transcript_path functionality."""
 
-    def test_get_transcript_path_existing(self, mock_provider, temp_db):
+    def test_get_transcript_path_existing(self, mock_provider, temp_db, temp_prompts_dir):
         """Test getting transcript path when file exists."""
-        with patch("pathlib.Path"):
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
+        with patch(
+            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+        ):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             # Mock the file existence
@@ -577,9 +731,20 @@ class TestGetTranscriptPath:
                 # Path construction logic is complex, just verify it returns something
                 assert path is not None or path is None  # May or may not exist in test env
 
-    def test_get_transcript_path_nonexistent_session(self, mock_provider, temp_db):
+    def test_get_transcript_path_nonexistent_session(
+        self, mock_provider, temp_db, temp_prompts_dir
+    ):
         """Test getting transcript path for nonexistent session returns None."""
-        with patch("pathlib.Path"):
+        mock_file = str(
+            temp_prompts_dir
+            / "claude_code_analytics"
+            / "streamlit_app"
+            / "services"
+            / "analysis_service.py"
+        )
+        with patch(
+            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
+        ):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
             path = service.get_transcript_path("nonexistent-session")
             assert path is None
