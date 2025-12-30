@@ -89,8 +89,21 @@ Instead, please report it privately by:
 
 **Database Security:**
 - SQLite database is local-only, not exposed to network
-- No SQL injection risks (uses parameterized queries)
-- FTS5 search is safe from injection attacks
+- No SQL injection risks (uses parameterized queries throughout)
+- FTS5 search uses parameterized queries and includes error handling for malformed user queries
+- Defensive timestamp normalization prevents crashes from invalid data
+
+**Command Execution Security:**
+- All external executables resolved via `shutil.which()` to prevent PATH injection attacks
+- Absolute paths used for subprocess calls (`gitleaks`, `streamlit`, `git`)
+- Validates executable existence before attempting execution
+- Cross-platform compatible (Windows, macOS, Linux)
+
+**Code Quality & Security Scanning:**
+- Pre-commit hooks automatically run security checks before commits
+- Bandit security scanner detects common vulnerabilities (B607 PATH injection checks enabled)
+- Ruff linter catches potential security issues
+- Type checking with mypy for safer code
 
 **Configuration:**
 - No sensitive defaults
