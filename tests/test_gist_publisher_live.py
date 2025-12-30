@@ -13,9 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from claude_code_analytics import config
-from claude_code_analytics.scanner import MultiLayerScanner
 from claude_code_analytics.streamlit_app.services import GistPublisher
-
 
 # Test content samples
 SAFE_ANALYSIS = """# Analysis: Testing Best Practices
@@ -71,9 +69,9 @@ Session Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.signature
 
 def test_publisher_initialization():
     """Test 1: Publisher initialization."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Test 1: GistPublisher Initialization")
-    print("="*60)
+    print("=" * 60)
 
     if not config.GITHUB_TOKEN:
         print("❌ GITHUB_TOKEN not set in environment")
@@ -92,9 +90,9 @@ def test_publisher_initialization():
 
 def test_safe_content_scan():
     """Test 2: Safe content should pass scan."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Test 2: Safe Content Scanning")
-    print("="*60)
+    print("=" * 60)
 
     publisher = GistPublisher(github_token=config.GITHUB_TOKEN)
 
@@ -116,9 +114,9 @@ def test_safe_content_scan():
 
 def test_dangerous_content_blocked():
     """Test 3: Dangerous content should be blocked."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Test 3: Dangerous Content Blocking")
-    print("="*60)
+    print("=" * 60)
 
     publisher = GistPublisher(github_token=config.GITHUB_TOKEN)
 
@@ -126,7 +124,7 @@ def test_dangerous_content_blocked():
     success, message, findings = publisher.publish(
         analysis_content=DANGEROUS_ANALYSIS,
         description="Test Gist - Should Be Blocked",
-        is_public=False
+        is_public=False,
     )
 
     if not success and findings:
@@ -143,9 +141,9 @@ def test_dangerous_content_blocked():
 
 def test_publish_to_github():
     """Test 4: Actually publish a test gist."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Test 4: Publish Real Gist to GitHub")
-    print("="*60)
+    print("=" * 60)
 
     if not config.GITHUB_TOKEN:
         print("⚠️  Skipping - GITHUB_TOKEN not set")
@@ -158,7 +156,7 @@ def test_publish_to_github():
         analysis_content=SAFE_ANALYSIS,
         description="Claude Code Analytics - Integration Test",
         is_public=False,  # Secret gist
-        analysis_filename="test_analysis.md"
+        analysis_filename="test_analysis.md",
     )
 
     if success:
@@ -176,9 +174,9 @@ def test_publish_to_github():
 
 def test_publish_with_session():
     """Test 5: Publish with session content."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Test 5: Publish with Session Content")
-    print("="*60)
+    print("=" * 60)
 
     if not config.GITHUB_TOKEN:
         print("⚠️  Skipping - GITHUB_TOKEN not set")
@@ -201,13 +199,13 @@ Assistant: Mocking is essential for isolating units...
         description="Claude Code Analytics - Test with Session",
         is_public=False,
         analysis_filename="analysis.md",
-        session_filename="transcript.txt"
+        session_filename="transcript.txt",
     )
 
     if success:
         print("✅ Gist with session published successfully!")
         print(f"   URL: {result}")
-        print(f"   Files: analysis.md, transcript.txt, README.md")
+        print("   Files: analysis.md, transcript.txt, README.md")
         print("\n   ⚠️  Remember to delete this test gist from GitHub!")
         return result
     else:
@@ -218,9 +216,9 @@ Assistant: Mocking is essential for isolating units...
 
 def main():
     """Run all tests."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("GitHub Gist Publisher - Live Integration Tests")
-    print("="*60)
+    print("=" * 60)
     print("\n⚠️  WARNING: This will create REAL gists on GitHub!")
     print("   Make sure GITHUB_TOKEN is set in your config.\n")
 
@@ -253,9 +251,9 @@ def main():
         gist_urls.append(url)
 
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Test Summary")
-    print("="*60)
+    print("=" * 60)
 
     passed = sum(1 for _, result in results if result is True)
     total = len(results)
@@ -267,9 +265,9 @@ def main():
     print(f"\n{passed}/{total} tests passed")
 
     if gist_urls:
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Created Gists (remember to delete!):")
-        print("="*60)
+        print("=" * 60)
         for url in gist_urls:
             print(f"  • {url}")
         print("\nTo delete, visit each URL and click 'Delete gist' button.")

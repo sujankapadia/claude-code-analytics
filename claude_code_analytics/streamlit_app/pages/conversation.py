@@ -1,12 +1,8 @@
 """Conversation viewer page with terminal-style chat interface."""
 
 import streamlit as st
-import sys
-from pathlib import Path
-from datetime import datetime
 
 # Add parent directory to path for imports
-
 from claude_code_analytics import config
 from claude_code_analytics.streamlit_app.services import DatabaseService
 
@@ -17,7 +13,8 @@ if "db_service" not in st.session_state:
 db_service = st.session_state.db_service
 
 # Custom CSS for message styling and highlighting
-st.markdown("""
+st.markdown(
+    """
 <style>
     .msg-divider {
         border-top: 1px solid #333;
@@ -45,7 +42,9 @@ st.markdown("""
         }
     }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 st.title("💬 View Conversation")
 
@@ -134,14 +133,12 @@ try:
         messages = [m for m in messages if m.role == role_filter.lower()]
 
     if search_query:
-        messages = [
-            m for m in messages
-            if m.content and search_query.lower() in m.content.lower()
-        ]
+        messages = [m for m in messages if m.content and search_query.lower() in m.content.lower()]
 
     # Filter out messages with no content UNLESS they have tool uses
     messages = [
-        m for m in messages
+        m
+        for m in messages
         if (m.content and m.content.strip()) or (m.message_index in tools_by_message)
     ]
 
@@ -157,8 +154,7 @@ try:
         if target_message_index is not None:
             # Find position of target message in filtered list
             target_position = next(
-                (i for i, m in enumerate(messages) if m.message_index == target_message_index),
-                0
+                (i for i, m in enumerate(messages) if m.message_index == target_message_index), 0
             )
             # Calculate page number (0-indexed)
             initial_page = target_position // MESSAGES_PER_PAGE
@@ -179,7 +175,9 @@ try:
         messages_to_display = messages[start_idx:end_idx]
 
         # Show pagination info
-        st.info(f"📚 Large conversation ({total_messages:,} messages) - using pagination for better performance")
+        st.info(
+            f"📚 Large conversation ({total_messages:,} messages) - using pagination for better performance"
+        )
         st.write(f"**Showing messages {start_idx + 1}-{end_idx} of {total_messages:,}**")
     else:
         # Show all messages
@@ -187,9 +185,11 @@ try:
         st.write(f"**Showing {len(messages)} message(s)**")
 
     # Scroll to bottom button (only for non-paginated view)
-    if not use_pagination and len(messages) > 5:
-        if st.button("⬇️ Scroll to Bottom"):
-            st.markdown('<script>window.scrollTo(0, document.body.scrollHeight);</script>', unsafe_allow_html=True)
+    if not use_pagination and len(messages) > 5 and st.button("⬇️ Scroll to Bottom"):
+        st.markdown(
+            "<script>window.scrollTo(0, document.body.scrollHeight);</script>",
+            unsafe_allow_html=True,
+        )
 
     st.divider()
 
@@ -205,7 +205,7 @@ try:
         # Build header line
         role_emoji = "👤" if msg.role == "user" else "🤖"
         role_label = msg.role.upper()
-        timestamp = msg.timestamp.strftime('%H:%M:%S')
+        timestamp = msg.timestamp.strftime("%H:%M:%S")
 
         header_parts = [f"{role_emoji} **{role_label}**", f"`{timestamp}`"]
 
@@ -241,7 +241,7 @@ try:
                     st.code(result_text, language="text")
 
         # Close message container
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
         # Divider between messages
         st.markdown('<div class="msg-divider"></div>', unsafe_allow_html=True)
@@ -255,7 +255,9 @@ try:
             st.session_state[page_state_key] = max(0, st.session_state[page_state_key] - 1)
 
         def go_to_next_page():
-            st.session_state[page_state_key] = min(total_pages - 1, st.session_state[page_state_key] + 1)
+            st.session_state[page_state_key] = min(
+                total_pages - 1, st.session_state[page_state_key] + 1
+            )
 
         def update_page_from_input():
             new_page = st.session_state[f"page_input_{session_id}"] - 1
@@ -268,7 +270,10 @@ try:
                 st.button("← Previous Page", key=f"prev_btn_{session_id}", on_click=go_to_prev_page)
 
         with col2:
-            st.markdown(f"<center>**Page {current_page + 1} of {total_pages}**</center>", unsafe_allow_html=True)
+            st.markdown(
+                f"<center>**Page {current_page + 1} of {total_pages}**</center>",
+                unsafe_allow_html=True,
+            )
 
             # Jump to page using callback
             st.number_input(
@@ -277,7 +282,7 @@ try:
                 max_value=total_pages,
                 value=current_page + 1,
                 key=f"page_input_{session_id}",
-                on_change=update_page_from_input
+                on_change=update_page_from_input,
             )
 
         with col3:
@@ -298,7 +303,8 @@ try:
         scroll_to_message = None
 
     if scroll_to_message is not None:
-        components.html(f"""
+        components.html(
+            f"""
         <script>
             setTimeout(function() {{
                 const targetElement = window.parent.document.getElementById('msg-{scroll_to_message}');
@@ -307,16 +313,19 @@ try:
                 }}
             }}, 100);
         </script>
-        """, height=0)
+        """,
+            height=0,
+        )
 
     # Scroll to top button at bottom (for non-paginated view)
     if not use_pagination and len(messages_to_display) > 5:
         st.divider()
         if st.button("⬆️ Scroll to Top"):
-            st.markdown('<script>window.scrollTo(0, 0);</script>', unsafe_allow_html=True)
+            st.markdown("<script>window.scrollTo(0, 0);</script>", unsafe_allow_html=True)
 
 except Exception as e:
     st.error(f"Error loading conversation: {e}")
     import traceback
+
     with st.expander("Error details"):
         st.code(traceback.format_exc())

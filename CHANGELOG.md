@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Pre-commit Hooks** - Automated code quality checks before commits
+  - Black formatter (100 character line length)
+  - Ruff linter with auto-fix capabilities
+  - Bandit security scanner
+  - Mypy type checker (manual-only, non-blocking)
+  - Standard file checks (trailing whitespace, YAML/JSON validation, large files, merge conflicts, private keys)
+  - Comprehensive tool configurations in `pyproject.toml`
+- **Batch Insert Test Suite** - Comprehensive testing for database optimization
+  - Tests for `executemany()` batch operations
+  - Incremental import validation
+  - Session metadata accuracy verification
+  - Performance measurement and comparison
+- **Logging Documentation** - Standards and conventions for consistent logging
+  - `LOGGING.md` with setup patterns and usage guidelines
+  - Benefits of logging module over print statements
+  - Examples for programmatic log level control
 - **GitHub Gist Publishing with Security Scanning** - Share analysis results as GitHub Gists with automatic security checks
   - **Multi-layer Security Scanner** - Detect secrets, PII, and sensitive data before publishing
     - Gitleaks integration (350+ secret patterns: API keys, tokens, credentials)
@@ -141,13 +157,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Custom prompt creation guide
 
 ### Changed
+- **Code Quality Improvements** - Applied across all Python files (42 files modified)
+  - Modernized type hints (`typing.Dict` → `dict`, `typing.List` → `list`, `typing.Tuple` → `tuple`)
+  - Improved exception handling with proper exception chaining (`raise ... from err`)
+  - Optimized import ordering and removed unused imports
+  - Black code formatting with 100 character line length
+  - Fixed trailing whitespace and end-of-file issues
+- **Logging Standardization** - Production scripts now use Python's logging module
+  - `create_database.py` - Replaced print statements with structured logging
+  - `create_fts_index.py` - Replaced print statements with structured logging
+  - Configurable log levels for programmatic usage
 - README restructured for first-time users with clear prerequisites and 3-step quick start
+- README: Added Development section with pre-commit setup instructions
 - Analytics Dashboard: "Sessions by Project" chart changed to "Messages by Project"
 - Database queries: Project summaries ordered by message count
 - Configuration: All hardcoded paths moved to centralized config module
 - CLI workflow: Prioritize package commands over direct Python script execution
 
 ### Fixed
+- **FTS5 Query Safety** - Added error handling for invalid FTS5 syntax in user queries
+  - `search_fts.py` - Catch and provide helpful error messages for syntax errors
+  - `database_service.py` - Centralized FTS error handling with `_execute_fts_query()` helper
+  - Prevents crashes from malformed queries with unmatched quotes or invalid operators
+- **Timestamp Handling** - Defensive normalization for inconsistent timestamp formats
+  - Added `normalize_timestamp()` function in `import_conversations.py`
+  - Handles ISO 8601 strings, Unix epoch (seconds), Unix epoch (milliseconds)
+  - Validates and logs warnings for invalid timestamps instead of crashing
+- **Database Performance** - Optimized row-by-row inserts to use batch operations
+  - `import_conversations.py` - Changed to `executemany()` for messages and tool uses
+  - 5-10x performance improvement for large sessions
+  - Maintains data integrity with proper transaction handling
 - **Search Pagination Bugs** - Critical fixes to session-grouped search results
   - Missing GROUP BY in "All" scope causing only 1 session to appear instead of 3
   - Session filtering now uses SQL WHERE IN clause instead of Python filtering
@@ -160,6 +199,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **File permissions** - Sensitive files now created with secure permissions (600/700)
 
 ### Security
+- **PATH Injection Prevention** - Use `shutil.which()` to resolve full executable paths
+  - `GitleaksScanner` - Resolves and validates gitleaks executable path on initialization
+  - `cli.py` - Validates streamlit executable before launching dashboard
+  - `analysis.py` - Resolves git executable path for commit ID retrieval
+  - Prevents PATH manipulation attacks by using absolute paths for all subprocess calls
+  - Improves cross-platform compatibility (Windows, macOS, Linux)
 - **Secure file permissions** - All sensitive files now use restrictive permissions
   - Configuration file (`.env` with API keys): 600 (owner read/write only)
   - Database (`conversations.db`): 600 (owner read/write only)

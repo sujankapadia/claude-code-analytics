@@ -1,12 +1,9 @@
 """Session browser page."""
 
-import streamlit as st
 import pandas as pd
-import sys
-from pathlib import Path
+import streamlit as st
 
 # Add parent directory to path for imports
-
 from claude_code_analytics.streamlit_app.services import DatabaseService
 
 # Initialize service
@@ -17,9 +14,11 @@ db_service = st.session_state.db_service
 
 st.title("📚 Browse Sessions")
 
-st.markdown("""
+st.markdown(
+    """
 Browse and explore your Claude Code conversation sessions organized by project.
-""")
+"""
+)
 
 # Display quick stats at the top
 try:
@@ -70,8 +69,7 @@ try:
         else:
             # Session selector
             session_options = {
-                f"{s.session_id[:8]}... ({s.start_time})": s.session_id
-                for s in sessions
+                f"{s.session_id[:8]}... ({s.start_time})": s.session_id for s in sessions
             }
 
             selected_session_display = st.selectbox(
@@ -165,5 +163,6 @@ try:
 except Exception as e:
     st.error(f"Error loading projects: {e}")
     import traceback
+
     with st.expander("Error details"):
         st.code(traceback.format_exc())

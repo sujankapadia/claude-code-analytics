@@ -2,8 +2,8 @@
 
 from .base import ScanFinding, ScanSeverity
 from .gitleaks import GitleaksScanner
-from .regex_scanner import RegexPatternScanner
 from .multi_layer import MultiLayerScanner
+from .regex_scanner import RegexPatternScanner
 
 __all__ = [
     "ScanFinding",

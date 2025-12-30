@@ -8,16 +8,29 @@ This script:
 3. Supports boolean queries, phrase matching, and advanced search
 """
 
+import logging
 import sqlite3
-from pathlib import Path
 import sys
 
 from claude_code_analytics import config
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 
 FTS_SCHEMA = """
 -- ============================================================================
 -- FTS5 VIRTUAL TABLES
+-- ============================================================================
+--
+-- SECURITY NOTE: FTS5 queries accept user input via parameterized queries (?).
+-- While this prevents SQL injection, it does NOT prevent FTS5 syntax errors.
+-- User-supplied queries with invalid syntax (unmatched quotes, invalid operators)
+-- will cause sqlite3.OperationalError exceptions.
+--
+-- All code using MATCH queries should handle these errors gracefully with
+-- try-except blocks and provide helpful error messages to users.
 -- ============================================================================
 
 -- Drop existing tables if they exist
@@ -57,22 +70,23 @@ def create_fts_index(db_path: str):
     Args:
         db_path: Path to SQLite database
     """
-    print("🚀 Creating FTS5 indexes...")
-    print(f"📊 Database: {db_path}\n")
+    logger.info("Creating FTS5 indexes...")
+    logger.info(f"Database: {db_path}")
 
     conn = sqlite3.connect(db_path)
 
     try:
         # Create FTS5 tables
-        print("1️⃣  Creating FTS5 virtual tables...")
+        logger.info("Creating FTS5 virtual tables...")
         conn.executescript(FTS_SCHEMA)
-        print("   ✅ Created fts_messages and fts_tool_uses tables\n")
+        logger.info("Created fts_messages and fts_tool_uses tables")
 
         # Populate fts_messages from messages table
-        print("2️⃣  Populating fts_messages...")
+        logger.info("Populating fts_messages...")
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO fts_messages (
                 rowid, content, role, project_name, session_id,
                 message_id, timestamp, message_index
@@ -90,15 +104,17 @@ def create_fts_index(db_path: str):
             JOIN sessions s ON m.session_id = s.session_id
             JOIN projects p ON s.project_id = p.project_id
             WHERE m.content IS NOT NULL AND LENGTH(m.content) > 0
-        """)
+        """
+        )
 
         message_count = cursor.rowcount
-        print(f"   ✅ Indexed {message_count:,} messages\n")
+        logger.info(f"Indexed {message_count:,} messages")
 
         # Populate fts_tool_uses from tool_uses table
-        print("3️⃣  Populating fts_tool_uses...")
+        logger.info("Populating fts_tool_uses...")
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO fts_tool_uses (
                 rowid, tool_name, tool_input, tool_result, project_name,
                 session_id, tool_use_id, timestamp
@@ -115,34 +131,37 @@ def create_fts_index(db_path: str):
             FROM tool_uses t
             JOIN sessions s ON t.session_id = s.session_id
             JOIN projects p ON s.project_id = p.project_id
-        """)
+        """
+        )
 
         tool_count = cursor.rowcount
-        print(f"   ✅ Indexed {tool_count:,} tool uses\n")
+        logger.info(f"Indexed {tool_count:,} tool uses")
 
         conn.commit()
 
         # Show statistics
-        print("📊 FTS5 Index Statistics:")
-        print(f"   Messages indexed: {message_count:,}")
-        print(f"   Tool uses indexed: {tool_count:,}")
+        logger.info("FTS5 Index Statistics:")
+        logger.info(f"  Messages indexed: {message_count:,}")
+        logger.info(f"  Tool uses indexed: {tool_count:,}")
 
         # Calculate index size
-        cursor.execute("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
+        cursor.execute(
+            "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()"
+        )
         db_size_bytes = cursor.fetchone()[0]
         db_size_mb = db_size_bytes / (1024 * 1024)
-        print(f"   Total database size: {db_size_mb:.1f} MB")
+        logger.info(f"  Total database size: {db_size_mb:.1f} MB")
 
-        print("\n✅ FTS5 indexing complete!")
-        print("\n💡 Search features available:")
-        print("   • Boolean: 'async AND error'")
-        print("   • Phrase: '\"promise rejection\"'")
-        print("   • Exclude: 'typescript NOT react'")
-        print("   • Wildcard: 'data*'")
-        print("   • Column: 'role:user async'")
+        logger.info("FTS5 indexing complete!")
+        logger.info("Search features available:")
+        logger.info("  Boolean: 'async AND error'")
+        logger.info("  Phrase: '\"promise rejection\"'")
+        logger.info("  Exclude: 'typescript NOT react'")
+        logger.info("  Wildcard: 'data*'")
+        logger.info("  Column: 'role:user async'")
 
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        logger.error(f"Error: {e}")
         conn.rollback()
         raise
     finally:
@@ -156,19 +175,20 @@ def main():
 
     # Check if database exists
     if not db_path.exists():
-        print(f"❌ Database not found: {db_path}")
-        print("   Run import_conversations.py first to create and populate the database.")
+        logger.error(f"Database not found: {db_path}")
+        logger.info("Run import_conversations.py first to create and populate the database.")
         sys.exit(1)
 
     # Create FTS index
     try:
         create_fts_index(str(db_path))
     except KeyboardInterrupt:
-        print("\n\n⚠️  Interrupted by user")
+        logger.warning("Interrupted by user")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ Fatal error: {e}")
+        logger.error(f"Fatal error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

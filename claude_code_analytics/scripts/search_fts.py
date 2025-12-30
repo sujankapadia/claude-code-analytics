@@ -14,18 +14,15 @@ Examples:
 
 import argparse
 import sqlite3
-from pathlib import Path
 import sys
-from typing import List, Dict, Optional
 from datetime import datetime
+from pathlib import Path
+from typing import Optional
 
 
 def get_message_context(
-    db_path: str,
-    session_id: str,
-    message_index: int,
-    context_size: int = 2
-) -> Dict:
+    db_path: str, session_id: str, message_index: int, context_size: int = 2
+) -> dict:
     """
     Fetch surrounding context for a message.
 
@@ -58,29 +55,22 @@ def get_message_context(
     messages = [dict(row) for row in cursor.fetchall()]
     conn.close()
 
-    result = {
-        "previous": [],
-        "current": None,
-        "next": []
-    }
+    result = {"previous": [], "current": None, "next": []}
 
     for msg in messages:
-        if msg['message_index'] < message_index:
-            result['previous'].append(msg)
-        elif msg['message_index'] == message_index:
-            result['current'] = msg
+        if msg["message_index"] < message_index:
+            result["previous"].append(msg)
+        elif msg["message_index"] == message_index:
+            result["current"] = msg
         else:
-            result['next'].append(msg)
+            result["next"].append(msg)
 
     return result
 
 
 def get_tool_context(
-    db_path: str,
-    session_id: str,
-    tool_timestamp: str,
-    context_size: int = 2
-) -> Dict:
+    db_path: str, session_id: str, tool_timestamp: str, context_size: int = 2
+) -> dict:
     """
     Fetch surrounding messages for a tool use based on timestamp.
 
@@ -129,10 +119,7 @@ def get_tool_context(
 
     conn.close()
 
-    return {
-        "previous": before,
-        "next": after
-    }
+    return {"previous": before, "next": after}
 
 
 def format_timestamp(ts: Optional[str]) -> str:
@@ -140,7 +127,7 @@ def format_timestamp(ts: Optional[str]) -> str:
     if not ts:
         return "Unknown time"
     try:
-        dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
         return dt.strftime("%Y-%m-%d %H:%M")
     except:
         return ts
@@ -170,23 +157,26 @@ def search_messages(
     query: str,
     project: Optional[str] = None,
     role: Optional[str] = None,
-    limit: int = 10
-) -> List[Dict]:
+    limit: int = 10,
+) -> list[dict]:
     """
     Search messages using FTS5.
 
     Args:
         conn: Database connection
-        query: FTS5 search query
+        query: FTS5 search query (user-supplied, may contain FTS5 operators)
         project: Filter by project name
         role: Filter by role
         limit: Maximum results
 
     Returns:
         List of matching messages
+
+    Raises:
+        sqlite3.OperationalError: If FTS5 query syntax is invalid
     """
     # Build WHERE clause
-    where_parts = [f"fts_messages MATCH ?"]
+    where_parts = ["fts_messages MATCH ?"]
     params = [query]
 
     if project:
@@ -219,44 +209,57 @@ def search_messages(
     params.append(limit)
 
     cursor = conn.cursor()
-    cursor.execute(sql, params)
+
+    try:
+        cursor.execute(sql, params)
+    except sqlite3.OperationalError as e:
+        # FTS5 syntax error - provide helpful message
+        if "fts5" in str(e).lower() or "syntax error" in str(e).lower():
+            raise sqlite3.OperationalError(
+                f"Invalid FTS5 query syntax: {e}\n"
+                f"Query: '{query}'\n"
+                f"Tip: Check for unmatched quotes, invalid operators, or special characters"
+            ) from e
+        raise
 
     results = []
     for row in cursor.fetchall():
-        results.append({
-            'message_id': row[0],
-            'session_id': row[1],
-            'message_index': row[2],
-            'role': row[3],
-            'content': row[4],
-            'project_name': row[5],
-            'timestamp': row[6],
-            'rank': row[7],
-            'type': 'message'
-        })
+        results.append(
+            {
+                "message_id": row[0],
+                "session_id": row[1],
+                "message_index": row[2],
+                "role": row[3],
+                "content": row[4],
+                "project_name": row[5],
+                "timestamp": row[6],
+                "rank": row[7],
+                "type": "message",
+            }
+        )
 
     return results
 
 
 def search_tools(
-    conn: sqlite3.Connection,
-    query: str,
-    project: Optional[str] = None,
-    limit: int = 10
-) -> List[Dict]:
+    conn: sqlite3.Connection, query: str, project: Optional[str] = None, limit: int = 10
+) -> list[dict]:
     """
     Search tool uses using FTS5.
 
     Args:
         conn: Database connection
-        query: FTS5 search query
+        query: FTS5 search query (user-supplied, may contain FTS5 operators)
         project: Filter by project name
         limit: Maximum results
 
     Returns:
         List of matching tool uses
+
+    Raises:
+        sqlite3.OperationalError: If FTS5 query syntax is invalid
     """
-    where_parts = [f"fts_tool_uses MATCH ?"]
+    where_parts = ["fts_tool_uses MATCH ?"]
     params = [query]
 
     if project:
@@ -284,29 +287,43 @@ def search_tools(
     params.append(limit)
 
     cursor = conn.cursor()
-    cursor.execute(sql, params)
+
+    try:
+        cursor.execute(sql, params)
+    except sqlite3.OperationalError as e:
+        # FTS5 syntax error - provide helpful message
+        if "fts5" in str(e).lower() or "syntax error" in str(e).lower():
+            raise sqlite3.OperationalError(
+                f"Invalid FTS5 query syntax: {e}\n"
+                f"Query: '{query}'\n"
+                f"Tip: Check for unmatched quotes, invalid operators, or special characters"
+            ) from e
+        raise
 
     results = []
     for row in cursor.fetchall():
-        results.append({
-            'tool_use_id': row[0],
-            'session_id': row[1],
-            'tool_name': row[2],
-            'tool_input': row[3],
-            'tool_result': row[4],
-            'project_name': row[5],
-            'timestamp': row[6],
-            'rank': row[7],
-            'type': 'tool'
-        })
+        results.append(
+            {
+                "tool_use_id": row[0],
+                "session_id": row[1],
+                "tool_name": row[2],
+                "tool_input": row[3],
+                "tool_result": row[4],
+                "project_name": row[5],
+                "timestamp": row[6],
+                "rank": row[7],
+                "type": "tool",
+            }
+        )
 
     return results
 
 
-def display_results(results: List[Dict], db_path: str, context_size: int, show_json: bool):
+def display_results(results: list[dict], db_path: str, context_size: int, show_json: bool):
     """Display search results."""
     if show_json:
         import json
+
         print(json.dumps(results, indent=2))
         return
 
@@ -315,7 +332,7 @@ def display_results(results: List[Dict], db_path: str, context_size: int, show_j
     print(f"{'='*80}\n")
 
     for idx, result in enumerate(results, 1):
-        if result['type'] == 'message':
+        if result["type"] == "message":
             # Display message result
             print(f"[{idx}] MESSAGE")
             print(f"    Project: {result['project_name']}")
@@ -327,37 +344,38 @@ def display_results(results: List[Dict], db_path: str, context_size: int, show_j
 
             if context_size > 0:
                 context = get_message_context(
-                    db_path,
-                    result['session_id'],
-                    result['message_index'],
-                    context_size
+                    db_path, result["session_id"], result["message_index"], context_size
                 )
 
-                if context['previous']:
+                if context["previous"]:
                     print("    Context (before):")
-                    for msg in context['previous']:
-                        role_symbol = "👤" if msg['role'] == 'user' else "🤖"
-                        preview = msg['content'][:100] + ("..." if len(msg['content']) > 100 else "")
+                    for msg in context["previous"]:
+                        role_symbol = "👤" if msg["role"] == "user" else "🤖"
+                        preview = msg["content"][:100] + (
+                            "..." if len(msg["content"]) > 100 else ""
+                        )
                         print(f"      {role_symbol} {preview}")
                     print()
 
                 print("    >>> MATCHED MESSAGE <<<")
-                role_symbol = "👤" if result['role'] == 'user' else "🤖"
+                role_symbol = "👤" if result["role"] == "user" else "🤖"
                 print(f"    {role_symbol} {result['content']}")
                 print()
 
-                if context['next']:
+                if context["next"]:
                     print("    Context (after):")
-                    for msg in context['next']:
-                        role_symbol = "👤" if msg['role'] == 'user' else "🤖"
-                        preview = msg['content'][:100] + ("..." if len(msg['content']) > 100 else "")
+                    for msg in context["next"]:
+                        role_symbol = "👤" if msg["role"] == "user" else "🤖"
+                        preview = msg["content"][:100] + (
+                            "..." if len(msg["content"]) > 100 else ""
+                        )
                         print(f"      {role_symbol} {preview}")
                     print()
             else:
                 print(f"    {result['content']}")
                 print()
 
-        elif result['type'] == 'tool':
+        elif result["type"] == "tool":
             # Display tool result
             print(f"[{idx}] TOOL: {result['tool_name']}")
             print(f"    Project: {result['project_name']}")
@@ -368,37 +386,36 @@ def display_results(results: List[Dict], db_path: str, context_size: int, show_j
 
             if context_size > 0:
                 context = get_tool_context(
-                    db_path,
-                    result['session_id'],
-                    result['timestamp'],
-                    context_size
+                    db_path, result["session_id"], result["timestamp"], context_size
                 )
 
-                if context['previous']:
+                if context["previous"]:
                     print("    Context (before):")
-                    for msg in context['previous']:
-                        role_symbol = "👤" if msg['role'] == 'user' else "🤖"
-                        preview = msg['content'][:100] + ("..." if len(msg['content']) > 100 else "")
+                    for msg in context["previous"]:
+                        role_symbol = "👤" if msg["role"] == "user" else "🤖"
+                        preview = msg["content"][:100] + (
+                            "..." if len(msg["content"]) > 100 else ""
+                        )
                         print(f"      {role_symbol} {preview}")
                     print()
 
             print("    >>> TOOL USE <<<")
-            if result['tool_input']:
+            if result["tool_input"]:
                 print(f"    Input: {result['tool_input'][:200]}")
                 print()
 
-            if result['tool_result']:
-                result_preview = result['tool_result'][:300]
-                if len(result['tool_result']) > 300:
+            if result["tool_result"]:
+                result_preview = result["tool_result"][:300]
+                if len(result["tool_result"]) > 300:
                     result_preview += "..."
                 print(f"    Result:\n    {result_preview}")
                 print()
 
-            if context_size > 0 and context['next']:
+            if context_size > 0 and context["next"]:
                 print("    Context (after):")
-                for msg in context['next']:
-                    role_symbol = "👤" if msg['role'] == 'user' else "🤖"
-                    preview = msg['content'][:100] + ("..." if len(msg['content']) > 100 else "")
+                for msg in context["next"]:
+                    role_symbol = "👤" if msg["role"] == "user" else "🤖"
+                    preview = msg["content"][:100] + ("..." if len(msg["content"]) > 100 else "")
                     print(f"      {role_symbol} {preview}")
                 print()
 
@@ -424,15 +441,26 @@ Examples:
   %(prog)s '"promise rejection"' --project=monolog
   %(prog)s "database performance" --messages --limit=5
   %(prog)s "typescript NOT react" --role=user
-        """
+        """,
     )
 
     parser.add_argument("query", help="FTS5 search query")
-    parser.add_argument("--limit", type=int, default=10, help="Maximum number of results (default: 10)")
+    parser.add_argument(
+        "--limit", type=int, default=10, help="Maximum number of results (default: 10)"
+    )
     parser.add_argument("--project", help="Filter by project name (substring match)")
-    parser.add_argument("--role", choices=["user", "assistant"], help="Filter by speaker role (messages only)")
-    parser.add_argument("--context", type=int, default=2, help="Number of messages to show before/after (default: 2)")
-    parser.add_argument("--messages", action="store_true", help="Search only messages (default: both)")
+    parser.add_argument(
+        "--role", choices=["user", "assistant"], help="Filter by speaker role (messages only)"
+    )
+    parser.add_argument(
+        "--context",
+        type=int,
+        default=2,
+        help="Number of messages to show before/after (default: 2)",
+    )
+    parser.add_argument(
+        "--messages", action="store_true", help="Search only messages (default: both)"
+    )
     parser.add_argument("--tools", action="store_true", help="Search only tool uses")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
 
@@ -459,7 +487,7 @@ Examples:
 
     # Perform search
     try:
-        print(f"🔍 Searching for: \"{args.query}\"")
+        print(f'🔍 Searching for: "{args.query}"')
 
         all_results = []
 
@@ -469,28 +497,19 @@ Examples:
 
         if search_messages_flag:
             message_results = search_messages(
-                conn,
-                args.query,
-                project=args.project,
-                role=args.role,
-                limit=args.limit
+                conn, args.query, project=args.project, role=args.role, limit=args.limit
             )
             all_results.extend(message_results)
 
         if search_tools_flag:
-            tool_results = search_tools(
-                conn,
-                args.query,
-                project=args.project,
-                limit=args.limit
-            )
+            tool_results = search_tools(conn, args.query, project=args.project, limit=args.limit)
             all_results.extend(tool_results)
 
         # Sort by rank
-        all_results.sort(key=lambda x: x['rank'])
+        all_results.sort(key=lambda x: x["rank"])
 
         # Trim to limit
-        all_results = all_results[:args.limit]
+        all_results = all_results[: args.limit]
 
         if not all_results:
             print("\n❌ No results found")
@@ -505,6 +524,7 @@ Examples:
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
     finally:

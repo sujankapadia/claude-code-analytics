@@ -9,15 +9,14 @@ This script:
 """
 
 import sqlite3
+import sys
+from pathlib import Path
+
 import chromadb
 from sentence_transformers import SentenceTransformer
-from pathlib import Path
-import sys
-from typing import List, Dict
-from datetime import datetime
 
 
-def get_all_messages(db_path: str) -> List[Dict]:
+def get_all_messages(db_path: str) -> list[dict]:
     """
     Fetch all messages from SQLite with relevant metadata.
 
@@ -97,14 +96,13 @@ def embed_conversations(db_path: str, chroma_path: str, batch_size: int = 100):
         pass
 
     collection = client.create_collection(
-        name="conversations",
-        metadata={"description": "Claude Code conversation history"}
+        name="conversations", metadata={"description": "Claude Code conversation history"}
     )
-    print(f"   Created collection: conversations\n")
+    print("   Created collection: conversations\n")
 
     # Load embedding model
     print("3️⃣  Loading embedding model (all-mpnet-base-v2)...")
-    model = SentenceTransformer('all-mpnet-base-v2')
+    model = SentenceTransformer("all-mpnet-base-v2")
     print(f"   Model loaded: {model.get_sentence_embedding_dimension()} dimensions\n")
 
     # Process messages in batches
@@ -112,24 +110,24 @@ def embed_conversations(db_path: str, chroma_path: str, batch_size: int = 100):
     total = len(messages)
 
     for i in range(0, total, batch_size):
-        batch = messages[i:i + batch_size]
+        batch = messages[i : i + batch_size]
         batch_end = min(i + batch_size, total)
 
         # Prepare data for this batch
-        documents = [msg['content'] for msg in batch]
+        documents = [msg["content"] for msg in batch]
         ids = [f"msg_{msg['message_id']}" for msg in batch]
         metadatas = [
             {
-                "message_id": str(msg['message_id']),
-                "session_id": msg['session_id'],
-                "project_id": msg['project_id'],
-                "project_name": msg['project_name'],
-                "role": msg['role'],
-                "timestamp": msg['timestamp'] or "",
-                "message_index": msg['message_index'],
-                "preview": create_preview(msg['content']),
-                "session_start": msg['session_start'] or "",
-                "session_message_count": msg['session_message_count']
+                "message_id": str(msg["message_id"]),
+                "session_id": msg["session_id"],
+                "project_id": msg["project_id"],
+                "project_name": msg["project_name"],
+                "role": msg["role"],
+                "timestamp": msg["timestamp"] or "",
+                "message_index": msg["message_index"],
+                "preview": create_preview(msg["content"]),
+                "session_start": msg["session_start"] or "",
+                "session_message_count": msg["session_message_count"],
             }
             for msg in batch
         ]
@@ -138,18 +136,13 @@ def embed_conversations(db_path: str, chroma_path: str, batch_size: int = 100):
         embeddings = model.encode(documents, show_progress_bar=False).tolist()
 
         # Add to ChromaDB
-        collection.add(
-            documents=documents,
-            embeddings=embeddings,
-            metadatas=metadatas,
-            ids=ids
-        )
+        collection.add(documents=documents, embeddings=embeddings, metadatas=metadatas, ids=ids)
 
         # Progress indicator
         progress = (batch_end / total) * 100
         print(f"   Progress: {batch_end:,}/{total:,} ({progress:.1f}%)")
 
-    print(f"\n✅ Embedding complete!")
+    print("\n✅ Embedding complete!")
     print(f"   Total messages embedded: {total:,}")
     print(f"   Collection size: {collection.count():,}")
 
@@ -158,14 +151,14 @@ def embed_conversations(db_path: str, chroma_path: str, batch_size: int = 100):
     roles = {}
     projects = {}
     for msg in messages:
-        roles[msg['role']] = roles.get(msg['role'], 0) + 1
-        projects[msg['project_name']] = projects.get(msg['project_name'], 0) + 1
+        roles[msg["role"]] = roles.get(msg["role"], 0) + 1
+        projects[msg["project_name"]] = projects.get(msg["project_name"], 0) + 1
 
-    print(f"   By role:")
+    print("   By role:")
     for role, count in sorted(roles.items()):
         print(f"     {role}: {count:,}")
 
-    print(f"   By project (top 5):")
+    print("   By project (top 5):")
     for project, count in sorted(projects.items(), key=lambda x: x[1], reverse=True)[:5]:
         print(f"     {project}: {count:,}")
 
@@ -192,6 +185,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

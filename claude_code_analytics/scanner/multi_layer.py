@@ -1,6 +1,6 @@
 """Multi-layer scanner orchestrator combining multiple scanning methods."""
 
-from typing import List, Optional, Dict, Tuple, Set
+from typing import Optional
 
 from .base import ScanFinding, ScanSeverity
 from .gitleaks import GitleaksScanner
@@ -19,8 +19,8 @@ class MultiLayerScanner:
         enable_gitleaks: bool = True,
         enable_regex: bool = True,
         gitleaks_config: Optional[str] = None,
-        custom_patterns: Optional[List[Dict]] = None,
-        regex_allowed_patterns: Optional[Dict[str, List[str]]] = None
+        custom_patterns: Optional[list[dict]] = None,
+        regex_allowed_patterns: Optional[dict[str, list[str]]] = None,
     ):
         """
         Initialize multi-layer scanner.
@@ -37,25 +37,18 @@ class MultiLayerScanner:
         # Initialize enabled scanners
         if enable_gitleaks:
             try:
-                self.scanners.append(
-                    GitleaksScanner(config_path=gitleaks_config)
-                )
+                self.scanners.append(GitleaksScanner(config_path=gitleaks_config))
             except RuntimeError as e:
                 print(f"Warning: Gitleaks disabled - {e}")
 
         if enable_regex:
             self.scanners.append(
                 RegexPatternScanner(
-                    custom_patterns=custom_patterns,
-                    allowed_patterns=regex_allowed_patterns
+                    custom_patterns=custom_patterns, allowed_patterns=regex_allowed_patterns
                 )
             )
 
-    def scan(
-        self,
-        content: str,
-        filename: str = "content.txt"
-    ) -> Tuple[bool, List[ScanFinding]]:
+    def scan(self, content: str, filename: str = "content.txt") -> tuple[bool, list[ScanFinding]]:
         """
         Scan content through all enabled layers.
 
@@ -78,18 +71,14 @@ class MultiLayerScanner:
         # Determine if content is safe to publish
         # Block on CRITICAL and HIGH severity
         blocking_findings = [
-            f for f in all_findings
-            if f.severity in (ScanSeverity.CRITICAL, ScanSeverity.HIGH)
+            f for f in all_findings if f.severity in (ScanSeverity.CRITICAL, ScanSeverity.HIGH)
         ]
 
         is_safe = len(blocking_findings) == 0
 
         return is_safe, all_findings
 
-    def scan_multiple(
-        self,
-        contents: Dict[str, str]
-    ) -> Tuple[bool, Dict[str, List[ScanFinding]]]:
+    def scan_multiple(self, contents: dict[str, str]) -> tuple[bool, dict[str, list[ScanFinding]]]:
         """
         Scan multiple files.
 
@@ -114,7 +103,7 @@ class MultiLayerScanner:
         return all_safe, all_findings
 
     @staticmethod
-    def format_report(findings: List[ScanFinding]) -> str:
+    def format_report(findings: list[ScanFinding]) -> str:
         """Format findings into human-readable report."""
         if not findings:
             return "✅ No sensitive data detected"
@@ -124,7 +113,7 @@ class MultiLayerScanner:
             ScanSeverity.CRITICAL: [],
             ScanSeverity.HIGH: [],
             ScanSeverity.MEDIUM: [],
-            ScanSeverity.LOW: []
+            ScanSeverity.LOW: [],
         }
 
         for finding in findings:
@@ -132,26 +121,24 @@ class MultiLayerScanner:
 
         lines = ["❌ Sensitive data detected:\n"]
 
-        for severity in [ScanSeverity.CRITICAL, ScanSeverity.HIGH,
-                        ScanSeverity.MEDIUM, ScanSeverity.LOW]:
+        for severity in [
+            ScanSeverity.CRITICAL,
+            ScanSeverity.HIGH,
+            ScanSeverity.MEDIUM,
+            ScanSeverity.LOW,
+        ]:
             items = by_severity[severity]
             if items:
                 lines.append(f"\n{severity.value.upper()} ({len(items)}):")
                 for finding in items:
                     lines.append(
-                        f"  • {finding.category}/{finding.rule_id}: "
-                        f"{finding.description}"
+                        f"  • {finding.category}/{finding.rule_id}: " f"{finding.description}"
                     )
                     if finding.line_number:
-                        lines.append(
-                            f"    Line {finding.line_number}: "
-                            f"{finding.matched_text}"
-                        )
+                        lines.append(f"    Line {finding.line_number}: " f"{finding.matched_text}")
                     else:
                         lines.append(f"    Match: {finding.matched_text}")
                     if finding.confidence < 1.0:
-                        lines.append(
-                            f"    Confidence: {finding.confidence:.0%}"
-                        )
+                        lines.append(f"    Confidence: {finding.confidence:.0%}")
 
         return "\n".join(lines)

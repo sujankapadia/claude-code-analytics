@@ -1,14 +1,16 @@
 """GitHub Gist publishing service with security scanning."""
 
-import requests
-from typing import Optional, Dict, Tuple, List
 from datetime import datetime
+from typing import Optional
+
+import requests
 
 from claude_code_analytics.scanner import MultiLayerScanner, ScanFinding
 
 
 class SecurityError(Exception):
     """Raised when security scan detects blocking issues."""
+
     pass
 
 
@@ -21,11 +23,7 @@ class GistPublisher:
 
     GITHUB_API_URL = "https://api.github.com/gists"
 
-    def __init__(
-        self,
-        github_token: str,
-        scanner: Optional[MultiLayerScanner] = None
-    ):
+    def __init__(self, github_token: str, scanner: Optional[MultiLayerScanner] = None):
         """
         Initialize Gist publisher.
 
@@ -40,10 +38,7 @@ class GistPublisher:
 
         # Initialize scanner if not provided
         if scanner is None:
-            self.scanner = MultiLayerScanner(
-                enable_gitleaks=True,
-                enable_regex=True
-            )
+            self.scanner = MultiLayerScanner(enable_gitleaks=True, enable_regex=True)
         else:
             self.scanner = scanner
 
@@ -55,8 +50,8 @@ class GistPublisher:
         is_public: bool = False,
         analysis_filename: str = "analysis.md",
         session_filename: str = "session.txt",
-        skip_scan: bool = False
-    ) -> Tuple[bool, str, List[ScanFinding]]:
+        skip_scan: bool = False,
+    ) -> tuple[bool, str, list[ScanFinding]]:
         """
         Publish analysis and optional session to GitHub Gist.
 
@@ -82,9 +77,7 @@ class GistPublisher:
 
         # Scan content for sensitive data
         if not skip_scan:
-            files_to_scan = {
-                analysis_filename: analysis_content
-            }
+            files_to_scan = {analysis_filename: analysis_content}
 
             if session_content:
                 files_to_scan[session_filename] = session_content
@@ -100,16 +93,12 @@ class GistPublisher:
                 error_msg = ["❌ Cannot publish - sensitive data detected:\n"]
                 for filename, file_findings in findings_by_file.items():
                     error_msg.append(f"\n📄 {filename}:")
-                    error_msg.append(
-                        MultiLayerScanner.format_report(file_findings)
-                    )
+                    error_msg.append(MultiLayerScanner.format_report(file_findings))
                 error_text = "\n".join(error_msg)
                 return False, error_text, all_findings
 
         # Prepare gist files
-        gist_files = {
-            analysis_filename: {"content": analysis_content}
-        }
+        gist_files = {analysis_filename: {"content": analysis_content}}
 
         if session_content:
             gist_files[session_filename] = {"content": session_content}
@@ -119,16 +108,14 @@ class GistPublisher:
             description=description,
             has_session=session_content is not None,
             analysis_filename=analysis_filename,
-            session_filename=session_filename
+            session_filename=session_filename,
         )
         gist_files["README.md"] = {"content": readme_content}
 
         # Create gist via GitHub API
         try:
             gist_url = self._create_gist(
-                files=gist_files,
-                description=description,
-                is_public=is_public
+                files=gist_files, description=description, is_public=is_public
             )
             return True, gist_url, all_findings
 
@@ -137,10 +124,7 @@ class GistPublisher:
             return False, error_msg, all_findings
 
     def _create_gist(
-        self,
-        files: Dict[str, Dict[str, str]],
-        description: str,
-        is_public: bool
+        self, files: dict[str, dict[str, str]], description: str, is_public: bool
     ) -> str:
         """
         Create a gist via GitHub API.
@@ -159,21 +143,12 @@ class GistPublisher:
         headers = {
             "Authorization": f"Bearer {self.github_token}",
             "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28"
+            "X-GitHub-Api-Version": "2022-11-28",
         }
 
-        data = {
-            "description": description,
-            "public": is_public,
-            "files": files
-        }
+        data = {"description": description, "public": is_public, "files": files}
 
-        response = requests.post(
-            self.GITHUB_API_URL,
-            headers=headers,
-            json=data,
-            timeout=30
-        )
+        response = requests.post(self.GITHUB_API_URL, headers=headers, json=data, timeout=30)
 
         # Handle errors
         if response.status_code == 401:
@@ -194,11 +169,7 @@ class GistPublisher:
         return gist_data["html_url"]
 
     def _generate_readme(
-        self,
-        description: str,
-        has_session: bool,
-        analysis_filename: str,
-        session_filename: str
+        self, description: str, has_session: bool, analysis_filename: str, session_filename: str
     ) -> str:
         """Generate README content for gist."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

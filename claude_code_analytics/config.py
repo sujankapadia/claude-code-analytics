@@ -6,6 +6,7 @@ Supports variable interpolation in .env files.
 
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Load environment variables with interpolation support
@@ -24,69 +25,70 @@ def _expanduser(path_str: str) -> Path:
 
 # Base directory for all conversation data
 CLAUDE_CONVERSATIONS_DIR = _expanduser(
-    os.getenv('CLAUDE_CONVERSATIONS_DIR', '~/claude-conversations')
+    os.getenv("CLAUDE_CONVERSATIONS_DIR", "~/claude-conversations")
 )
 
 # Analysis output directory (defaults to subdirectory of base)
 ANALYSIS_OUTPUT_DIR = _expanduser(
-    os.getenv('ANALYSIS_OUTPUT_DIR', str(CLAUDE_CONVERSATIONS_DIR / 'analyses'))
+    os.getenv("ANALYSIS_OUTPUT_DIR", str(CLAUDE_CONVERSATIONS_DIR / "analyses"))
 )
 
 # Database path (defaults to file in base directory)
 DATABASE_PATH = _expanduser(
-    os.getenv('DATABASE_PATH', str(CLAUDE_CONVERSATIONS_DIR / 'conversations.db'))
+    os.getenv("DATABASE_PATH", str(CLAUDE_CONVERSATIONS_DIR / "conversations.db"))
 )
 
 # Claude Code directories (hardcoded by Claude Code - cannot be changed)
-CLAUDE_CODE_CONFIG_DIR = Path.home() / '.claude'
-CLAUDE_CODE_PROJECTS_DIR = CLAUDE_CODE_CONFIG_DIR / 'projects'
-CLAUDE_CODE_SETTINGS_FILE = CLAUDE_CODE_CONFIG_DIR / 'settings.json'
+CLAUDE_CODE_CONFIG_DIR = Path.home() / ".claude"
+CLAUDE_CODE_PROJECTS_DIR = CLAUDE_CODE_CONFIG_DIR / "projects"
+CLAUDE_CODE_SETTINGS_FILE = CLAUDE_CODE_CONFIG_DIR / "settings.json"
 
 # =============================================================================
 # Pagination Settings
 # =============================================================================
 
-PAGINATION_THRESHOLD = int(os.getenv('PAGINATION_THRESHOLD', '500'))
-MESSAGES_PER_PAGE = int(os.getenv('MESSAGES_PER_PAGE', '100'))
+PAGINATION_THRESHOLD = int(os.getenv("PAGINATION_THRESHOLD", "500"))
+MESSAGES_PER_PAGE = int(os.getenv("MESSAGES_PER_PAGE", "100"))
 
 # =============================================================================
 # Search Configuration
 # =============================================================================
 
-SEARCH_RESULTS_PER_PAGE = int(os.getenv('SEARCH_RESULTS_PER_PAGE', '10'))
+SEARCH_RESULTS_PER_PAGE = int(os.getenv("SEARCH_RESULTS_PER_PAGE", "10"))
 
 # =============================================================================
 # Display Settings
 # =============================================================================
 
-TOOL_RESULT_MAX_LENGTH = int(os.getenv('TOOL_RESULT_MAX_LENGTH', '2000'))
+TOOL_RESULT_MAX_LENGTH = int(os.getenv("TOOL_RESULT_MAX_LENGTH", "2000"))
 
 # =============================================================================
 # Debug Logging
 # =============================================================================
 
 CLAUDE_EXPORT_DEBUG_LOG = _expanduser(
-    os.getenv('CLAUDE_EXPORT_DEBUG_LOG', '~/.claude/export-debug.log')
+    os.getenv("CLAUDE_EXPORT_DEBUG_LOG", "~/.claude/export-debug.log")
 )
 
 # =============================================================================
 # LLM API Configuration
 # =============================================================================
 
-OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
-OPENROUTER_MODEL = os.getenv('OPENROUTER_MODEL', 'deepseek/deepseek-v3.2')
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-v3.2")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # =============================================================================
 # GitHub Integration
 # =============================================================================
 
-GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 
 # =============================================================================
 # Validation and Initialization
 # =============================================================================
+
 
 def ensure_directories():
     """Create necessary directories if they don't exist."""
@@ -124,6 +126,7 @@ def validate_config():
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
 
 def get_config_summary() -> str:
     """Get a human-readable summary of current configuration."""
@@ -164,7 +167,7 @@ GitHub Integration:
 """
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # When run as a script, display configuration
     print(get_config_summary())
 
