@@ -9,11 +9,18 @@ Run with: python tests/test_gist_publisher_live.py
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from claude_code_analytics import config
 from claude_code_analytics.streamlit_app.services import GistPublisher
+
+# Skip all tests in this file if GITHUB_TOKEN is not set
+pytestmark = pytest.mark.skipif(
+    not config.GITHUB_TOKEN, reason="GITHUB_TOKEN not set - skipping live integration tests"
+)
 
 # Test content samples
 SAFE_ANALYSIS = """# Analysis: Testing Best Practices
