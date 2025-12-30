@@ -357,7 +357,8 @@ def process_session(
             logger.warning(f"    ⚠️  Session {session_id} already exists: {e}")
             return (0, 0)
 
-    # Insert only new messages with their correct indices
+    # Batch insert new messages with their correct indices
+    message_rows = []
     for idx, msg in enumerate(messages):
         # Skip messages already in database
         if idx <= skip_until_index:
@@ -365,31 +366,32 @@ def process_session(
 
         content_text = extract_text_from_content(msg['content'])
         usage = msg.get('usage', {})
-        cursor.execute("""
-            INSERT INTO messages (
-                session_id, message_index, role, content, timestamp,
-                input_tokens, output_tokens, cache_creation_input_tokens,
-                cache_read_input_tokens, cache_ephemeral_5m_tokens, cache_ephemeral_1h_tokens
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+        message_rows.append((
             session_id, idx, msg['role'], content_text, msg['timestamp'],
             usage.get('input_tokens'), usage.get('output_tokens'),
             usage.get('cache_creation_input_tokens'), usage.get('cache_read_input_tokens'),
             usage.get('cache_ephemeral_5m_tokens'), usage.get('cache_ephemeral_1h_tokens')
         ))
 
-    # Insert tool uses with results
+    if message_rows:
+        cursor.executemany("""
+            INSERT INTO messages (
+                session_id, message_index, role, content, timestamp,
+                input_tokens, output_tokens, cache_creation_input_tokens,
+                cache_read_input_tokens, cache_ephemeral_5m_tokens, cache_ephemeral_1h_tokens
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, message_rows)
+
+    # Batch insert tool uses with results
+    tool_rows = []
     for tool_id, tool_data in tool_uses.items():
         tool_result_data = tool_results.get(tool_id, {})
         tool_result_content = extract_tool_result_content(tool_result_data.get('content', ''))
 
         # Handle duplicate tool_use_ids across sessions (from resumed sessions)
         # Use INSERT OR IGNORE to skip duplicates
-        cursor.execute("""
-            INSERT OR IGNORE INTO tool_uses (tool_use_id, session_id, message_index, tool_name, tool_input, tool_result, is_error, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+        tool_rows.append((
             tool_id,
             session_id,
             tool_data['message_index'],
@@ -399,6 +401,12 @@ def process_session(
             tool_result_data.get('is_error', False),
             tool_data['timestamp']
         ))
+
+    if tool_rows:
+        cursor.executemany("""
+            INSERT OR IGNORE INTO tool_uses (tool_use_id, session_id, message_index, tool_name, tool_input, tool_result, is_error, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, tool_rows)
 
     # Return count of newly imported items
     return (len(new_messages), len(tool_uses))
