@@ -7,20 +7,22 @@ from typing import Optional
 
 class ScanSeverity(Enum):
     """Severity levels for security findings."""
+
     CRITICAL = "critical"  # Secrets, credentials, SSNs
-    HIGH = "high"          # PII like emails, phones
-    MEDIUM = "medium"      # Internal IPs, localhost URLs
-    LOW = "low"            # Informational patterns
+    HIGH = "high"  # PII like emails, phones
+    MEDIUM = "medium"  # Internal IPs, localhost URLs
+    LOW = "low"  # Informational patterns
 
 
 @dataclass
 class ScanFinding:
     """Represents a single security finding."""
-    category: str          # "secrets", "pii", or "custom"
+
+    category: str  # "secrets", "pii", or "custom"
     severity: ScanSeverity
-    rule_id: str          # Identifier for the rule
-    description: str       # Human-readable description
-    matched_text: str      # The matched content (may be redacted)
+    rule_id: str  # Identifier for the rule
+    description: str  # Human-readable description
+    matched_text: str  # The matched content (may be redacted)
     line_number: Optional[int] = None
     file_name: Optional[str] = None
     confidence: float = 1.0  # 0.0 to 1.0 (used by Presidio)

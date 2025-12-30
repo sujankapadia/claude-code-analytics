@@ -9,9 +9,9 @@ This script demonstrates:
 4. Showing how search would work
 """
 
-from sentence_transformers import SentenceTransformer
+
 import numpy as np
-from typing import List, Tuple
+from sentence_transformers import SentenceTransformer
 
 # Sample conversation messages from typical Claude Code sessions
 SAMPLE_MESSAGES = [
@@ -19,27 +19,22 @@ SAMPLE_MESSAGES = [
     "How do I handle async errors in TypeScript when using promises?",
     "What's the best way to catch exceptions in async/await functions?",
     "My try/catch block isn't catching promise rejections",
-
     # Database/SQLite conversations
     "How can I optimize SQLite query performance for large datasets?",
     "My database queries are running slowly, need help with indexes",
     "Best practices for using foreign keys in SQLite",
-
     # Git/version control
     "How do I undo a git commit that I already pushed?",
     "What's the difference between git reset and git revert?",
     "I need to resolve merge conflicts in my feature branch",
-
     # Testing conversations
     "How to write unit tests for async functions in Jest?",
     "My test is failing with 'cannot read property of undefined'",
     "Setting up test mocks for external API calls",
-
     # React/Frontend
     "How do I prevent unnecessary re-renders in React components?",
     "Using useEffect hook correctly to avoid infinite loops",
     "State management patterns in React applications",
-
     # Unrelated
     "What's the weather like today?",
     "Can you tell me a joke about programming?",
@@ -53,11 +48,11 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
 
 def search_similar(
     query: str,
-    documents: List[str],
+    documents: list[str],
     embeddings: np.ndarray,
     model: SentenceTransformer,
-    top_k: int = 5
-) -> List[Tuple[int, float, str]]:
+    top_k: int = 5,
+) -> list[tuple[int, float, str]]:
     """
     Search for similar documents using semantic similarity.
 
@@ -87,7 +82,7 @@ def main():
 
     # Load model
     print("📥 Loading model (this will download ~420MB on first run)...")
-    model = SentenceTransformer('all-mpnet-base-v2')
+    model = SentenceTransformer("all-mpnet-base-v2")
     print(f"✅ Model loaded: {model.get_sentence_embedding_dimension()} dimensions")
     print()
 
@@ -101,7 +96,7 @@ def main():
 
     # Show a sample embedding
     print("🔍 Example: First message embedding (showing first 10 values):")
-    print(f"   Message: \"{SAMPLE_MESSAGES[0][:60]}...\"")
+    print(f'   Message: "{SAMPLE_MESSAGES[0][:60]}..."')
     print(f"   Vector:  {embeddings[0][:10]}")
     print(f"   (... and {len(embeddings[0]) - 10} more values)")
     print()
@@ -115,17 +110,17 @@ def main():
     # Compare similar messages
     msg1_idx = 0  # async errors
     msg2_idx = 1  # async/await exceptions
-    msg3_idx = 15 # weather (unrelated)
+    msg3_idx = 15  # weather (unrelated)
 
     sim_similar = cosine_similarity(embeddings[msg1_idx], embeddings[msg2_idx])
     sim_different = cosine_similarity(embeddings[msg1_idx], embeddings[msg3_idx])
 
-    print(f"Message A: \"{SAMPLE_MESSAGES[msg1_idx]}\"")
-    print(f"Message B: \"{SAMPLE_MESSAGES[msg2_idx]}\"")
+    print(f'Message A: "{SAMPLE_MESSAGES[msg1_idx]}"')
+    print(f'Message B: "{SAMPLE_MESSAGES[msg2_idx]}"')
     print(f"Similarity: {sim_similar:.4f} ⭐ HIGH (same topic)\n")
 
-    print(f"Message A: \"{SAMPLE_MESSAGES[msg1_idx]}\"")
-    print(f"Message C: \"{SAMPLE_MESSAGES[msg3_idx]}\"")
+    print(f'Message A: "{SAMPLE_MESSAGES[msg1_idx]}"')
+    print(f'Message C: "{SAMPLE_MESSAGES[msg3_idx]}"')
     print(f"Similarity: {sim_different:.4f} ❌ LOW (different topic)\n")
 
     # Show similarity matrix for error-handling messages
@@ -147,15 +142,15 @@ def main():
     queries = [
         "promise error handling",
         "database performance tuning",
-        "react performance optimization"
+        "react performance optimization",
     ]
 
     for query in queries:
-        print(f"Query: \"{query}\"")
+        print(f'Query: "{query}"')
         print("-" * 80)
         results = search_similar(query, SAMPLE_MESSAGES, embeddings, model, top_k=3)
 
-        for rank, (idx, score, doc) in enumerate(results, 1):
+        for rank, (_idx, score, doc) in enumerate(results, 1):
             print(f"  {rank}. [Score: {score:.4f}] {doc}")
         print()
 
@@ -163,9 +158,9 @@ def main():
     print("🎭 Example: Query with no relevant results")
     print("-" * 80)
     bad_query = "cooking recipes for pasta"
-    print(f"Query: \"{bad_query}\"")
+    print(f'Query: "{bad_query}"')
     results = search_similar(bad_query, SAMPLE_MESSAGES, embeddings, model, top_k=3)
-    for rank, (idx, score, doc) in enumerate(results, 1):
+    for rank, (_idx, score, doc) in enumerate(results, 1):
         print(f"  {rank}. [Score: {score:.4f}] {doc}")
     print("\n   Notice: Even the 'best' match has a low score (< 0.3)")
     print()

@@ -10,13 +10,13 @@ This creates a test database, imports test data, and verifies:
 
 import json
 import sqlite3
-import tempfile
-import time
-from pathlib import Path
-from typing import Tuple
 
 # Add parent directory to path
 import sys
+import tempfile
+import time
+from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from claude_code_analytics.scripts.create_database import SCHEMA_SQL
@@ -25,30 +25,32 @@ from claude_code_analytics.scripts.import_conversations import process_session
 
 def create_test_database() -> str:
     """Create a temporary test database."""
-    temp_db = tempfile.NamedTemporaryFile(mode='w', suffix='.db', delete=False)
+    temp_db = tempfile.NamedTemporaryFile(mode="w", suffix=".db", delete=False)
     temp_db.close()
 
     conn = sqlite3.connect(temp_db.name)
     conn.executescript(SCHEMA_SQL)
 
     # Insert test project
-    conn.execute("""
+    conn.execute(
+        """
         INSERT INTO projects (project_id, project_name)
         VALUES ('test-project', '/test/project')
-    """)
+    """
+    )
     conn.commit()
     conn.close()
 
     return temp_db.name
 
 
-def create_test_session_file(num_messages: int = 50, num_tools: int = 25) -> Tuple[str, int, int]:
+def create_test_session_file(num_messages: int = 50, num_tools: int = 25) -> tuple[str, int, int]:
     """Create a temporary JSONL session file with test data.
 
     Returns:
         Tuple of (file_path, actual_message_count, actual_tool_count)
     """
-    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False)
+    temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False)
 
     tool_use_counter = 0
     actual_messages = 0
@@ -59,10 +61,7 @@ def create_test_session_file(num_messages: int = 50, num_tools: int = 25) -> Tup
         if i % 2 == 0:  # User message
             entry = {
                 "timestamp": timestamp,
-                "message": {
-                    "role": "user",
-                    "content": f"Test user message {i}"
-                }
+                "message": {"role": "user", "content": f"Test user message {i}"},
             }
             temp_file.write(json.dumps(entry) + "\n")
             actual_messages += 1
@@ -72,19 +71,23 @@ def create_test_session_file(num_messages: int = 50, num_tools: int = 25) -> Tup
             # Add tool uses to some assistant messages
             if tool_use_counter < num_tools and i % 3 == 1:
                 tool_id = f"tool_{tool_use_counter}"
-                content.append({
-                    "type": "tool_use",
-                    "id": tool_id,
-                    "name": "Read",
-                    "input": {"file_path": f"/test/file{tool_use_counter}.py"}
-                })
+                content.append(
+                    {
+                        "type": "tool_use",
+                        "id": tool_id,
+                        "name": "Read",
+                        "input": {"file_path": f"/test/file{tool_use_counter}.py"},
+                    }
+                )
 
                 # Add corresponding tool result in SAME message (embedded in assistant content)
-                content.append({
-                    "type": "tool_result",
-                    "tool_use_id": tool_id,
-                    "content": f"File content {tool_use_counter}"
-                })
+                content.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tool_id,
+                        "content": f"File content {tool_use_counter}",
+                    }
+                )
 
                 tool_use_counter += 1
 
@@ -93,11 +96,8 @@ def create_test_session_file(num_messages: int = 50, num_tools: int = 25) -> Tup
                 "message": {
                     "role": "assistant",
                     "content": content,
-                    "usage": {
-                        "input_tokens": 100 + i,
-                        "output_tokens": 50 + i
-                    }
-                }
+                    "usage": {"input_tokens": 100 + i, "output_tokens": 50 + i},
+                },
             }
             temp_file.write(json.dumps(entry) + "\n")
             actual_messages += 1
@@ -106,7 +106,9 @@ def create_test_session_file(num_messages: int = 50, num_tools: int = 25) -> Tup
     return temp_file.name, actual_messages, tool_use_counter
 
 
-def verify_import(db_path: str, session_id: str, expected_messages: int, expected_tools: int) -> Tuple[bool, str]:
+def verify_import(
+    db_path: str, session_id: str, expected_messages: int, expected_tools: int
+) -> tuple[bool, str]:
     """Verify the import results."""
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -120,7 +122,9 @@ def verify_import(db_path: str, session_id: str, expected_messages: int, expecte
     actual_tools = cursor.fetchone()[0]
 
     # Check session record
-    cursor.execute("SELECT message_count, tool_use_count FROM sessions WHERE session_id = ?", (session_id,))
+    cursor.execute(
+        "SELECT message_count, tool_use_count FROM sessions WHERE session_id = ?", (session_id,)
+    )
     session_data = cursor.fetchone()
 
     conn.close()
@@ -136,10 +140,16 @@ def verify_import(db_path: str, session_id: str, expected_messages: int, expecte
 
     session_msg_count, session_tool_count = session_data
     if session_msg_count != expected_messages:
-        return False, f"Session message count mismatch: expected {expected_messages}, got {session_msg_count}"
+        return (
+            False,
+            f"Session message count mismatch: expected {expected_messages}, got {session_msg_count}",
+        )
 
     if session_tool_count != expected_tools:
-        return False, f"Session tool count mismatch: expected {expected_tools}, got {session_tool_count}"
+        return (
+            False,
+            f"Session tool count mismatch: expected {expected_tools}, got {session_tool_count}",
+        )
 
     return True, "All checks passed!"
 
@@ -161,7 +171,9 @@ def test_batch_import():
     num_messages = 100
     num_tools = 40
     print(f"2️⃣  Creating test session file ({num_messages} messages, {num_tools} tool uses)...")
-    session_file, expected_messages, expected_tools = create_test_session_file(num_messages, num_tools)
+    session_file, expected_messages, expected_tools = create_test_session_file(
+        num_messages, num_tools
+    )
     session_id = Path(session_file).stem
     print(f"   ✅ Session file created: {session_file}")
     print(f"   Session ID: {session_id}")
@@ -173,7 +185,7 @@ def test_batch_import():
     conn = sqlite3.connect(db_path)
 
     start_time = time.time()
-    msg_count, tool_count = process_session(Path(session_file), 'test-project', conn)
+    msg_count, tool_count = process_session(Path(session_file), "test-project", conn)
     elapsed = time.time() - start_time
 
     conn.commit()
@@ -197,7 +209,7 @@ def test_batch_import():
         print("Batch insert optimization is working correctly!")
         print(f"  - All {expected_messages} messages were inserted")
         print(f"  - All {num_tools} tool uses were inserted")
-        print(f"  - Session metadata is correct")
+        print("  - Session metadata is correct")
         print(f"  - Performance: {elapsed:.3f}s for {expected_messages + num_tools} rows")
         return True
     else:
@@ -220,23 +232,27 @@ def test_incremental_import():
     # Create test database and initial import
     print("1️⃣  Creating test database and initial data...")
     db_path = create_test_database()
-    session_file_1, expected_msg_1, expected_tool_1 = create_test_session_file(num_messages=30, num_tools=10)
+    session_file_1, expected_msg_1, expected_tool_1 = create_test_session_file(
+        num_messages=30, num_tools=10
+    )
     session_id = Path(session_file_1).stem
 
     conn = sqlite3.connect(db_path)
-    msg_count_1, tool_count_1 = process_session(Path(session_file_1), 'test-project', conn)
+    msg_count_1, tool_count_1 = process_session(Path(session_file_1), "test-project", conn)
     conn.commit()
     print(f"   ✅ Initial import: {msg_count_1} messages, {tool_count_1} tool uses")
     print()
 
     # Add more data to the same session
     print("2️⃣  Adding more messages to existing session...")
-    session_file_2, expected_msg_2, expected_tool_2 = create_test_session_file(num_messages=60, num_tools=25)
+    session_file_2, expected_msg_2, expected_tool_2 = create_test_session_file(
+        num_messages=60, num_tools=25
+    )
     # Rename to same session ID
     new_path = Path(session_file_2).parent / f"{session_id}.jsonl"
     Path(session_file_2).rename(new_path)
 
-    msg_count_2, tool_count_2 = process_session(new_path, 'test-project', conn)
+    msg_count_2, tool_count_2 = process_session(new_path, "test-project", conn)
     conn.commit()
     conn.close()
 
@@ -249,7 +265,7 @@ def test_incremental_import():
     expected_new_tools = expected_tool_2 - expected_tool_1
 
     if msg_count_2 == expected_new_messages and tool_count_2 == expected_new_tools:
-        print(f"   ✅ Incremental import worked correctly!")
+        print("   ✅ Incremental import worked correctly!")
         print(f"      Only imported {msg_count_2} new messages (not the full {expected_msg_2})")
         print(f"      Only imported {tool_count_2} new tool uses (not the full {expected_tool_2})")
         print()
@@ -267,7 +283,7 @@ def test_incremental_import():
         return False
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Run both tests
     test1_passed = test_batch_import()
     test2_passed = test_incremental_import()

@@ -1,15 +1,13 @@
 """Import Data page for Claude Code Analytics."""
 
-import streamlit as st
-import sys
 import sqlite3
+import sys
 import time
 from pathlib import Path
-from datetime import datetime
-from typing import Tuple, Optional
+
+import streamlit as st
 
 # Add parent directory to path for imports
-
 from claude_code_analytics import config
 from claude_code_analytics.streamlit_app.services import DatabaseService
 
@@ -27,7 +25,8 @@ db_service = DatabaseService()
 # Page config
 st.title("📥 Import Data")
 
-st.markdown("""
+st.markdown(
+    """
 Import conversation transcripts from your Claude Code projects into the database for analysis.
 
 The import process:
@@ -35,12 +34,13 @@ The import process:
 - Updates existing sessions with new messages (incremental import)
 - Never duplicates data
 - Preserves all existing analytics
-""")
+"""
+)
 
 st.divider()
 
 
-def check_for_new_data() -> Tuple[bool, int, int]:
+def check_for_new_data() -> tuple[bool, int, int]:
     """
     Lightweight check for new data available to import.
     Compares database max message index against file line count.
@@ -57,7 +57,7 @@ def check_for_new_data() -> Tuple[bool, int, int]:
     # If database doesn't exist, any JSONL files are "new"
     if not db_path.exists():
         # Quick count of JSONL files
-        jsonl_count = sum(1 for _ in source_path.rglob('*.jsonl'))
+        jsonl_count = sum(1 for _ in source_path.rglob("*.jsonl"))
         return (jsonl_count > 0, jsonl_count, 0)
 
     conn = sqlite3.connect(str(db_path))
@@ -72,7 +72,7 @@ def check_for_new_data() -> Tuple[bool, int, int]:
 
         for project_dir in project_dirs:
             # Find all JSONL files
-            jsonl_files = list(project_dir.glob('*.jsonl'))
+            jsonl_files = list(project_dir.glob("*.jsonl"))
 
             for jsonl_file in jsonl_files:
                 session_id = jsonl_file.stem
@@ -80,9 +80,11 @@ def check_for_new_data() -> Tuple[bool, int, int]:
                 # First, count actual messages in file (user/assistant roles only)
                 file_message_count = 0
                 try:
-                    with open(jsonl_file, 'r') as f:
+                    with open(jsonl_file) as f:
                         for line in f:
-                            if '"message"' in line and ('"role":"user"' in line or '"role":"assistant"' in line):
+                            if '"message"' in line and (
+                                '"role":"user"' in line or '"role":"assistant"' in line
+                            ):
                                 file_message_count += 1
                 except:
                     continue
@@ -92,11 +94,14 @@ def check_for_new_data() -> Tuple[bool, int, int]:
                     continue
 
                 # Check if session exists and get max message index
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT MAX(message_index)
                     FROM messages
                     WHERE session_id = ?
-                """, (session_id,))
+                """,
+                    (session_id,),
+                )
 
                 result = cursor.fetchone()
                 max_message_index = result[0] if result and result[0] is not None else None
@@ -119,7 +124,7 @@ def check_for_new_data() -> Tuple[bool, int, int]:
     return (has_new_data, new_sessions, updated_sessions)
 
 
-def run_import() -> Tuple[int, int, int, int]:
+def run_import() -> tuple[int, int, int, int]:
     """
     Run the import process and return statistics.
 
@@ -169,7 +174,9 @@ def run_import() -> Tuple[int, int, int, int]:
             status_text.text(f"Importing: {project_name}")
 
             try:
-                sessions, messages, tool_uses = import_conversations.import_project(project_dir, conn)
+                sessions, messages, tool_uses = import_conversations.import_project(
+                    project_dir, conn
+                )
 
                 if sessions > 0:
                     total_projects += 1
@@ -221,7 +228,9 @@ with st.spinner("Checking for new data..."):
 # Display status notification
 if has_new_data:
     total_affected = new_sessions + updated_sessions
-    st.info(f"✨ **New data detected:** {total_affected} session(s) ready to import ({new_sessions} new, {updated_sessions} updated)")
+    st.info(
+        f"✨ **New data detected:** {total_affected} session(s) ready to import ({new_sessions} new, {updated_sessions} updated)"
+    )
 else:
     st.success("✅ **Database is up to date** - No new data to import")
 
@@ -240,7 +249,7 @@ if st.button("🚀 Run Import", type="primary", disabled=not has_new_data):
     st.subheader("📊 Import Results")
 
     if sessions > 0:
-        st.success(f"✅ **Import completed successfully!**")
+        st.success("✅ **Import completed successfully!**")
 
         st.markdown("**Imported in this run:**")
         col1, col2, col3, col4 = st.columns(4)

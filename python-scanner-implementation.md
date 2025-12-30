@@ -64,7 +64,7 @@ class ScanFinding:
     line_number: Optional[int] = None
     file_name: Optional[str] = None
     confidence: float = 1.0  # 0.0 to 1.0 (used by Presidio)
-    
+
     def __str__(self):
         location = f"{self.file_name}:{self.line_number}" if self.line_number else "unknown"
         return (
@@ -87,17 +87,17 @@ from pathlib import Path
 
 class GitleaksScanner:
     """Wrapper for gitleaks binary."""
-    
+
     def __init__(self, config_path: Optional[str] = None):
         """
         Initialize gitleaks scanner.
-        
+
         Args:
             config_path: Optional path to .gitleaks.toml config file
         """
         self.config_path = config_path
         self._verify_installation()
-    
+
     def _verify_installation(self) -> None:
         """Check if gitleaks is installed."""
         try:
@@ -110,7 +110,7 @@ class GitleaksScanner:
             raise RuntimeError(
                 "Gitleaks not found. Install with: brew install gitleaks"
             )
-    
+
     def scan(
         self,
         content: str,
@@ -118,21 +118,21 @@ class GitleaksScanner:
     ) -> List[ScanFinding]:
         """
         Scan content for secrets using gitleaks.
-        
+
         Args:
             content: Text content to scan
             filename: Filename context (affects pattern matching)
-        
+
         Returns:
             List of findings
         """
         findings = []
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             # Write content to temp file
             file_path = Path(tmpdir) / filename
             file_path.write_text(content, encoding='utf-8')
-            
+
             # Build gitleaks command
             cmd = [
                 "gitleaks",
@@ -143,16 +143,16 @@ class GitleaksScanner:
                 "--no-git",
                 "--exit-code", "0"  # Don't exit with error on findings
             ]
-            
+
             if self.config_path:
                 cmd.extend(["--config", self.config_path])
-            
+
             # Run gitleaks
             result = subprocess.run(cmd, capture_output=True, text=True)
-            
+
             if result.returncode > 1:
                 raise RuntimeError(f"Gitleaks error: {result.stderr}")
-            
+
             # Parse report
             report_path = Path(tmpdir) / "report.json"
             if report_path.exists():
@@ -160,9 +160,9 @@ class GitleaksScanner:
                 if report_content.strip():
                     gitleaks_findings = json.loads(report_content)
                     findings = self._convert_findings(gitleaks_findings, filename)
-        
+
         return findings
-    
+
     def _convert_findings(
         self,
         gitleaks_findings: List[Dict],
@@ -170,7 +170,7 @@ class GitleaksScanner:
     ) -> List[ScanFinding]:
         """Convert gitleaks JSON findings to ScanFinding objects."""
         findings = []
-        
+
         for gf in gitleaks_findings:
             # Redact the actual secret value
             secret = gf.get('Secret', '')
@@ -178,7 +178,7 @@ class GitleaksScanner:
                 redacted = f"{secret[:8]}...{secret[-4:]}"
             else:
                 redacted = "***REDACTED***"
-            
+
             findings.append(ScanFinding(
                 category="secrets",
                 severity=ScanSeverity.CRITICAL,
@@ -189,7 +189,7 @@ class GitleaksScanner:
                 file_name=filename,
                 confidence=1.0
             ))
-        
+
         return findings
 ```
 
@@ -206,7 +206,7 @@ except ImportError:
 
 class PresidioScanner:
     """PII detection using Microsoft Presidio."""
-    
+
     # Map Presidio entity types to our severity levels
     ENTITY_SEVERITY = {
         'CREDIT_CARD': ScanSeverity.CRITICAL,
@@ -222,7 +222,7 @@ class PresidioScanner:
         'DATE_TIME': ScanSeverity.LOW,
         'URL': ScanSeverity.LOW,
     }
-    
+
     def __init__(
         self,
         confidence_threshold: float = 0.5,
@@ -230,7 +230,7 @@ class PresidioScanner:
     ):
         """
         Initialize Presidio scanner.
-        
+
         Args:
             confidence_threshold: Minimum confidence score (0.0-1.0)
             allowed_entities: Entity types to ignore (e.g., {'DATE_TIME'})
@@ -241,10 +241,10 @@ class PresidioScanner:
                 "pip install presidio-analyzer presidio-anonymizer spacy && "
                 "python -m spacy download en_core_web_lg"
             )
-        
+
         self.confidence_threshold = confidence_threshold
         self.allowed_entities = allowed_entities or set()
-        
+
         # Initialize Presidio analyzer
         configuration = {
             "nlp_engine_name": "spacy",
@@ -253,7 +253,7 @@ class PresidioScanner:
         provider = NlpEngineProvider(nlp_configuration=configuration)
         nlp_engine = provider.create_engine()
         self.analyzer = AnalyzerEngine(nlp_engine=nlp_engine)
-    
+
     def scan(
         self,
         content: str,
@@ -261,34 +261,34 @@ class PresidioScanner:
     ) -> List[ScanFinding]:
         """
         Scan content for PII using Presidio.
-        
+
         Args:
             content: Text to scan
             filename: Filename for context
-        
+
         Returns:
             List of PII findings
         """
         findings = []
-        
+
         # Analyze with Presidio
         results = self.analyzer.analyze(
             text=content,
             language='en',
             entities=list(self.ENTITY_SEVERITY.keys())
         )
-        
+
         lines = content.split('\n')
-        
+
         for result in results:
             # Skip if below confidence threshold
             if result.score < self.confidence_threshold:
                 continue
-            
+
             # Skip allowed entities
             if result.entity_type in self.allowed_entities:
                 continue
-            
+
             # Find line number
             char_count = 0
             line_number = 1
@@ -297,14 +297,14 @@ class PresidioScanner:
                 if char_count > result.start:
                     line_number = i
                     break
-            
+
             # Extract matched text
             matched_text = content[result.start:result.end]
-            
+
             # Redact sensitive values
             if result.entity_type in {'CREDIT_CARD', 'US_SSN', 'CRYPTO'}:
                 matched_text = "***REDACTED***"
-            
+
             findings.append(ScanFinding(
                 category="pii",
                 severity=self.ENTITY_SEVERITY.get(
@@ -318,7 +318,7 @@ class PresidioScanner:
                 file_name=filename,
                 confidence=result.score
             ))
-        
+
         return findings
 ```
 
@@ -330,7 +330,7 @@ import re
 
 class RegexPatternScanner:
     """Custom regex-based pattern detection."""
-    
+
     # Built-in patterns for common sensitive data
     BUILTIN_PATTERNS = [
         {
@@ -404,7 +404,7 @@ class RegexPatternScanner:
             'redact': True,
         },
     ]
-    
+
     def __init__(
         self,
         custom_patterns: Optional[List[Dict]] = None,
@@ -413,7 +413,7 @@ class RegexPatternScanner:
     ):
         """
         Initialize regex scanner.
-        
+
         Args:
             custom_patterns: Additional patterns to scan for
                 Format: [{'id': str, 'pattern': str, 'description': str,
@@ -423,15 +423,15 @@ class RegexPatternScanner:
             use_builtin: Whether to use built-in patterns
         """
         self.patterns = []
-        
+
         if use_builtin:
             self.patterns.extend(self.BUILTIN_PATTERNS)
-        
+
         if custom_patterns:
             self.patterns.extend(custom_patterns)
-        
+
         self.allowed_patterns = allowed_patterns or {}
-        
+
         # Compile all patterns for performance
         self.compiled_patterns = [
             {
@@ -440,7 +440,7 @@ class RegexPatternScanner:
             }
             for pattern in self.patterns
         ]
-    
+
     def scan(
         self,
         content: str,
@@ -448,33 +448,33 @@ class RegexPatternScanner:
     ) -> List[ScanFinding]:
         """
         Scan content using regex patterns.
-        
+
         Args:
             content: Text to scan
             filename: Filename for context
-        
+
         Returns:
             List of findings
         """
         findings = []
         lines = content.split('\n')
-        
+
         for pattern_def in self.compiled_patterns:
             pattern_id = pattern_def['id']
             regex = pattern_def['regex']
             description = pattern_def['description']
             severity = pattern_def['severity']
             redact = pattern_def['redact']
-            
+
             # Check each line
             for line_num, line in enumerate(lines, 1):
                 for match in regex.finditer(line):
                     matched_text = match.group()
-                    
+
                     # Check if match is in allowed list
                     if self._is_allowed(pattern_id, matched_text):
                         continue
-                    
+
                     # Redact sensitive values if configured
                     display_text = matched_text
                     if redact:
@@ -482,7 +482,7 @@ class RegexPatternScanner:
                             display_text = f"{matched_text[:8]}...{matched_text[-4:]}"
                         else:
                             display_text = "***REDACTED***"
-                    
+
                     findings.append(ScanFinding(
                         category="custom",
                         severity=severity,
@@ -493,14 +493,14 @@ class RegexPatternScanner:
                         file_name=filename,
                         confidence=1.0
                     ))
-        
+
         return findings
-    
+
     def _is_allowed(self, pattern_id: str, matched_text: str) -> bool:
         """Check if a match should be ignored based on allowlist."""
         if pattern_id not in self.allowed_patterns:
             return False
-        
+
         allowed = self.allowed_patterns[pattern_id]
         return any(allow in matched_text.lower() for allow in allowed)
 ```
@@ -512,7 +512,7 @@ class MultiLayerScanner:
     """
     Unified scanner combining gitleaks, Presidio, and regex patterns.
     """
-    
+
     def __init__(
         self,
         enable_gitleaks: bool = True,
@@ -526,7 +526,7 @@ class MultiLayerScanner:
     ):
         """
         Initialize multi-layer scanner.
-        
+
         Args:
             enable_gitleaks: Use gitleaks for secrets detection
             enable_presidio: Use Presidio for PII detection
@@ -538,7 +538,7 @@ class MultiLayerScanner:
             regex_allowed_patterns: Allowlist for regex patterns
         """
         self.scanners = []
-        
+
         # Initialize enabled scanners
         if enable_gitleaks:
             try:
@@ -547,7 +547,7 @@ class MultiLayerScanner:
                 )
             except RuntimeError as e:
                 print(f"Warning: Gitleaks disabled - {e}")
-        
+
         if enable_presidio:
             if PRESIDIO_AVAILABLE:
                 try:
@@ -561,7 +561,7 @@ class MultiLayerScanner:
                     print(f"Warning: Presidio disabled - {e}")
             else:
                 print("Warning: Presidio not available, skipping PII detection")
-        
+
         if enable_regex:
             self.scanners.append(
                 RegexPatternScanner(
@@ -569,7 +569,7 @@ class MultiLayerScanner:
                     allowed_patterns=regex_allowed_patterns
                 )
             )
-    
+
     def scan(
         self,
         content: str,
@@ -577,67 +577,67 @@ class MultiLayerScanner:
     ) -> Tuple[bool, List[ScanFinding]]:
         """
         Scan content through all enabled layers.
-        
+
         Args:
             content: Text to scan
             filename: Filename for context
-        
+
         Returns:
             Tuple of (is_safe, findings)
             - is_safe: True if no CRITICAL or HIGH severity findings
             - findings: All findings from all scanners
         """
         all_findings = []
-        
+
         # Run all scanners
         for scanner in self.scanners:
             findings = scanner.scan(content, filename)
             all_findings.extend(findings)
-        
+
         # Determine if content is safe to publish
         # Block on CRITICAL and HIGH severity
         blocking_findings = [
             f for f in all_findings
             if f.severity in (ScanSeverity.CRITICAL, ScanSeverity.HIGH)
         ]
-        
+
         is_safe = len(blocking_findings) == 0
-        
+
         return is_safe, all_findings
-    
+
     def scan_multiple(
         self,
         contents: Dict[str, str]
     ) -> Tuple[bool, Dict[str, List[ScanFinding]]]:
         """
         Scan multiple files.
-        
+
         Args:
             contents: Dict mapping filename to content
-        
+
         Returns:
             Tuple of (all_safe, findings_by_file)
         """
         all_findings = {}
         all_safe = True
-        
+
         for filename, content in contents.items():
             is_safe, findings = self.scan(content, filename)
-            
+
             if not is_safe:
                 all_safe = False
-            
+
             if findings:
                 all_findings[filename] = findings
-        
+
         return all_safe, all_findings
-    
+
     @staticmethod
     def format_report(findings: List[ScanFinding]) -> str:
         """Format findings into human-readable report."""
         if not findings:
             return "✅ No sensitive data detected"
-        
+
         # Group by severity
         by_severity = {
             ScanSeverity.CRITICAL: [],
@@ -645,13 +645,13 @@ class MultiLayerScanner:
             ScanSeverity.MEDIUM: [],
             ScanSeverity.LOW: []
         }
-        
+
         for finding in findings:
             by_severity[finding.severity].append(finding)
-        
+
         lines = ["❌ Sensitive data detected:\n"]
-        
-        for severity in [ScanSeverity.CRITICAL, ScanSeverity.HIGH, 
+
+        for severity in [ScanSeverity.CRITICAL, ScanSeverity.HIGH,
                         ScanSeverity.MEDIUM, ScanSeverity.LOW]:
             items = by_severity[severity]
             if items:
@@ -672,7 +672,7 @@ class MultiLayerScanner:
                         lines.append(
                             f"    Confidence: {finding.confidence:.0%}"
                         )
-        
+
         return "\n".join(lines)
 ```
 
@@ -869,7 +869,7 @@ from ..scanner import MultiLayerScanner, ScanSeverity
 class GistPublisher:
     def __init__(self, github_token: str, scanner_config: Optional[Dict] = None):
         self.github_token = github_token
-        
+
         # Initialize scanner
         if scanner_config:
             self.scanner = MultiLayerScanner(**scanner_config)
@@ -880,7 +880,7 @@ class GistPublisher:
                 enable_presidio=False,  # Optional dependency
                 enable_regex=True
             )
-    
+
     def publish(
         self,
         analysis: str,
@@ -890,10 +890,10 @@ class GistPublisher:
     ) -> str:
         """
         Publish to gist after security scan.
-        
+
         Returns:
             Gist URL
-        
+
         Raises:
             SecurityError: If sensitive data detected
         """
@@ -902,9 +902,9 @@ class GistPublisher:
                 "analysis.md": analysis,
                 "session.txt": session
             }
-            
+
             all_safe, findings = self.scanner.scan_multiple(files)
-            
+
             if not all_safe:
                 error_msg = ["Cannot publish - sensitive data detected:\n"]
                 for filename, file_findings in findings.items():
@@ -913,10 +913,10 @@ class GistPublisher:
                         MultiLayerScanner.format_report(file_findings)
                     )
                 raise SecurityError("\n".join(error_msg))
-        
+
         # Proceed with publication
         return self._create_gist(analysis, session, description)
-    
+
     def _create_gist(self, analysis: str, session: str, description: str):
         # Implementation details
         pass
@@ -955,7 +955,7 @@ class SecurityError(Exception):
 class LazyPresidioScanner:
     def __init__(self):
         self._scanner = None
-    
+
     @property
     def scanner(self):
         if self._scanner is None:
@@ -978,10 +978,10 @@ def test_email_detection():
         enable_presidio=False,
         enable_regex=True
     )
-    
+
     content = "Contact me at john@example.com"
     is_safe, findings = scanner.scan(content)
-    
+
     assert not is_safe
     assert len(findings) == 1
     assert findings[0].rule_id == 'email'
@@ -997,10 +997,10 @@ def test_allowed_emails():
             'email': ['example.com']
         }
     )
-    
+
     content = "Contact me at john@example.com"
     is_safe, findings = scanner.scan(content)
-    
+
     assert is_safe
     assert len(findings) == 0
 
@@ -1011,10 +1011,10 @@ def test_secrets_detection():
         enable_presidio=False,
         enable_regex=False
     )
-    
+
     content = 'api_key = "sk-1234567890abcdef"'
     is_safe, findings = scanner.scan(content)
-    
+
     assert not is_safe
     assert any(f.category == 'secrets' for f in findings)
 ```
@@ -1052,14 +1052,14 @@ scanning:
   gitleaks:
     enabled: true
     config_path: .gitleaks.toml  # optional
-  
+
   presidio:
     enabled: false  # optional, requires additional deps
     confidence_threshold: 0.6
     allowed_entities:
       - DATE_TIME
       - URL
-  
+
   regex:
     enabled: true
     allowed_patterns:
@@ -1069,14 +1069,14 @@ scanning:
       ip-private:
         - 192.168.1.1
         - 127.0.0.1
-    
+
     custom_patterns:
       - id: company-domain
         pattern: 'mycompany\.com'
         description: Company domain reference
         severity: medium
         redact: false
-      
+
       - id: internal-endpoint
         pattern: 'https://internal\.api\.company\.com'
         description: Internal API endpoint
@@ -1093,16 +1093,16 @@ def load_scanner_from_config(config_path: str) -> MultiLayerScanner:
     """Load scanner configuration from YAML file."""
     with open(config_path) as f:
         config = yaml.safe_load(f)
-    
+
     scan_config = config.get('scanning', {})
-    
+
     # Parse gitleaks config
     gitleaks_cfg = scan_config.get('gitleaks', {})
-    
+
     # Parse presidio config
     presidio_cfg = scan_config.get('presidio', {})
     allowed_entities = presidio_cfg.get('allowed_entities', [])
-    
+
     # Parse regex config
     regex_cfg = scan_config.get('regex', {})
     custom_patterns = []
@@ -1114,7 +1114,7 @@ def load_scanner_from_config(config_path: str) -> MultiLayerScanner:
             'severity': ScanSeverity[p['severity'].upper()],
             'redact': p.get('redact', False)
         })
-    
+
     return MultiLayerScanner(
         enable_gitleaks=gitleaks_cfg.get('enabled', True),
         gitleaks_config=gitleaks_cfg.get('config_path'),

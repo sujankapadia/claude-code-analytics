@@ -1,13 +1,10 @@
 """Search page for Claude Code Analytics."""
 
-import streamlit as st
-import sys
-from pathlib import Path
 from datetime import datetime, timedelta
-from collections import defaultdict
+
+import streamlit as st
 
 # Add parent directory to path for imports
-
 from claude_code_analytics import config
 from claude_code_analytics.streamlit_app.services import DatabaseService
 
@@ -19,16 +16,15 @@ db_service = st.session_state.db_service
 
 st.title("🔍 Search")
 
-st.markdown("""
+st.markdown(
+    """
 Search across all your conversations, messages, and tool usage.
-""")
+"""
+)
 
 # Search input
 search_query = st.text_input(
-    "Search",
-    placeholder="Enter search terms...",
-    key="search_input",
-    label_visibility="collapsed"
+    "Search", placeholder="Enter search terms...", key="search_input", label_visibility="collapsed"
 )
 
 # Scope selector
@@ -36,7 +32,7 @@ scope = st.radio(
     "Search in:",
     options=["All", "Messages", "Tool Inputs", "Tool Results"],
     horizontal=True,
-    key="search_scope"
+    key="search_scope",
 )
 
 st.divider()
@@ -55,7 +51,9 @@ with st.expander("Filters", expanded=True):
             # Get project_id if specific project selected
             project_id = None
             if selected_project != "All Projects":
-                project_id = next(p.project_id for p in projects if p.project_name == selected_project)
+                project_id = next(
+                    p.project_id for p in projects if p.project_name == selected_project
+                )
         except Exception as e:
             st.error(f"Error loading projects: {e}")
             project_id = None
@@ -139,12 +137,12 @@ if search_query:
                 start_date=start_date,
                 end_date=end_date,
                 sessions_per_page=3,
-                page=st.session_state.search_page
+                page=st.session_state.search_page,
             )
 
-            results_by_session = search_result['results_by_session']
-            has_more = search_result['has_more']
-            total_unique_sessions = search_result['total_sessions']
+            results_by_session = search_result["results_by_session"]
+            has_more = search_result["has_more"]
+            total_unique_sessions = search_result["total_sessions"]
 
             # Calculate total results on page
             total_results_on_page = sum(len(results) for results in results_by_session.values())
@@ -157,12 +155,18 @@ if search_query:
                 # Show page info and more indicator
                 page_num = st.session_state.search_page + 1
                 if has_more:
-                    st.success(f"**Showing {total_results_on_page} results from {unique_sessions_on_page} session(s) on page {page_num}** · Total: {total_unique_sessions} session(s) with matches")
+                    st.success(
+                        f"**Showing {total_results_on_page} results from {unique_sessions_on_page} session(s) on page {page_num}** · Total: {total_unique_sessions} session(s) with matches"
+                    )
                 else:
                     if st.session_state.search_page == 0:
-                        st.success(f"**{total_results_on_page} results** across **{total_unique_sessions} session(s)**")
+                        st.success(
+                            f"**{total_results_on_page} results** across **{total_unique_sessions} session(s)**"
+                        )
                     else:
-                        st.success(f"**Showing {total_results_on_page} results from {unique_sessions_on_page} session(s) on page {page_num}** (last page)")
+                        st.success(
+                            f"**Showing {total_results_on_page} results from {unique_sessions_on_page} session(s) on page {page_num}** (last page)"
+                        )
             else:
                 st.info("No results found. Try different search terms or adjust filters.")
 
@@ -171,7 +175,7 @@ if search_query:
                 for session_id, session_results in results_by_session.items():
                     # Get session info from first result
                     first_result = session_results[0]
-                    project_name = first_result.get('project_name', 'Unknown')
+                    project_name = first_result.get("project_name", "Unknown")
 
                     # Format session header
                     st.markdown(f"### Session: `{session_id[:8]}...` | {project_name}")
@@ -181,11 +185,11 @@ if search_query:
                     for result in session_results:
                         with st.container():
                             # Determine result type and display accordingly
-                            if scope == "Messages" or result.get('result_type') == 'message':
-                                role = result.get('role', result.get('detail', 'unknown'))
-                                timestamp = result.get('timestamp', '')
-                                snippet = result.get('snippet', result.get('content', ''))
-                                message_index = result.get('message_index', 0)
+                            if scope == "Messages" or result.get("result_type") == "message":
+                                role = result.get("role", result.get("detail", "unknown"))
+                                timestamp = result.get("timestamp", "")
+                                snippet = result.get("snippet", result.get("content", ""))
+                                message_index = result.get("message_index", 0)
 
                                 # Role badge
                                 role_color = "blue" if role == "user" else "green"
@@ -207,14 +211,20 @@ if search_query:
 
                             else:
                                 # Tool result
-                                result_type = result.get('result_type', 'tool')
-                                tool_name = result.get('tool_name', result.get('detail', 'unknown'))
-                                timestamp = result.get('timestamp', '')
-                                content = result.get('tool_input') or result.get('tool_result') or result.get('matched_content', '')
-                                message_index = result.get('message_index', 0)
+                                result_type = result.get("result_type", "tool")
+                                tool_name = result.get("tool_name", result.get("detail", "unknown"))
+                                timestamp = result.get("timestamp", "")
+                                content = (
+                                    result.get("tool_input")
+                                    or result.get("tool_result")
+                                    or result.get("matched_content", "")
+                                )
+                                message_index = result.get("message_index", 0)
 
                                 # Tool badge
-                                st.markdown(f":orange[**{tool_name}**] · {result_type.replace('_', ' ').title()} · {timestamp}")
+                                st.markdown(
+                                    f":orange[**{tool_name}**] · {result_type.replace('_', ' ').title()} · {timestamp}"
+                                )
 
                                 # Content preview (truncate if too long)
                                 preview = content[:200] + "..." if len(content) > 200 else content
@@ -243,17 +253,20 @@ if search_query:
                             st.rerun()
 
                 with col2:
-                    st.markdown(f"<center>Page {st.session_state.search_page + 1}</center>", unsafe_allow_html=True)
+                    st.markdown(
+                        f"<center>Page {st.session_state.search_page + 1}</center>",
+                        unsafe_allow_html=True,
+                    )
 
                 with col3:
-                    if has_more:
-                        if st.button("Next →"):
-                            st.session_state.search_page += 1
-                            st.rerun()
+                    if has_more and st.button("Next →"):
+                        st.session_state.search_page += 1
+                        st.rerun()
 
         except Exception as e:
             st.error(f"Search error: {e}")
             import traceback
+
             with st.expander("Error details"):
                 st.code(traceback.format_exc())
 else:
@@ -267,7 +280,7 @@ with st.expander("View MCP Tool Usage Statistics", expanded=False):
     try:
         mcp_stats = db_service.get_mcp_tool_stats()
 
-        if mcp_stats['total_uses'] == 0:
+        if mcp_stats["total_uses"] == 0:
             st.info("No MCP tool usage found in your conversations.")
         else:
             # Overview metrics
@@ -275,7 +288,7 @@ with st.expander("View MCP Tool Usage Statistics", expanded=False):
             with col1:
                 st.metric("Total MCP Uses", f"{mcp_stats['total_uses']:,}")
             with col2:
-                st.metric("Sessions with MCP", mcp_stats['total_sessions'])
+                st.metric("Sessions with MCP", mcp_stats["total_sessions"])
 
             st.divider()
 
@@ -284,36 +297,40 @@ with st.expander("View MCP Tool Usage Statistics", expanded=False):
 
             with col1:
                 st.markdown("### By MCP Server")
-                if mcp_stats['by_server']:
-                    for server in mcp_stats['by_server']:
-                        server_name = server['mcp_server']
-                        uses = server['total_uses']
-                        sessions = server['session_count']
+                if mcp_stats["by_server"]:
+                    for server in mcp_stats["by_server"]:
+                        server_name = server["mcp_server"]
+                        uses = server["total_uses"]
+                        sessions = server["session_count"]
 
                         # Create clickable link that filters search
-                        st.markdown(f"""
+                        st.markdown(
+                            f"""
                         **{server_name}**
                         - {uses:,} uses across {sessions} session(s)
-                        """)
+                        """
+                        )
                 else:
                     st.info("No MCP servers detected.")
 
             with col2:
                 st.markdown("### Top MCP Tools")
-                if mcp_stats['by_tool']:
+                if mcp_stats["by_tool"]:
                     # Show top 10 tools
-                    for i, tool in enumerate(mcp_stats['by_tool'][:10], 1):
-                        tool_name = tool['tool_name']
-                        uses = tool['use_count']
-                        sessions = tool['session_count']
+                    for i, tool in enumerate(mcp_stats["by_tool"][:10], 1):
+                        tool_name = tool["tool_name"]
+                        uses = tool["use_count"]
+                        sessions = tool["session_count"]
 
                         # Extract display name (remove mcp__ prefix for readability)
-                        display_name = tool_name.replace('mcp__', '').replace('__', ' → ')
+                        display_name = tool_name.replace("mcp__", "").replace("__", " → ")
 
-                        st.markdown(f"""
+                        st.markdown(
+                            f"""
                         **{i}. {display_name}**
                         {uses:,} uses in {sessions} session(s)
-                        """)
+                        """
+                        )
 
                         if i >= 10:
                             break
@@ -321,19 +338,20 @@ with st.expander("View MCP Tool Usage Statistics", expanded=False):
                     st.info("No MCP tools detected.")
 
             # Full tool list in expandable section
-            if len(mcp_stats['by_tool']) > 10:
+            if len(mcp_stats["by_tool"]) > 10:
                 st.divider()
                 with st.expander(f"Show all {len(mcp_stats['by_tool'])} MCP tools"):
-                    for tool in mcp_stats['by_tool']:
-                        tool_name = tool['tool_name']
-                        uses = tool['use_count']
-                        sessions = tool['session_count']
-                        display_name = tool_name.replace('mcp__', '').replace('__', ' → ')
+                    for tool in mcp_stats["by_tool"]:
+                        tool_name = tool["tool_name"]
+                        uses = tool["use_count"]
+                        sessions = tool["session_count"]
+                        display_name = tool_name.replace("mcp__", "").replace("__", " → ")
 
                         st.markdown(f"**{display_name}**: {uses:,} uses in {sessions} session(s)")
 
     except Exception as e:
         st.error(f"Error loading MCP statistics: {e}")
         import traceback
+
         with st.expander("Error details"):
             st.code(traceback.format_exc())

@@ -1,24 +1,24 @@
 """Analysis service layer for running LLM-powered analysis."""
 
-import os
+import json
 import subprocess
 import sys
-from pathlib import Path
-from typing import Dict, Optional, List
 from datetime import datetime
-import json
+from pathlib import Path
+from typing import Optional
+
 import yaml
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
 from claude_code_analytics.streamlit_app.models import (
-    AnalysisType,
     AnalysisResult,
+    AnalysisType,
     AnalysisTypeMetadata,
     Message,
     ToolUse,
 )
-from claude_code_analytics.streamlit_app.services.llm_providers import LLMProvider, create_provider
 from claude_code_analytics.streamlit_app.services.database_service import DatabaseService
+from claude_code_analytics.streamlit_app.services.llm_providers import LLMProvider, create_provider
 
 
 class AnalysisService:
@@ -59,9 +59,9 @@ class AnalysisService:
     def api_key(self) -> Optional[str]:
         """Legacy property for backwards compatibility."""
         # Check if provider has API key
-        return getattr(self.provider, 'api_key', None)
+        return getattr(self.provider, "api_key", None)
 
-    def _load_prompts(self) -> tuple[Dict[str, AnalysisTypeMetadata], Environment]:
+    def _load_prompts(self) -> tuple[dict[str, AnalysisTypeMetadata], Environment]:
         """
         Load analysis prompts from Jinja2 template files.
 
@@ -74,28 +74,22 @@ class AnalysisService:
 
         # Load metadata
         metadata_file = prompts_dir / "metadata.yaml"
-        with open(metadata_file, "r") as f:
+        with open(metadata_file) as f:
             raw_metadata = yaml.safe_load(f)
 
         # Convert to Pydantic models
-        metadata = {
-            key: AnalysisTypeMetadata(**value) for key, value in raw_metadata.items()
-        }
+        metadata = {key: AnalysisTypeMetadata(**value) for key, value in raw_metadata.items()}
 
         # Create Jinja2 environment
         env = Environment(loader=FileSystemLoader(str(prompts_dir)))
 
         return metadata, env
 
-    def get_available_analysis_types(self) -> Dict[str, AnalysisTypeMetadata]:
+    def get_available_analysis_types(self) -> dict[str, AnalysisTypeMetadata]:
         """Get all available analysis types and their metadata."""
         return self.metadata
 
-    def format_messages_simple(
-        self,
-        messages: List[Message],
-        tool_uses: List[ToolUse]
-    ) -> str:
+    def format_messages_simple(self, messages: list[Message], tool_uses: list[ToolUse]) -> str:
         """
         Format messages and tool uses into simple transcript format.
 
@@ -117,7 +111,11 @@ class AnalysisService:
 
         for msg in messages:
             # Format timestamp
-            timestamp = msg.timestamp if isinstance(msg.timestamp, str) else msg.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            timestamp = (
+                msg.timestamp
+                if isinstance(msg.timestamp, str)
+                else msg.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            )
 
             # Add message header and content
             lines.append(f"[{msg.role.capitalize()} - {timestamp}]")
@@ -127,7 +125,9 @@ class AnalysisService:
             # Add tool uses for this message
             if msg.message_index in tools_by_message:
                 for tool in tools_by_message[msg.message_index]:
-                    lines.append(f"\n[Tool: {tool.tool_name} - {tool.timestamp if isinstance(tool.timestamp, str) else tool.timestamp.strftime('%Y-%m-%d %H:%M:%S')}]")
+                    lines.append(
+                        f"\n[Tool: {tool.tool_name} - {tool.timestamp if isinstance(tool.timestamp, str) else tool.timestamp.strftime('%Y-%m-%d %H:%M:%S')}]"
+                    )
 
                     # Add tool input (parse JSON if possible for readability)
                     if tool.tool_input:
@@ -145,7 +145,11 @@ class AnalysisService:
 
                     # Add tool result
                     if tool.tool_result:
-                        result_preview = tool.tool_result[:500] + "..." if len(tool.tool_result) > 500 else tool.tool_result
+                        result_preview = (
+                            tool.tool_result[:500] + "..."
+                            if len(tool.tool_result) > 500
+                            else tool.tool_result
+                        )
                         lines.append(f"Result: {result_preview}")
 
                     if tool.is_error:
@@ -156,10 +160,7 @@ class AnalysisService:
         return "\n".join(lines)
 
     def format_messages_with_highlight(
-        self,
-        messages: List[Message],
-        tool_uses: List[ToolUse],
-        highlight_index: int
+        self, messages: list[Message], tool_uses: list[ToolUse], highlight_index: int
     ) -> str:
         """
         Format messages with one message highlighted as the search hit.
@@ -183,7 +184,11 @@ class AnalysisService:
 
         for msg in messages:
             # Format timestamp
-            timestamp = msg.timestamp if isinstance(msg.timestamp, str) else msg.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            timestamp = (
+                msg.timestamp
+                if isinstance(msg.timestamp, str)
+                else msg.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            )
 
             # Check if this is the highlighted message
             is_highlight = msg.message_index == highlight_index
@@ -199,7 +204,9 @@ class AnalysisService:
             # Add tool uses for this message
             if msg.message_index in tools_by_message:
                 for tool in tools_by_message[msg.message_index]:
-                    lines.append(f"\n[Tool: {tool.tool_name} - {tool.timestamp if isinstance(tool.timestamp, str) else tool.timestamp.strftime('%Y-%m-%d %H:%M:%S')}]")
+                    lines.append(
+                        f"\n[Tool: {tool.tool_name} - {tool.timestamp if isinstance(tool.timestamp, str) else tool.timestamp.strftime('%Y-%m-%d %H:%M:%S')}]"
+                    )
 
                     # Add tool input (parse JSON if possible for readability)
                     if tool.tool_input:
@@ -217,25 +224,26 @@ class AnalysisService:
 
                     # Add tool result
                     if tool.tool_result:
-                        result_preview = tool.tool_result[:500] + "..." if len(tool.tool_result) > 500 else tool.tool_result
+                        result_preview = (
+                            tool.tool_result[:500] + "..."
+                            if len(tool.tool_result) > 500
+                            else tool.tool_result
+                        )
                         lines.append(f"Result: {result_preview}")
 
                     if tool.is_error:
                         lines.append("(Error)")
 
             if is_highlight:
-                lines.append(f">>> END SEARCH HIT <<<\n")
+                lines.append(">>> END SEARCH HIT <<<\n")
             else:
                 lines.append("")  # Blank line between messages
 
         return "\n".join(lines)
 
     def get_messages_around_index(
-        self,
-        session_id: str,
-        message_index: int,
-        context_window: int = 20
-    ) -> tuple[List[Message], List[ToolUse], str]:
+        self, session_id: str, message_index: int, context_window: int = 20
+    ) -> tuple[list[Message], list[ToolUse], str]:
         """
         Get messages around a specific message index with context window.
 
@@ -268,22 +276,17 @@ class AnalysisService:
         end_pos = min(len(all_messages) - 1, target_position + context_window)
 
         # Get messages in range
-        messages_in_range = all_messages[start_pos:end_pos + 1]
+        messages_in_range = all_messages[start_pos : end_pos + 1]
 
         # Get tool uses for these messages
         min_index = messages_in_range[0].message_index
         max_index = messages_in_range[-1].message_index
         all_tool_uses = self.db_service.get_tool_uses_for_session(session_id)
-        tool_uses_in_range = [
-            t for t in all_tool_uses
-            if min_index <= t.message_index <= max_index
-        ]
+        tool_uses_in_range = [t for t in all_tool_uses if min_index <= t.message_index <= max_index]
 
         # Format with highlight
         formatted = self.format_messages_with_highlight(
-            messages_in_range,
-            tool_uses_in_range,
-            message_index
+            messages_in_range, tool_uses_in_range, message_index
         )
 
         return (messages_in_range, tool_uses_in_range, formatted)
@@ -300,6 +303,7 @@ class AnalysisService:
         """
         try:
             import tiktoken
+
             # Use cl100k_base encoding (used by GPT-4, GPT-3.5-turbo, and many other models)
             encoding = tiktoken.get_encoding("cl100k_base")
             return len(encoding.encode(text))
@@ -362,9 +366,7 @@ class AnalysisService:
 
         # Run pretty-print script
         pretty_print_script = (
-            Path(__file__).parent.parent.parent
-            / "scripts"
-            / "pretty-print-transcript.py"
+            Path(__file__).parent.parent.parent / "scripts" / "pretty-print-transcript.py"
         )
 
         try:
@@ -417,9 +419,7 @@ class AnalysisService:
         if use_search_hit:
             # Search hit context mode
             _, _, transcript = self.get_messages_around_index(
-                session_id=session_id,
-                message_index=message_index,
-                context_window=context_window
+                session_id=session_id, message_index=message_index, context_window=context_window
             )
 
             if not transcript.strip():
@@ -428,14 +428,10 @@ class AnalysisService:
         elif use_time_filter:
             # Get messages and tool uses from database with time filter
             messages = self.db_service.get_messages_in_range(
-                session_id=session_id,
-                start_time=start_time,
-                end_time=end_time
+                session_id=session_id, start_time=start_time, end_time=end_time
             )
             tool_uses = self.db_service.get_tool_uses_in_range(
-                session_id=session_id,
-                start_time=start_time,
-                end_time=end_time
+                session_id=session_id, start_time=start_time, end_time=end_time
             )
 
             # Format using simple format
@@ -452,7 +448,7 @@ class AnalysisService:
                 )
 
             # Read transcript
-            with open(transcript_path, "r", encoding="utf-8") as f:
+            with open(transcript_path, encoding="utf-8") as f:
                 transcript = f.read()
 
         # Build prompt based on analysis type

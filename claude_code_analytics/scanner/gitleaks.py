@@ -1,10 +1,11 @@
 """Gitleaks-based secrets detection scanner."""
 
-import subprocess
 import json
+import shutil
+import subprocess
 import tempfile
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import Optional
 
 from .base import ScanFinding, ScanSeverity
 
@@ -20,26 +21,32 @@ class GitleaksScanner:
             config_path: Optional path to .gitleaks.toml config file
         """
         self.config_path = config_path
-        self._verify_installation()
+        self.gitleaks_path = self._verify_installation()
 
-    def _verify_installation(self) -> None:
-        """Check if gitleaks is installed."""
+    def _verify_installation(self) -> str:
+        """
+        Check if gitleaks is installed and return its absolute path.
+
+        Returns:
+            Absolute path to gitleaks executable
+
+        Raises:
+            RuntimeError: If gitleaks is not found or fails to run
+        """
+        # Find gitleaks in PATH
+        gitleaks_path = shutil.which("gitleaks")
+        if not gitleaks_path:
+            raise RuntimeError("Gitleaks not found. Install with: brew install gitleaks")
+
+        # Verify it works
         try:
-            subprocess.run(
-                ["gitleaks", "version"],
-                capture_output=True,
-                check=True
-            )
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            raise RuntimeError(
-                "Gitleaks not found. Install with: brew install gitleaks"
-            )
+            subprocess.run([gitleaks_path, "version"], capture_output=True, check=True)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Gitleaks found but failed to run: {e}") from e
 
-    def scan(
-        self,
-        content: str,
-        filename: str = "content.txt"
-    ) -> List[ScanFinding]:
+        return gitleaks_path
+
+    def scan(self, content: str, filename: str = "content.txt") -> list[ScanFinding]:
         """
         Scan content for secrets using gitleaks.
 
@@ -55,17 +62,21 @@ class GitleaksScanner:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Write content to temp file
             file_path = Path(tmpdir) / filename
-            file_path.write_text(content, encoding='utf-8')
+            file_path.write_text(content, encoding="utf-8")
 
             # Build gitleaks command
             cmd = [
-                "gitleaks",
+                self.gitleaks_path,
                 "detect",
-                "--source", tmpdir,
-                "--report-format", "json",
-                "--report-path", f"{tmpdir}/report.json",
+                "--source",
+                tmpdir,
+                "--report-format",
+                "json",
+                "--report-path",
+                f"{tmpdir}/report.json",
                 "--no-git",
-                "--exit-code", "0"  # Don't exit with error on findings
+                "--exit-code",
+                "0",  # Don't exit with error on findings
             ]
 
             if self.config_path:
@@ -80,38 +91,33 @@ class GitleaksScanner:
             # Parse report
             report_path = Path(tmpdir) / "report.json"
             if report_path.exists():
-                report_content = report_path.read_text(encoding='utf-8')
+                report_content = report_path.read_text(encoding="utf-8")
                 if report_content.strip():
                     gitleaks_findings = json.loads(report_content)
                     findings = self._convert_findings(gitleaks_findings, filename)
 
         return findings
 
-    def _convert_findings(
-        self,
-        gitleaks_findings: List[Dict],
-        filename: str
-    ) -> List[ScanFinding]:
+    def _convert_findings(self, gitleaks_findings: list[dict], filename: str) -> list[ScanFinding]:
         """Convert gitleaks JSON findings to ScanFinding objects."""
         findings = []
 
         for gf in gitleaks_findings:
             # Redact the actual secret value
-            secret = gf.get('Secret', '')
-            if len(secret) > 20:
-                redacted = f"{secret[:8]}...{secret[-4:]}"
-            else:
-                redacted = "***REDACTED***"
+            secret = gf.get("Secret", "")
+            redacted = f"{secret[:8]}...{secret[-4:]}" if len(secret) > 20 else "***REDACTED***"
 
-            findings.append(ScanFinding(
-                category="secrets",
-                severity=ScanSeverity.CRITICAL,
-                rule_id=gf.get('RuleID', 'unknown'),
-                description=gf.get('Description', 'Secret detected'),
-                matched_text=redacted,
-                line_number=gf.get('StartLine'),
-                file_name=filename,
-                confidence=1.0
-            ))
+            findings.append(
+                ScanFinding(
+                    category="secrets",
+                    severity=ScanSeverity.CRITICAL,
+                    rule_id=gf.get("RuleID", "unknown"),
+                    description=gf.get("Description", "Secret detected"),
+                    matched_text=redacted,
+                    line_number=gf.get("StartLine"),
+                    file_name=filename,
+                    confidence=1.0,
+                )
+            )
 
         return findings

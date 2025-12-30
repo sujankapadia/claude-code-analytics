@@ -1,22 +1,19 @@
 """Database service layer for conversation analytics."""
 
 import sqlite3
-import sys
-from pathlib import Path
-from typing import List, Optional, Dict, Any
 from datetime import datetime
+from typing import Any, Optional
 
 # Add parent directory to path for imports
-
 from claude_code_analytics import config
 from claude_code_analytics.streamlit_app.models import (
-    Project,
-    Session,
     Message,
-    ToolUse,
+    Project,
     ProjectSummary,
+    Session,
     SessionSummary,
     ToolUsageSummary,
+    ToolUse,
 )
 
 
@@ -42,11 +39,7 @@ class DatabaseService:
         return conn
 
     def _execute_fts_query(
-        self,
-        cursor: sqlite3.Cursor,
-        sql: str,
-        params: list,
-        query_text: str
+        self, cursor: sqlite3.Cursor, sql: str, params: list, query_text: str
     ) -> None:
         """
         Execute an FTS5 query with proper error handling.
@@ -77,7 +70,7 @@ class DatabaseService:
     # Project queries
     # =========================================================================
 
-    def get_all_projects(self) -> List[Project]:
+    def get_all_projects(self) -> list[Project]:
         """Get all projects."""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -86,7 +79,7 @@ class DatabaseService:
         conn.close()
         return [Project(**dict(row)) for row in rows]
 
-    def get_project_summaries(self) -> List[ProjectSummary]:
+    def get_project_summaries(self) -> list[ProjectSummary]:
         """Get project summaries with aggregated statistics."""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -108,7 +101,7 @@ class DatabaseService:
     # Session queries
     # =========================================================================
 
-    def get_sessions_for_project(self, project_id: str) -> List[Session]:
+    def get_sessions_for_project(self, project_id: str) -> list[Session]:
         """Get all sessions for a project."""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -135,7 +128,7 @@ class DatabaseService:
 
     def get_session_summaries(
         self, project_id: Optional[str] = None, limit: Optional[int] = None
-    ) -> List[SessionSummary]:
+    ) -> list[SessionSummary]:
         """
         Get session summaries with detailed statistics.
 
@@ -171,7 +164,7 @@ class DatabaseService:
     # Message queries
     # =========================================================================
 
-    def get_messages_for_session(self, session_id: str) -> List[Message]:
+    def get_messages_for_session(self, session_id: str) -> list[Message]:
         """Get all messages for a session."""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -191,8 +184,8 @@ class DatabaseService:
         self,
         session_id: str,
         start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
-    ) -> List[Message]:
+        end_time: Optional[datetime] = None,
+    ) -> list[Message]:
         """
         Get messages for a session filtered by timestamp range.
 
@@ -225,7 +218,7 @@ class DatabaseService:
         conn.close()
         return [Message(**dict(row)) for row in rows]
 
-    def get_token_usage_for_session(self, session_id: str) -> Dict[str, int]:
+    def get_token_usage_for_session(self, session_id: str) -> dict[str, int]:
         """
         Get aggregated token usage for a session.
 
@@ -262,7 +255,7 @@ class DatabaseService:
             }
         return {}
 
-    def get_token_timeline_for_session(self, session_id: str) -> List[Dict[str, Any]]:
+    def get_token_timeline_for_session(self, session_id: str) -> list[dict[str, Any]]:
         """
         Get cumulative token usage timeline for a session.
 
@@ -305,12 +298,14 @@ class DatabaseService:
             output_tok = row["output_tokens"] or 0
             cumulative_tokens += input_tok + output_tok
 
-            timeline.append({
-                "timestamp": row["timestamp"],
-                "cumulative_tokens": cumulative_tokens,
-                "input_tokens": input_tok,
-                "output_tokens": output_tok,
-            })
+            timeline.append(
+                {
+                    "timestamp": row["timestamp"],
+                    "cumulative_tokens": cumulative_tokens,
+                    "input_tokens": input_tok,
+                    "output_tokens": output_tok,
+                }
+            )
 
         return timeline
 
@@ -318,7 +313,7 @@ class DatabaseService:
     # Tool use queries
     # =========================================================================
 
-    def get_tool_uses_for_session(self, session_id: str) -> List[ToolUse]:
+    def get_tool_uses_for_session(self, session_id: str) -> list[ToolUse]:
         """Get all tool uses for a session."""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -338,8 +333,8 @@ class DatabaseService:
         self,
         session_id: str,
         start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
-    ) -> List[ToolUse]:
+        end_time: Optional[datetime] = None,
+    ) -> list[ToolUse]:
         """
         Get tool uses for a session filtered by timestamp range.
 
@@ -372,7 +367,7 @@ class DatabaseService:
         conn.close()
         return [ToolUse(**dict(row)) for row in rows]
 
-    def get_tool_usage_summary(self) -> List[ToolUsageSummary]:
+    def get_tool_usage_summary(self) -> list[ToolUsageSummary]:
         """Get aggregated tool usage statistics."""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -393,8 +388,8 @@ class DatabaseService:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         limit: int = 100,
-        offset: int = 0
-    ) -> List[Dict[str, Any]]:
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
         """
         Search messages using FTS5 full-text search.
 
@@ -469,8 +464,8 @@ class DatabaseService:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         limit: int = 100,
-        offset: int = 0
-    ) -> List[Dict[str, Any]]:
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
         """
         Search tool input parameters using FTS5.
 
@@ -540,8 +535,8 @@ class DatabaseService:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         limit: int = 100,
-        offset: int = 0
-    ) -> List[Dict[str, Any]]:
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
         """
         Search tool results/output using FTS5.
 
@@ -612,8 +607,8 @@ class DatabaseService:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         limit: int = 100,
-        offset: int = 0
-    ) -> List[Dict[str, Any]]:
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
         """
         Combined search across messages and tools.
 
@@ -908,7 +903,7 @@ class DatabaseService:
         end_date: Optional[str] = None,
         sessions_per_page: int = 3,
         page: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Search with results grouped by session, paginated by sessions.
 
@@ -1099,25 +1094,21 @@ class DatabaseService:
 
         # Check if there are more pages
         has_more = len(session_rows) > sessions_per_page
-        session_ids = [row['session_id'] for row in session_rows[:sessions_per_page]]
+        session_ids = [row["session_id"] for row in session_rows[:sessions_per_page]]
 
         # Get total session count (without pagination)
         total_sql = session_sql.replace("LIMIT ? OFFSET ?", "")
         total_params = params[:-2]  # Remove the limit/offset params
         cursor.execute(f"SELECT COUNT(*) as total FROM ({total_sql})", total_params)
-        total_sessions = cursor.fetchone()['total']
+        total_sessions = cursor.fetchone()["total"]
 
         if not session_ids:
             conn.close()
-            return {
-                'results_by_session': {},
-                'has_more': False,
-                'total_sessions': 0
-            }
+            return {"results_by_session": {}, "has_more": False, "total_sessions": 0}
 
         # Step 2: Get all results for these specific sessions
         results_by_session = {}
-        placeholders = ','.join('?' * len(session_ids))
+        placeholders = ",".join("?" * len(session_ids))
 
         if scope == "Messages":
             # Custom query to filter by session_ids
@@ -1155,9 +1146,9 @@ class DatabaseService:
             results = [dict(row) for row in cursor.fetchall()]
 
             for result in results:
-                if result['session_id'] not in results_by_session:
-                    results_by_session[result['session_id']] = []
-                results_by_session[result['session_id']].append(result)
+                if result["session_id"] not in results_by_session:
+                    results_by_session[result["session_id"]] = []
+                results_by_session[result["session_id"]].append(result)
 
         elif scope == "Tool Inputs":
             # Custom query to filter by session_ids
@@ -1197,9 +1188,9 @@ class DatabaseService:
             results = [dict(row) for row in cursor.fetchall()]
 
             for result in results:
-                if result['session_id'] not in results_by_session:
-                    results_by_session[result['session_id']] = []
-                results_by_session[result['session_id']].append(result)
+                if result["session_id"] not in results_by_session:
+                    results_by_session[result["session_id"]] = []
+                results_by_session[result["session_id"]].append(result)
 
         elif scope == "Tool Results":
             # Custom query to filter by session_ids
@@ -1240,9 +1231,9 @@ class DatabaseService:
             results = [dict(row) for row in cursor.fetchall()]
 
             for result in results:
-                if result['session_id'] not in results_by_session:
-                    results_by_session[result['session_id']] = []
-                results_by_session[result['session_id']].append(result)
+                if result["session_id"] not in results_by_session:
+                    results_by_session[result["session_id"]] = []
+                results_by_session[result["session_id"]].append(result)
 
         else:  # All
             # Custom UNION query to filter by session_ids
@@ -1359,23 +1350,23 @@ class DatabaseService:
             results = [dict(row) for row in cursor.fetchall()]
 
             for result in results:
-                if result['session_id'] not in results_by_session:
-                    results_by_session[result['session_id']] = []
-                results_by_session[result['session_id']].append(result)
+                if result["session_id"] not in results_by_session:
+                    results_by_session[result["session_id"]] = []
+                results_by_session[result["session_id"]].append(result)
 
         # Sort results within each session by timestamp
         for session_id in results_by_session:
-            results_by_session[session_id].sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+            results_by_session[session_id].sort(key=lambda x: x.get("timestamp", ""), reverse=True)
 
         conn.close()
 
         return {
-            'results_by_session': results_by_session,
-            'has_more': has_more,
-            'total_sessions': total_sessions
+            "results_by_session": results_by_session,
+            "has_more": has_more,
+            "total_sessions": total_sessions,
         }
 
-    def get_unique_tool_names(self) -> List[str]:
+    def get_unique_tool_names(self) -> list[str]:
         """Get list of all tool names used."""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -1384,13 +1375,14 @@ class DatabaseService:
         conn.close()
         return [row["tool_name"] for row in rows]
 
-    def get_mcp_tool_stats(self) -> Dict[str, Any]:
+    def get_mcp_tool_stats(self) -> dict[str, Any]:
         """Get MCP tool usage statistics."""
         conn = self._get_connection()
         cursor = conn.cursor()
 
         # Get MCP tool usage by tool name
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT
                 tool_name,
                 COUNT(*) as use_count,
@@ -1399,11 +1391,13 @@ class DatabaseService:
             WHERE tool_name LIKE 'mcp__%'
             GROUP BY tool_name
             ORDER BY use_count DESC
-        """)
+        """
+        )
         tool_stats = [dict(row) for row in cursor.fetchall()]
 
         # Get MCP by server (extract server from tool name)
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT
                 SUBSTR(tool_name, 1, INSTR(SUBSTR(tool_name, 6), '__') + 4) as mcp_server,
                 COUNT(*) as total_uses,
@@ -1412,17 +1406,20 @@ class DatabaseService:
             WHERE tool_name LIKE 'mcp__%'
             GROUP BY mcp_server
             ORDER BY total_uses DESC
-        """)
+        """
+        )
         server_stats = [dict(row) for row in cursor.fetchall()]
 
         # Get total MCP uses
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT
                 COUNT(*) as total_mcp_uses,
                 COUNT(DISTINCT session_id) as total_sessions
             FROM tool_uses
             WHERE tool_name LIKE 'mcp__%'
-        """)
+        """
+        )
         totals = dict(cursor.fetchone())
 
         conn.close()
@@ -1431,16 +1428,14 @@ class DatabaseService:
             "total_uses": totals.get("total_mcp_uses", 0),
             "total_sessions": totals.get("total_sessions", 0),
             "by_tool": tool_stats,
-            "by_server": server_stats
+            "by_server": server_stats,
         }
 
     # =========================================================================
     # Analytics queries
     # =========================================================================
 
-    def get_daily_statistics(
-        self, days: int = 30
-    ) -> List[Dict[str, Any]]:
+    def get_daily_statistics(self, days: int = 30) -> list[dict[str, Any]]:
         """
         Get daily aggregated statistics.
 

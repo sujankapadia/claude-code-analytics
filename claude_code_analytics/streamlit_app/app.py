@@ -5,7 +5,6 @@ A Streamlit application for analyzing Claude Code conversation transcripts.
 """
 
 import streamlit as st
-from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -20,7 +19,8 @@ st.set_page_config(
 )
 
 # Custom CSS styling to match landing page
-st.markdown("""
+st.markdown(
+    """
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -264,7 +264,9 @@ st.markdown("""
         background: var(--accent-secondary);
     }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True,
+)
 
 # Define pages
 about_page = st.Page(

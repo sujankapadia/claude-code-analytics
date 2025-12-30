@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from streamlit_app.services import DatabaseService
 
+
 def test_search():
     db = DatabaseService()
 
@@ -37,7 +38,9 @@ def test_search():
     results = db.search_tool_inputs("git", limit=5)
     print(f"   Found {len(results)} results")
     if results:
-        print(f"   First result: {results[0]['tool_name']} - {results[0].get('tool_input', '')[:80]}...")
+        print(
+            f"   First result: {results[0]['tool_name']} - {results[0].get('tool_input', '')[:80]}..."
+        )
     print()
 
     # Test 4: Search tool results
@@ -45,7 +48,9 @@ def test_search():
     results = db.search_tool_results("error", limit=5)
     print(f"   Found {len(results)} results")
     if results:
-        print(f"   First result: {results[0]['tool_name']} - {results[0].get('tool_result', '')[:80]}...")
+        print(
+            f"   First result: {results[0]['tool_name']} - {results[0].get('tool_result', '')[:80]}..."
+        )
     print()
 
     # Test 5: Combined search
@@ -63,15 +68,16 @@ def test_search():
     print(f"   Total MCP uses: {stats['total_uses']}")
     print(f"   Total sessions: {stats['total_sessions']}")
     print(f"   Unique MCP tools: {len(stats['by_tool'])}")
-    if stats['by_server']:
-        print(f"   MCP servers:")
-        for server in stats['by_server'][:5]:
+    if stats["by_server"]:
+        print("   MCP servers:")
+        for server in stats["by_server"][:5]:
             print(f"     - {server['mcp_server']}: {server['total_uses']} uses")
     print()
 
     print("=" * 70)
     print("✅ All tests completed!")
     print("=" * 70)
+
 
 if __name__ == "__main__":
     test_search()

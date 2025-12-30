@@ -1,13 +1,10 @@
 """Analytics dashboard page."""
 
-import streamlit as st
-import pandas as pd
 import altair as alt
-import sys
-from pathlib import Path
+import pandas as pd
+import streamlit as st
 
 # Add parent directory to path for imports
-
 from claude_code_analytics.streamlit_app.services import DatabaseService
 
 # Initialize service
@@ -18,9 +15,11 @@ db_service = st.session_state.db_service
 
 st.title("📊 Analytics Dashboard")
 
-st.markdown("""
+st.markdown(
+    """
 View aggregated statistics and insights about your Claude Code usage.
-""")
+"""
+)
 
 try:
     # === Tool Usage Statistics ===
@@ -139,8 +138,12 @@ try:
 
         total_sessions = daily_df["sessions"].sum()
         total_messages = daily_df["messages"].sum()
-        total_input_tokens = daily_df["input_tokens"].sum() if "input_tokens" in daily_df.columns else 0
-        total_output_tokens = daily_df["output_tokens"].sum() if "output_tokens" in daily_df.columns else 0
+        total_input_tokens = (
+            daily_df["input_tokens"].sum() if "input_tokens" in daily_df.columns else 0
+        )
+        total_output_tokens = (
+            daily_df["output_tokens"].sum() if "output_tokens" in daily_df.columns else 0
+        )
 
         col1.metric("Total Sessions", f"{total_sessions:,}")
         col2.metric("Total Messages", f"{total_messages:,}")
@@ -160,7 +163,7 @@ try:
         projects_df = pd.DataFrame([p.model_dump() for p in projects])
 
         # Ensure proper sorting by total_messages
-        projects_df = projects_df.sort_values('total_messages', ascending=False)
+        projects_df = projects_df.sort_values("total_messages", ascending=False)
 
         st.dataframe(
             projects_df,
@@ -198,5 +201,6 @@ try:
 except Exception as e:
     st.error(f"Error loading analytics: {e}")
     import traceback
+
     with st.expander("Error details"):
         st.code(traceback.format_exc())

@@ -11,40 +11,36 @@ Usage:
 
 import argparse
 import json
+import logging
 import sqlite3
 import sys
-from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Tuple, Optional, Any
-import logging
+from pathlib import Path
+from typing import Any, Optional
 
 from claude_code_analytics import config
 
-
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(levelname)s: %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description='Import Claude Code conversation transcripts into SQLite database'
+        description="Import Claude Code conversation transcripts into SQLite database"
     )
     parser.add_argument(
-        '--db',
+        "--db",
         type=str,
         default=str(config.DATABASE_PATH),
-        help=f'Path to SQLite database (default: {config.DATABASE_PATH})'
+        help=f"Path to SQLite database (default: {config.DATABASE_PATH})",
     )
     parser.add_argument(
-        '--source',
+        "--source",
         type=str,
         default=str(config.CLAUDE_CODE_PROJECTS_DIR),
-        help=f'Path to Claude projects directory (default: {config.CLAUDE_CODE_PROJECTS_DIR})'
+        help=f"Path to Claude projects directory (default: {config.CLAUDE_CODE_PROJECTS_DIR})",
     )
     return parser.parse_args()
 
@@ -61,10 +57,10 @@ def decode_project_name(project_id: str) -> str:
     Returns:
         Human-readable project path
     """
-    if project_id.startswith('-'):
+    if project_id.startswith("-"):
         # Remove leading dash and replace remaining dashes with slashes
-        parts = project_id[1:].split('-')
-        return '/' + '/'.join(parts)
+        parts = project_id[1:].split("-")
+        return "/" + "/".join(parts)
     return project_id
 
 
@@ -90,11 +86,11 @@ def extract_text_from_content(content: Any) -> str:
         text_parts = []
         for item in content:
             if isinstance(item, dict):
-                if item.get('type') == 'text' and 'text' in item:
-                    text_parts.append(item['text'])
+                if item.get("type") == "text" and "text" in item:
+                    text_parts.append(item["text"])
             elif isinstance(item, str):
                 text_parts.append(item)
-        return '\n'.join(text_parts)
+        return "\n".join(text_parts)
 
     return str(content)
 
@@ -120,13 +116,13 @@ def extract_tool_result_content(content: Any) -> str:
         text_parts = []
         for item in content:
             if isinstance(item, dict):
-                if 'text' in item:
-                    text_parts.append(item['text'])
-                elif 'content' in item:
-                    text_parts.append(str(item['content']))
+                if "text" in item:
+                    text_parts.append(item["text"])
+                elif "content" in item:
+                    text_parts.append(str(item["content"]))
             elif isinstance(item, str):
                 text_parts.append(item)
-        return '\n'.join(text_parts)
+        return "\n".join(text_parts)
 
     return str(content)
 
@@ -154,7 +150,7 @@ def normalize_timestamp(ts: Any) -> Optional[str]:
     if isinstance(ts, str):
         try:
             # Validate by parsing - this will raise if invalid
-            datetime.fromisoformat(ts.replace('Z', '+00:00'))
+            datetime.fromisoformat(ts.replace("Z", "+00:00"))
             return ts
         except (ValueError, AttributeError):
             logger.warning(f"  ⚠️  Invalid timestamp string: {ts}")
@@ -170,9 +166,9 @@ def normalize_timestamp(ts: Any) -> Optional[str]:
                 dt = datetime.utcfromtimestamp(ts)
 
             # Return in ISO 8601 format with milliseconds
-            iso_str = dt.isoformat(timespec='milliseconds')
+            iso_str = dt.isoformat(timespec="milliseconds")
             # Add Z suffix for UTC
-            return iso_str + 'Z' if not iso_str.endswith('Z') else iso_str
+            return iso_str + "Z" if not iso_str.endswith("Z") else iso_str
         except (ValueError, OSError) as e:
             logger.warning(f"  ⚠️  Invalid timestamp number: {ts} ({e})")
             return None
@@ -182,7 +178,7 @@ def normalize_timestamp(ts: Any) -> Optional[str]:
     return None
 
 
-def parse_jsonl_file(file_path: Path) -> List[Dict]:
+def parse_jsonl_file(file_path: Path) -> list[dict]:
     """
     Parse a JSONL file and return list of entries.
 
@@ -194,7 +190,7 @@ def parse_jsonl_file(file_path: Path) -> List[Dict]:
     """
     entries = []
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding="utf-8") as f:
             for line_num, line in enumerate(f, 1):
                 line = line.strip()
                 if not line:
@@ -213,10 +209,8 @@ def parse_jsonl_file(file_path: Path) -> List[Dict]:
 
 
 def process_session(
-    session_file: Path,
-    project_id: str,
-    conn: sqlite3.Connection
-) -> Tuple[int, int]:
+    session_file: Path, project_id: str, conn: sqlite3.Connection
+) -> tuple[int, int]:
     """
     Process a single session JSONL file and import into database.
     Supports incremental updates - if session exists, only imports new messages.
@@ -234,11 +228,14 @@ def process_session(
 
     # Check if session already exists and get max message index
     cursor = conn.cursor()
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT MAX(message_index)
         FROM messages
         WHERE session_id = ?
-    """, (session_id,))
+    """,
+        (session_id,),
+    )
     result = cursor.fetchone()
     max_message_index = result[0] if result and result[0] is not None else -1
 
@@ -260,33 +257,39 @@ def process_session(
 
     for entry in entries:
         # Extract timestamp - could be 'ts' (milliseconds) or 'timestamp' (ISO string)
-        timestamp = normalize_timestamp(entry.get('ts') or entry.get('timestamp'))
+        timestamp = normalize_timestamp(entry.get("ts") or entry.get("timestamp"))
 
         # Message entry
-        if 'message' in entry:
-            msg = entry['message']
-            content = msg.get('content')
+        if "message" in entry:
+            msg = entry["message"]
+            content = msg.get("content")
 
             # Extract token usage for assistant messages
-            usage = msg.get('usage', {})
-            cache_creation = usage.get('cache_creation', {})
+            usage = msg.get("usage", {})
+            cache_creation = usage.get("cache_creation", {})
 
             # Store current message index for tool use tracking
             current_message_index = len(messages)
 
-            messages.append({
-                'role': msg.get('role'),
-                'content': content,
-                'timestamp': timestamp,
-                'usage': {
-                    'input_tokens': usage.get('input_tokens'),
-                    'output_tokens': usage.get('output_tokens'),
-                    'cache_creation_input_tokens': usage.get('cache_creation_input_tokens'),
-                    'cache_read_input_tokens': usage.get('cache_read_input_tokens'),
-                    'cache_ephemeral_5m_tokens': cache_creation.get('ephemeral_5m_input_tokens'),
-                    'cache_ephemeral_1h_tokens': cache_creation.get('ephemeral_1h_input_tokens'),
+            messages.append(
+                {
+                    "role": msg.get("role"),
+                    "content": content,
+                    "timestamp": timestamp,
+                    "usage": {
+                        "input_tokens": usage.get("input_tokens"),
+                        "output_tokens": usage.get("output_tokens"),
+                        "cache_creation_input_tokens": usage.get("cache_creation_input_tokens"),
+                        "cache_read_input_tokens": usage.get("cache_read_input_tokens"),
+                        "cache_ephemeral_5m_tokens": cache_creation.get(
+                            "ephemeral_5m_input_tokens"
+                        ),
+                        "cache_ephemeral_1h_tokens": cache_creation.get(
+                            "ephemeral_1h_input_tokens"
+                        ),
+                    },
                 }
-            })
+            )
 
             # Extract tool uses and tool results from message content
             # Only collect tool uses for messages we'll actually import
@@ -298,10 +301,10 @@ def process_session(
                             tool_id = item.get("id")
                             if tool_id:
                                 tool_uses[tool_id] = {
-                                    'name': item.get("name"),
-                                    'input': item.get("input"),
-                                    'timestamp': timestamp,
-                                    'message_index': current_message_index  # Track which message this belongs to
+                                    "name": item.get("name"),
+                                    "input": item.get("input"),
+                                    "timestamp": timestamp,
+                                    "message_index": current_message_index,  # Track which message this belongs to
                                 }
 
                         # Tool result embedded in message content
@@ -309,8 +312,8 @@ def process_session(
                             tool_id = item.get("tool_use_id")
                             if tool_id:
                                 tool_results[tool_id] = {
-                                    'content': item.get("content"),
-                                    'is_error': item.get("is_error", False)
+                                    "content": item.get("content"),
+                                    "is_error": item.get("is_error", False),
                                 }
 
     # Calculate session metadata
@@ -322,11 +325,11 @@ def process_session(
     new_messages = [msg for idx, msg in enumerate(messages) if idx > skip_until_index]
 
     if not new_messages and is_incremental:
-        logger.info(f"    ℹ️  No new messages (session up to date)")
+        logger.info("    ℹ️  No new messages (session up to date)")
         return (0, 0)
 
-    start_time = messages[0]['timestamp']
-    end_time = messages[-1]['timestamp']
+    start_time = messages[0]["timestamp"]
+    end_time = messages[-1]["timestamp"]
     total_message_count = len(messages)
 
     # Calculate actual tool use count from database for incremental updates
@@ -340,19 +343,34 @@ def process_session(
     # Insert or update session
     if is_incremental:
         # Update existing session with new end_time and counts
-        cursor.execute("""
+        cursor.execute(
+            """
             UPDATE sessions
             SET end_time = ?, message_count = ?, tool_use_count = ?
             WHERE session_id = ?
-        """, (end_time, total_message_count, total_tool_use_count, session_id))
-        logger.info(f"    🔄 Updating session (incremental): +{len(new_messages)} messages, +{len(tool_uses)} tool uses")
+        """,
+            (end_time, total_message_count, total_tool_use_count, session_id),
+        )
+        logger.info(
+            f"    🔄 Updating session (incremental): +{len(new_messages)} messages, +{len(tool_uses)} tool uses"
+        )
     else:
         # Insert new session
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO sessions (session_id, project_id, start_time, end_time, message_count, tool_use_count)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (session_id, project_id, start_time, end_time, total_message_count, total_tool_use_count))
+            """,
+                (
+                    session_id,
+                    project_id,
+                    start_time,
+                    end_time,
+                    total_message_count,
+                    total_tool_use_count,
+                ),
+            )
         except sqlite3.IntegrityError as e:
             logger.warning(f"    ⚠️  Session {session_id} already exists: {e}")
             return (0, 0)
@@ -364,58 +382,72 @@ def process_session(
         if idx <= skip_until_index:
             continue
 
-        content_text = extract_text_from_content(msg['content'])
-        usage = msg.get('usage', {})
-        message_rows.append((
-            session_id, idx, msg['role'], content_text, msg['timestamp'],
-            usage.get('input_tokens'), usage.get('output_tokens'),
-            usage.get('cache_creation_input_tokens'), usage.get('cache_read_input_tokens'),
-            usage.get('cache_ephemeral_5m_tokens'), usage.get('cache_ephemeral_1h_tokens')
-        ))
+        content_text = extract_text_from_content(msg["content"])
+        usage = msg.get("usage", {})
+        message_rows.append(
+            (
+                session_id,
+                idx,
+                msg["role"],
+                content_text,
+                msg["timestamp"],
+                usage.get("input_tokens"),
+                usage.get("output_tokens"),
+                usage.get("cache_creation_input_tokens"),
+                usage.get("cache_read_input_tokens"),
+                usage.get("cache_ephemeral_5m_tokens"),
+                usage.get("cache_ephemeral_1h_tokens"),
+            )
+        )
 
     if message_rows:
-        cursor.executemany("""
+        cursor.executemany(
+            """
             INSERT INTO messages (
                 session_id, message_index, role, content, timestamp,
                 input_tokens, output_tokens, cache_creation_input_tokens,
                 cache_read_input_tokens, cache_ephemeral_5m_tokens, cache_ephemeral_1h_tokens
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, message_rows)
+        """,
+            message_rows,
+        )
 
     # Batch insert tool uses with results
     tool_rows = []
     for tool_id, tool_data in tool_uses.items():
         tool_result_data = tool_results.get(tool_id, {})
-        tool_result_content = extract_tool_result_content(tool_result_data.get('content', ''))
+        tool_result_content = extract_tool_result_content(tool_result_data.get("content", ""))
 
         # Handle duplicate tool_use_ids across sessions (from resumed sessions)
         # Use INSERT OR IGNORE to skip duplicates
-        tool_rows.append((
-            tool_id,
-            session_id,
-            tool_data['message_index'],
-            tool_data['name'],
-            json.dumps(tool_data['input']) if tool_data['input'] else None,
-            tool_result_content,
-            tool_result_data.get('is_error', False),
-            tool_data['timestamp']
-        ))
+        tool_rows.append(
+            (
+                tool_id,
+                session_id,
+                tool_data["message_index"],
+                tool_data["name"],
+                json.dumps(tool_data["input"]) if tool_data["input"] else None,
+                tool_result_content,
+                tool_result_data.get("is_error", False),
+                tool_data["timestamp"],
+            )
+        )
 
     if tool_rows:
-        cursor.executemany("""
+        cursor.executemany(
+            """
             INSERT OR IGNORE INTO tool_uses (tool_use_id, session_id, message_index, tool_name, tool_input, tool_result, is_error, timestamp)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, tool_rows)
+        """,
+            tool_rows,
+        )
 
     # Return count of newly imported items
     return (len(new_messages), len(tool_uses))
 
 
-def import_project(
-    project_dir: Path,
-    conn: sqlite3.Connection
-) -> Tuple[int, int, int]:
+def import_project(project_dir: Path, conn: sqlite3.Connection) -> tuple[int, int, int]:
     """
     Import all sessions from a project directory.
 
@@ -434,17 +466,20 @@ def import_project(
     # Insert project (or ignore if exists)
     cursor = conn.cursor()
     try:
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO projects (project_id, project_name)
             VALUES (?, ?)
-        """, (project_id, project_name))
+        """,
+            (project_id, project_name),
+        )
     except sqlite3.IntegrityError:
         logger.debug(f"  Project {project_id} already exists")
 
     # Find all JSONL files
-    jsonl_files = list(project_dir.glob('*.jsonl'))
+    jsonl_files = list(project_dir.glob("*.jsonl"))
     if not jsonl_files:
-        logger.info(f"  No JSONL files found")
+        logger.info("  No JSONL files found")
         return (0, 0, 0)
 
     # Process each session
@@ -481,7 +516,8 @@ def main():
         logger.info(f"📊 Database not found - creating new database at: {db_path}")
         try:
             # Import create_database module
-            from claude_code_analytics.scripts.create_database import create_database, SCHEMA_SQL
+            from claude_code_analytics.scripts.create_database import create_database
+
             create_database(str(db_path))
             logger.info("✅ Database created successfully\n")
         except Exception as e:
@@ -502,6 +538,7 @@ def main():
 
     # Set secure permissions on database file
     import os
+
     os.chmod(str(db_path), 0o600)
 
     try:
@@ -536,7 +573,7 @@ def main():
                     commit_counter += sessions
                     if commit_counter >= 100:
                         conn.commit()
-                        logger.debug(f"  💾 Committed batch")
+                        logger.debug("  💾 Committed batch")
                         commit_counter = 0
 
             except Exception as e:
@@ -547,20 +584,21 @@ def main():
         conn.commit()
 
         # Print summary
-        logger.info("\n" + "="*60)
+        logger.info("\n" + "=" * 60)
         logger.info("✅ Import complete!")
-        logger.info("="*60)
+        logger.info("=" * 60)
         logger.info(f"📂 Projects imported:   {total_projects}")
         logger.info(f"💬 Sessions imported:   {total_sessions}")
         logger.info(f"📝 Messages imported:   {total_messages}")
         logger.info(f"🔧 Tool uses imported:  {total_tool_uses}")
-        logger.info("="*60)
+        logger.info("=" * 60)
 
         # Rebuild FTS index if any data was imported
         if total_messages > 0:
             logger.info("\n🔍 Rebuilding search index...")
             try:
                 from claude_code_analytics.scripts.create_fts_index import create_fts_index
+
                 conn.close()  # Close connection before FTS rebuild
                 create_fts_index(str(db_path))
                 logger.info("✅ Search index updated")

@@ -1,9 +1,9 @@
 """LLM provider abstraction layer for multiple backends."""
 
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
-import os
 
 import google.generativeai as genai
 import requests
@@ -62,8 +62,8 @@ class GeminiProvider(LLMProvider):
         response = gemini_model.generate_content(
             prompt,
             generation_config=genai.types.GenerationConfig(
-                temperature=kwargs.get('temperature', 0.1)
-            )
+                temperature=kwargs.get("temperature", 0.1)
+            ),
         )
 
         # Extract token usage
@@ -92,14 +92,12 @@ class OpenRouterProvider(LLMProvider):
         ("Llama 4 Scout - $0.08 (327K context)", "meta-llama/llama-4-scout"),
         ("Mistral Small Creative - $0.10", "mistralai/mistral-small-creative"),
         ("Llama 3.3 70B - $0.10 (Proven)", "meta-llama/llama-3.3-70b-instruct"),
-
         # Balanced tier (recommended)
         ("DeepSeek V3.2 - $0.26 ⭐ DEFAULT", "deepseek/deepseek-v3.2"),
         ("Gemini 3 Flash - $0.50 (1M context)", "google/gemini-3-flash-preview"),
         ("Claude Haiku 4.5 - $1.00 (Fast)", "anthropic/claude-haiku-4.5"),
         ("GPT-5.1 - $1.25 (400K context)", "openai/gpt-5.1"),
         ("GPT-5.2 Chat - $1.75 (Newest)", "openai/gpt-5.2-chat"),
-
         # Premium tier
         ("Gemini 3 Pro - $2.00 (1M context)", "google/gemini-3-pro-preview"),
         ("Claude Sonnet 4.5 - $3.00 (Best)", "anthropic/claude-sonnet-4.5"),
@@ -137,10 +135,8 @@ class OpenRouterProvider(LLMProvider):
 
         payload = {
             "model": model_name,
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": kwargs.get('temperature', 0.1),
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": kwargs.get("temperature", 0.1),
         }
 
         response = requests.post(
@@ -222,13 +218,11 @@ def create_provider(
                 f"Got: {openrouter_key[:10]}..."
             )
         return OpenRouterProvider(
-            api_key=openrouter_key,
-            default_model=default_model or "deepseek/deepseek-v3.2"
+            api_key=openrouter_key, default_model=default_model or "deepseek/deepseek-v3.2"
         )
     elif gemini_key:
         return GeminiProvider(
-            api_key=gemini_key,
-            default_model=default_model or "gemini-2.0-flash-exp"
+            api_key=gemini_key, default_model=default_model or "gemini-2.0-flash-exp"
         )
     else:
         raise ValueError(

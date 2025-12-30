@@ -4,7 +4,8 @@ import streamlit as st
 
 st.title("ℹ️ About")
 
-st.markdown("""
+st.markdown(
+    """
 **Claude Code Analytics** is a tool for analyzing and exploring your Claude Code conversation transcripts.
 
 ## Features
@@ -57,4 +58,5 @@ st.markdown("""
 ## Need Help?
 
 Check the [Claude Code documentation](https://docs.claude.com/claude-code) for more information.
-""")
+"""
+)

@@ -7,14 +7,19 @@ Analyzes what would be imported without modifying the database.
 import json
 import sqlite3
 from pathlib import Path
-from typing import Any
 
 # Database path
 DB_PATH = Path.home() / "claude-conversations" / "conversations.db"
 
 # Test session
 SESSION_ID = "0bd6a9b6-c060-454b-ac10-5b39e823ba74"
-SESSION_FILE = Path.home() / ".claude" / "projects" / "-Users-skapadia-dev-personal-claude-code-utils" / f"{SESSION_ID}.jsonl"
+SESSION_FILE = (
+    Path.home()
+    / ".claude"
+    / "projects"
+    / "-Users-skapadia-dev-personal-claude-code-utils"
+    / f"{SESSION_ID}.jsonl"
+)
 
 
 def get_current_state(session_id: str) -> dict:
@@ -23,29 +28,35 @@ def get_current_state(session_id: str) -> dict:
     cursor = conn.cursor()
 
     # Get message count and max index
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT COUNT(*), MAX(message_index)
         FROM messages
         WHERE session_id = ?
-    """, (session_id,))
+    """,
+        (session_id,),
+    )
 
     message_count, max_index = cursor.fetchone()
 
     # Get tool use count
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT COUNT(*)
         FROM tool_uses
         WHERE session_id = ?
-    """, (session_id,))
+    """,
+        (session_id,),
+    )
 
     tool_use_count = cursor.fetchone()[0]
 
     conn.close()
 
     return {
-        'message_count': message_count or 0,
-        'max_index': max_index if max_index is not None else -1,
-        'tool_use_count': tool_use_count or 0
+        "message_count": message_count or 0,
+        "max_index": max_index if max_index is not None else -1,
+        "tool_use_count": tool_use_count or 0,
     }
 
 
@@ -55,38 +66,40 @@ def analyze_jsonl_file(file_path: Path, skip_until_index: int = -1):
     messages = []
     tool_uses_count = 0
 
-    with open(file_path, 'r') as f:
+    with open(file_path) as f:
         for line in f:
             try:
                 entry = json.loads(line.strip())
 
                 # Skip non-message entries
-                if 'message' not in entry:
+                if "message" not in entry:
                     continue
 
-                msg = entry['message']
-                role = msg.get('role')
+                msg = entry["message"]
+                role = msg.get("role")
 
                 # Only count user and assistant messages
-                if role not in ['user', 'assistant']:
+                if role not in ["user", "assistant"]:
                     continue
 
                 message_index = len(messages)
 
                 # Count tool uses in this message
-                content = msg.get('content', [])
+                content = msg.get("content", [])
                 if isinstance(content, list):
                     for item in content:
-                        if isinstance(item, dict) and item.get('type') == 'tool_use':
+                        if isinstance(item, dict) and item.get("type") == "tool_use":
                             tool_uses_count += 1
 
                 # Track message info
-                messages.append({
-                    'index': message_index,
-                    'role': role,
-                    'timestamp': entry.get('timestamp'),
-                    'is_new': message_index > skip_until_index
-                })
+                messages.append(
+                    {
+                        "index": message_index,
+                        "role": role,
+                        "timestamp": entry.get("timestamp"),
+                        "is_new": message_index > skip_until_index,
+                    }
+                )
 
             except json.JSONDecodeError:
                 continue
@@ -114,12 +127,12 @@ def main():
 
     # Analyze JSONL file
     print("Analyzing JSONL file...")
-    messages, tool_uses = analyze_jsonl_file(SESSION_FILE, current['max_index'])
+    messages, tool_uses = analyze_jsonl_file(SESSION_FILE, current["max_index"])
 
     total_messages = len(messages)
-    new_messages = [m for m in messages if m['is_new']]
+    new_messages = [m for m in messages if m["is_new"]]
 
-    print(f"JSONL File State:")
+    print("JSONL File State:")
     print(f"  Total Messages: {total_messages}")
     print(f"  Total Tool Uses: {tool_uses}")
     print()
@@ -166,8 +179,8 @@ def main():
         print(f"   1. Check if session '{SESSION_ID}' exists")
         print(f"   2. Get max message_index (currently {current['max_index']})")
         print(f"   3. Only import messages with index > {current['max_index']}")
-        print(f"   4. Update session end_time and message_count")
+        print("   4. Update session end_time and message_count")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

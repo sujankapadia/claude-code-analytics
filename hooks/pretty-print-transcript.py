@@ -28,7 +28,7 @@ def format_tool_input(tool_input):
     """Format tool input in a readable way."""
     if not tool_input:
         return ""
-    
+
     lines = []
     for key, value in tool_input.items():
         if key == "command":
@@ -61,7 +61,7 @@ def format_message_content(content):
                     tool_name = item.get("name", "unknown")
                     tool_id = item.get("id", "")
                     tool_input = item.get("input", {})
-                    
+
                     parts.append(f"\n🔧 Tool: {tool_name} (ID: {tool_id[:8]}...)")
                     if tool_input:
                         formatted_input = format_tool_input(tool_input)
@@ -70,9 +70,9 @@ def format_message_content(content):
                 elif item.get("type") == "tool_result":
                     tool_id = item.get("tool_use_id", "")
                     parts.append(f"\n✅ Tool Result (ID: {tool_id[:8]}...)")
-                    
+
                     content_items = item.get("content")
-                    
+
                     if isinstance(content_items, str):
                         # Content is a direct string
                         if len(content_items) > 1000:
@@ -82,7 +82,10 @@ def format_message_content(content):
                     elif isinstance(content_items, list):
                         # Content is a list of items
                         for content_item in content_items:
-                            if isinstance(content_item, dict) and content_item.get("type") == "text":
+                            if (
+                                isinstance(content_item, dict)
+                                and content_item.get("type") == "text"
+                            ):
                                 result_text = content_item.get("text", "")
                                 if len(result_text) > 1000:
                                     parts.append(f"{result_text[:997]}...")
@@ -102,7 +105,7 @@ def print_message(entry):
     role = message.get("role", "unknown")
     content = message.get("content", "")
     timestamp = entry.get("ts", 0)
-    
+
     # Format the header based on role
     if role == "user":
         print("\n" + "=" * 80)
@@ -118,7 +121,7 @@ def print_message(entry):
         print("-" * 80)
     else:
         print(f"\n[{role.upper()}]")
-    
+
     # Format and print the content
     formatted_content = format_message_content(content)
     if formatted_content:
@@ -132,7 +135,7 @@ def print_tool_use(entry):
         tool_name = tool_use.get("name", "unknown")
         tool_id = tool_use.get("id", "")
         print(f"\n🔧 Tool: {tool_name} (ID: {tool_id[:8]}...)")
-        
+
         tool_input = tool_use.get("input", {})
         if tool_input:
             formatted_input = format_tool_input(tool_input)
@@ -146,9 +149,9 @@ def print_tool_result(entry):
     if tool_result:
         tool_id = tool_result.get("toolUseId", "")
         print(f"\n✅ Tool Result (ID: {tool_id[:8]}...)")
-        
+
         content = tool_result.get("content")
-        
+
         if isinstance(content, str):
             # Content is a direct string
             if len(content) > 1000:
@@ -171,29 +174,29 @@ def print_tool_result(entry):
 def pretty_print_transcript(filepath):
     """Read and pretty print a Claude Code transcript."""
     path = Path(filepath)
-    
+
     if not path.exists():
         print(f"Error: File not found: {filepath}", file=sys.stderr)
         return 1
-    
+
     print("=" * 80)
-    print(f"CLAUDE CODE CONVERSATION")
+    print("CLAUDE CODE CONVERSATION")
     print(f"File: {path.name}")
     print(f"Path: {path}")
     print("=" * 80)
-    
+
     try:
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, encoding="utf-8") as f:
             line_count = 0
             for line in f:
                 line = line.strip()
                 if not line:
                     continue
-                
+
                 try:
                     entry = json.loads(line)
                     line_count += 1
-                    
+
                     # Handle different entry types
                     if "message" in entry:
                         print_message(entry)
@@ -201,19 +204,22 @@ def pretty_print_transcript(filepath):
                         print_tool_use(entry)
                     elif "toolResult" in entry:
                         print_tool_result(entry)
-                    
+
                 except json.JSONDecodeError as e:
-                    print(f"\nWarning: Skipped malformed JSON on line {line_count}: {e}", file=sys.stderr)
+                    print(
+                        f"\nWarning: Skipped malformed JSON on line {line_count}: {e}",
+                        file=sys.stderr,
+                    )
                     continue
-        
+
         print("\n" + "=" * 80)
         print(f"End of conversation ({line_count} entries)")
         print("=" * 80)
-        
+
     except Exception as e:
         print(f"Error reading transcript: {e}", file=sys.stderr)
         return 1
-    
+
     return 0
 
 
@@ -223,7 +229,7 @@ def main():
         print("\nExample:")
         print("  python pretty_print_transcript.py ~/.claude/projects/my-project/abc123.jsonl")
         return 1
-    
+
     return pretty_print_transcript(sys.argv[1])
 
 

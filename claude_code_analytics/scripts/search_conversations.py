@@ -12,21 +12,19 @@ Examples:
 """
 
 import argparse
-import chromadb
 import sqlite3
-from sentence_transformers import SentenceTransformer
-from pathlib import Path
 import sys
-from typing import List, Dict, Optional
 from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+import chromadb
+from sentence_transformers import SentenceTransformer
 
 
 def get_message_context(
-    db_path: str,
-    session_id: str,
-    message_index: int,
-    context_size: int = 2
-) -> Dict:
+    db_path: str, session_id: str, message_index: int, context_size: int = 2
+) -> dict:
     """
     Fetch surrounding context for a message.
 
@@ -61,19 +59,15 @@ def get_message_context(
     conn.close()
 
     # Organize into previous, current, next
-    result = {
-        "previous": [],
-        "current": None,
-        "next": []
-    }
+    result = {"previous": [], "current": None, "next": []}
 
     for msg in messages:
-        if msg['message_index'] < message_index:
-            result['previous'].append(msg)
-        elif msg['message_index'] == message_index:
-            result['current'] = msg
+        if msg["message_index"] < message_index:
+            result["previous"].append(msg)
+        elif msg["message_index"] == message_index:
+            result["current"] = msg
         else:
-            result['next'].append(msg)
+            result["next"].append(msg)
 
     return result
 
@@ -83,13 +77,13 @@ def format_timestamp(ts: Optional[str]) -> str:
     if not ts:
         return "Unknown time"
     try:
-        dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
         return dt.strftime("%Y-%m-%d %H:%M")
     except:
         return ts
 
 
-def display_results(results: List[Dict], db_path: str, context_size: int, show_json: bool):
+def display_results(results: list[dict], db_path: str, context_size: int, show_json: bool):
     """
     Display search results in a readable format.
 
@@ -101,13 +95,16 @@ def display_results(results: List[Dict], db_path: str, context_size: int, show_j
     """
     if show_json:
         import json
+
         output = []
         for result in results:
-            output.append({
-                "score": result['score'],
-                "message": result['document'],
-                "metadata": result['metadata']
-            })
+            output.append(
+                {
+                    "score": result["score"],
+                    "message": result["document"],
+                    "metadata": result["metadata"],
+                }
+            )
         print(json.dumps(output, indent=2))
         return
 
@@ -117,8 +114,8 @@ def display_results(results: List[Dict], db_path: str, context_size: int, show_j
     print(f"{'='*80}\n")
 
     for idx, result in enumerate(results, 1):
-        meta = result['metadata']
-        score = result['score']
+        meta = result["metadata"]
+        score = result["score"]
 
         # Header
         print(f"[{idx}] Score: {score:.4f}")
@@ -131,33 +128,30 @@ def display_results(results: List[Dict], db_path: str, context_size: int, show_j
         # Get context if requested
         if context_size > 0:
             context = get_message_context(
-                db_path,
-                meta['session_id'],
-                int(meta['message_index']),
-                context_size
+                db_path, meta["session_id"], int(meta["message_index"]), context_size
             )
 
             # Show previous messages
-            if context['previous']:
+            if context["previous"]:
                 print("    Context (before):")
-                for msg in context['previous']:
-                    role_symbol = "👤" if msg['role'] == 'user' else "🤖"
-                    preview = msg['content'][:100] + ("..." if len(msg['content']) > 100 else "")
+                for msg in context["previous"]:
+                    role_symbol = "👤" if msg["role"] == "user" else "🤖"
+                    preview = msg["content"][:100] + ("..." if len(msg["content"]) > 100 else "")
                     print(f"      {role_symbol} {preview}")
                 print()
 
             # Show matched message (highlighted)
             print("    >>> MATCHED MESSAGE <<<")
-            role_symbol = "👤" if meta['role'] == 'user' else "🤖"
+            role_symbol = "👤" if meta["role"] == "user" else "🤖"
             print(f"    {role_symbol} {result['document']}")
             print()
 
             # Show next messages
-            if context['next']:
+            if context["next"]:
                 print("    Context (after):")
-                for msg in context['next']:
-                    role_symbol = "👤" if msg['role'] == 'user' else "🤖"
-                    preview = msg['content'][:100] + ("..." if len(msg['content']) > 100 else "")
+                for msg in context["next"]:
+                    role_symbol = "👤" if msg["role"] == "user" else "🤖"
+                    preview = msg["content"][:100] + ("..." if len(msg["content"]) > 100 else "")
                     print(f"      {role_symbol} {preview}")
                 print()
 
@@ -179,7 +173,7 @@ def search_conversations(
     after: Optional[str] = None,
     before: Optional[str] = None,
     context_size: int = 2,
-    show_json: bool = False
+    show_json: bool = False,
 ):
     """
     Search conversations using semantic similarity.
@@ -198,7 +192,7 @@ def search_conversations(
     """
     # Load embedding model (same as used for indexing)
     print("📥 Loading embedding model...")
-    model = SentenceTransformer('all-mpnet-base-v2')
+    model = SentenceTransformer("all-mpnet-base-v2")
 
     # Initialize ChromaDB
     client = chromadb.PersistentClient(path=chroma_path)
@@ -230,7 +224,7 @@ def search_conversations(
         where_clause = {"$and": where_conditions}
 
     # Perform search
-    print(f"🔍 Searching for: \"{query}\"")
+    print(f'🔍 Searching for: "{query}"')
     if where_clause:
         print(f"   Filters: {where_clause}")
 
@@ -238,32 +232,32 @@ def search_conversations(
     query_embedding = model.encode(query, show_progress_bar=False).tolist()
 
     results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=limit,
-        where=where_clause
+        query_embeddings=[query_embedding], n_results=limit, where=where_clause
     )
 
     # Format results
     formatted_results = []
-    if results['ids'] and results['ids'][0]:
-        for i in range(len(results['ids'][0])):
-            metadata = results['metadatas'][0][i]
+    if results["ids"] and results["ids"][0]:
+        for i in range(len(results["ids"][0])):
+            metadata = results["metadatas"][0][i]
 
             # Post-filter by project name (substring match)
-            if project and project.lower() not in metadata.get('project_name', '').lower():
+            if project and project.lower() not in metadata.get("project_name", "").lower():
                 continue
 
             # ChromaDB returns L2 distance by default
             # Convert to similarity score (1 / (1 + distance))
-            distance = results['distances'][0][i]
+            distance = results["distances"][0][i]
             similarity = 1 / (1 + distance)
 
-            formatted_results.append({
-                'id': results['ids'][0][i],
-                'document': results['documents'][0][i],
-                'metadata': metadata,
-                'score': similarity
-            })
+            formatted_results.append(
+                {
+                    "id": results["ids"][0][i],
+                    "document": results["documents"][0][i],
+                    "metadata": metadata,
+                    "score": similarity,
+                }
+            )
 
         # Trim to limit after filtering
         formatted_results = formatted_results[:limit]
@@ -287,16 +281,23 @@ Examples:
   %(prog)s "database optimization" --project=monolog --limit=5
   %(prog)s "react hooks" --after=2024-10-01 --context=3
   %(prog)s "typescript errors" --role=user --json
-        """
+        """,
     )
 
     parser.add_argument("query", help="Search query text")
-    parser.add_argument("--limit", type=int, default=10, help="Maximum number of results (default: 10)")
+    parser.add_argument(
+        "--limit", type=int, default=10, help="Maximum number of results (default: 10)"
+    )
     parser.add_argument("--project", help="Filter by project name (substring match)")
     parser.add_argument("--role", choices=["user", "assistant"], help="Filter by speaker role")
     parser.add_argument("--after", help="Only messages after this date (YYYY-MM-DD)")
     parser.add_argument("--before", help="Only messages before this date (YYYY-MM-DD)")
-    parser.add_argument("--context", type=int, default=2, help="Number of messages to show before/after (default: 2)")
+    parser.add_argument(
+        "--context",
+        type=int,
+        default=2,
+        help="Number of messages to show before/after (default: 2)",
+    )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     args = parser.parse_args()
@@ -328,7 +329,7 @@ Examples:
             after=args.after,
             before=args.before,
             context_size=args.context,
-            show_json=args.json
+            show_json=args.json,
         )
     except KeyboardInterrupt:
         print("\n\n⚠️  Interrupted by user")
@@ -336,6 +337,7 @@ Examples:
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

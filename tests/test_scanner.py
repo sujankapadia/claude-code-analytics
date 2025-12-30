@@ -1,11 +1,10 @@
 """Unit tests for scanner module."""
 
-import pytest
 from claude_code_analytics.scanner import (
+    MultiLayerScanner,
+    RegexPatternScanner,
     ScanFinding,
     ScanSeverity,
-    RegexPatternScanner,
-    MultiLayerScanner,
 )
 
 
@@ -14,16 +13,15 @@ class TestRegexPatternScanner:
 
     def test_email_detection(self):
         """Test email address detection."""
-        scanner = RegexPatternScanner()
+        RegexPatternScanner()
         content = "Contact me at john.doe@example.com for details."
 
-        is_safe, findings = MultiLayerScanner(
-            enable_gitleaks=False,
-            enable_regex=True
-        ).scan(content)
+        is_safe, findings = MultiLayerScanner(enable_gitleaks=False, enable_regex=True).scan(
+            content
+        )
 
         assert not is_safe  # Email is HIGH severity
-        assert len([f for f in findings if f.rule_id == 'email']) == 1
+        assert len([f for f in findings if f.rule_id == "email"]) == 1
         assert findings[0].severity == ScanSeverity.HIGH
         assert "john.doe@example.com" in findings[0].matched_text
 
@@ -32,33 +30,25 @@ class TestRegexPatternScanner:
         scanner = MultiLayerScanner(
             enable_gitleaks=False,
             enable_regex=True,
-            regex_allowed_patterns={
-                'email': ['example.com', 'test.com']
-            }
+            regex_allowed_patterns={"email": ["example.com", "test.com"]},
         )
 
         content = "Contact: john@example.com, jane@real.com"
         is_safe, findings = scanner.scan(content)
 
         # Only jane@real.com should be detected
-        email_findings = [f for f in findings if f.rule_id == 'email']
+        email_findings = [f for f in findings if f.rule_id == "email"]
         assert len(email_findings) == 1
         assert "jane@real.com" in email_findings[0].matched_text
 
     def test_phone_number_detection(self):
         """Test US phone number detection."""
-        scanner = MultiLayerScanner(
-            enable_gitleaks=False,
-            enable_regex=True
-        )
+        scanner = MultiLayerScanner(enable_gitleaks=False, enable_regex=True)
 
         content = "Call me at 555-123-4567 or (555) 987-6543"
         is_safe, findings = scanner.scan(content)
 
-        phone_findings = [
-            f for f in findings
-            if f.rule_id in ('phone-us', 'phone-us-parentheses')
-        ]
+        phone_findings = [f for f in findings if f.rule_id in ("phone-us", "phone-us-parentheses")]
         assert len(phone_findings) == 2
 
     def test_ssn_detection_and_redaction(self):
@@ -68,7 +58,7 @@ class TestRegexPatternScanner:
 
         findings = scanner.scan(content)
 
-        ssn_findings = [f for f in findings if f.rule_id == 'ssn']
+        ssn_findings = [f for f in findings if f.rule_id == "ssn"]
         assert len(ssn_findings) == 1
         assert ssn_findings[0].severity == ScanSeverity.CRITICAL
         assert ssn_findings[0].matched_text == "***REDACTED***"
@@ -80,7 +70,7 @@ class TestRegexPatternScanner:
 
         findings = scanner.scan(content)
 
-        cc_findings = [f for f in findings if f.rule_id == 'credit-card']
+        cc_findings = [f for f in findings if f.rule_id == "credit-card"]
         assert len(cc_findings) == 1
         assert cc_findings[0].severity == ScanSeverity.CRITICAL
 
@@ -91,7 +81,7 @@ class TestRegexPatternScanner:
 
         findings = scanner.scan(content)
 
-        ip_findings = [f for f in findings if f.rule_id == 'ip-private']
+        ip_findings = [f for f in findings if f.rule_id == "ip-private"]
         assert len(ip_findings) == 2
         assert ip_findings[0].severity == ScanSeverity.MEDIUM
 
@@ -102,7 +92,7 @@ class TestRegexPatternScanner:
 
         findings = scanner.scan(content)
 
-        db_findings = [f for f in findings if f.rule_id == 'database-url']
+        db_findings = [f for f in findings if f.rule_id == "database-url"]
         assert len(db_findings) == 1
         assert db_findings[0].severity == ScanSeverity.HIGH
 
@@ -113,7 +103,7 @@ class TestRegexPatternScanner:
 
         findings = scanner.scan(content)
 
-        localhost_findings = [f for f in findings if f.rule_id == 'localhost-url']
+        localhost_findings = [f for f in findings if f.rule_id == "localhost-url"]
         assert len(localhost_findings) == 1
         assert localhost_findings[0].severity == ScanSeverity.MEDIUM
 
@@ -124,7 +114,7 @@ class TestRegexPatternScanner:
 
         findings = scanner.scan(content)
 
-        jwt_findings = [f for f in findings if f.rule_id == 'jwt-token']
+        jwt_findings = [f for f in findings if f.rule_id == "jwt-token"]
         assert len(jwt_findings) == 1
         assert jwt_findings[0].severity == ScanSeverity.CRITICAL
 
@@ -135,7 +125,7 @@ class TestRegexPatternScanner:
 
         findings = scanner.scan(content)
 
-        bearer_findings = [f for f in findings if f.rule_id == 'bearer-token']
+        bearer_findings = [f for f in findings if f.rule_id == "bearer-token"]
         assert len(bearer_findings) == 1
         assert bearer_findings[0].severity == ScanSeverity.CRITICAL
 
@@ -143,11 +133,11 @@ class TestRegexPatternScanner:
         """Test custom pattern addition."""
         custom_patterns = [
             {
-                'id': 'test-pattern',
-                'pattern': r'SECRET-\d+',
-                'description': 'Test secret pattern',
-                'severity': ScanSeverity.HIGH,
-                'redact': False
+                "id": "test-pattern",
+                "pattern": r"SECRET-\d+",
+                "description": "Test secret pattern",
+                "severity": ScanSeverity.HIGH,
+                "redact": False,
             }
         ]
 
@@ -156,7 +146,7 @@ class TestRegexPatternScanner:
 
         findings = scanner.scan(content)
 
-        custom_findings = [f for f in findings if f.rule_id == 'test-pattern']
+        custom_findings = [f for f in findings if f.rule_id == "test-pattern"]
         assert len(custom_findings) == 1
         assert "SECRET-12345" in custom_findings[0].matched_text
 
@@ -167,7 +157,7 @@ class TestRegexPatternScanner:
 
         findings = scanner.scan(content)
 
-        email_findings = [f for f in findings if f.rule_id == 'email']
+        email_findings = [f for f in findings if f.rule_id == "email"]
         assert len(email_findings) == 1
         assert email_findings[0].line_number == 3
 
@@ -180,9 +170,7 @@ class TestMultiLayerScanner:
         scanner = MultiLayerScanner(
             enable_gitleaks=False,  # Skip gitleaks for speed
             enable_regex=True,
-            regex_allowed_patterns={
-                'localhost-url': ['localhost', '127.0.0.1']
-            }
+            regex_allowed_patterns={"localhost-url": ["localhost", "127.0.0.1"]},
         )
 
         content = "This is safe content with no secrets at http://localhost:8501"
@@ -194,10 +182,7 @@ class TestMultiLayerScanner:
 
     def test_blocking_severity(self):
         """Test that CRITICAL and HIGH findings block publication."""
-        scanner = MultiLayerScanner(
-            enable_gitleaks=False,
-            enable_regex=True
-        )
+        scanner = MultiLayerScanner(enable_gitleaks=False, enable_regex=True)
 
         # HIGH severity (email)
         content = "Email: john@example.com"
@@ -215,10 +200,10 @@ class TestMultiLayerScanner:
             enable_gitleaks=False,
             enable_regex=True,
             regex_allowed_patterns={
-                'email': ['example.com'],  # Allow emails
-                'phone-us': [],
-                'phone-us-parentheses': []
-            }
+                "email": ["example.com"],  # Allow emails
+                "phone-us": [],
+                "phone-us-parentheses": [],
+            },
         )
 
         # MEDIUM severity (private IP)
@@ -231,15 +216,12 @@ class TestMultiLayerScanner:
 
     def test_scan_multiple_files(self):
         """Test scanning multiple files."""
-        scanner = MultiLayerScanner(
-            enable_gitleaks=False,
-            enable_regex=True
-        )
+        scanner = MultiLayerScanner(enable_gitleaks=False, enable_regex=True)
 
         files = {
             "file1.txt": "Safe content",
             "file2.txt": "Email: test@example.com",
-            "file3.txt": "IP: 192.168.1.1"
+            "file3.txt": "IP: 192.168.1.1",
         }
 
         all_safe, findings_by_file = scanner.scan_multiple(files)
@@ -264,7 +246,7 @@ class TestMultiLayerScanner:
                 description="Test secret",
                 matched_text="***REDACTED***",
                 line_number=1,
-                file_name="test.txt"
+                file_name="test.txt",
             ),
             ScanFinding(
                 category="custom",
@@ -273,8 +255,8 @@ class TestMultiLayerScanner:
                 description="Private IP",
                 matched_text="192.168.1.1",
                 line_number=5,
-                file_name="test.txt"
-            )
+                file_name="test.txt",
+            ),
         ]
 
         report = MultiLayerScanner.format_report(findings)
@@ -287,10 +269,7 @@ class TestMultiLayerScanner:
 
     def test_no_scanners_enabled(self):
         """Test scanner with all layers disabled."""
-        scanner = MultiLayerScanner(
-            enable_gitleaks=False,
-            enable_regex=False
-        )
+        scanner = MultiLayerScanner(enable_gitleaks=False, enable_regex=False)
 
         content = "API Key: sk-1234567890"
         is_safe, findings = scanner.scan(content)

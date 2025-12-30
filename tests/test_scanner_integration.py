@@ -1,8 +1,8 @@
 """Integration tests for scanner with real content samples."""
 
 import pytest
-from claude_code_analytics.scanner import MultiLayerScanner, ScanSeverity
 
+from claude_code_analytics.scanner import MultiLayerScanner, ScanSeverity
 
 # Sample content with various sensitive patterns
 SAMPLE_ANALYSIS = """# Session Analysis - Technical Decisions
@@ -64,17 +64,14 @@ This session was about discussing high-level architecture patterns and best prac
 
 @pytest.mark.skipif(
     True,  # Skip by default, enable with: pytest -v --run-gitleaks
-    reason="Requires gitleaks installation"
+    reason="Requires gitleaks installation",
 )
 class TestGitleaksIntegration:
     """Tests requiring gitleaks binary."""
 
     def test_gitleaks_detects_secrets(self):
         """Test that gitleaks detects API keys and secrets."""
-        scanner = MultiLayerScanner(
-            enable_gitleaks=True,
-            enable_regex=False
-        )
+        scanner = MultiLayerScanner(enable_gitleaks=True, enable_regex=False)
 
         is_safe, findings = scanner.scan(SAMPLE_ANALYSIS)
 
@@ -92,10 +89,7 @@ class TestGitleaksIntegration:
     def test_gitleaks_scanner_initialization(self):
         """Test that gitleaks scanner initializes correctly."""
         try:
-            scanner = MultiLayerScanner(
-                enable_gitleaks=True,
-                enable_regex=False
-            )
+            scanner = MultiLayerScanner(enable_gitleaks=True, enable_regex=False)
             assert len(scanner.scanners) > 0
         except RuntimeError as e:
             pytest.skip(f"Gitleaks not available: {e}")
@@ -107,8 +101,8 @@ class TestRealContentScanning:
     def test_sample_analysis_with_secrets(self):
         """Test scanning analysis content with multiple secret types."""
         scanner = MultiLayerScanner(
-            enable_gitleaks=False,  # Use regex only for speed
-            enable_regex=True
+            enable_gitleaks=False,
+            enable_regex=True,  # Use regex only for speed
         )
 
         is_safe, findings = scanner.scan(SAMPLE_ANALYSIS)
@@ -130,17 +124,13 @@ class TestRealContentScanning:
 
         # Verify blocking findings exist
         blocking_findings = [
-            f for f in findings
-            if f.severity in (ScanSeverity.CRITICAL, ScanSeverity.HIGH)
+            f for f in findings if f.severity in (ScanSeverity.CRITICAL, ScanSeverity.HIGH)
         ]
         assert len(blocking_findings) > 0
 
     def test_safe_content_passes(self):
         """Test that safe content passes scan."""
-        scanner = MultiLayerScanner(
-            enable_gitleaks=False,
-            enable_regex=True
-        )
+        scanner = MultiLayerScanner(enable_gitleaks=False, enable_regex=True)
 
         is_safe, findings = scanner.scan(SAFE_CONTENT)
 
@@ -149,8 +139,7 @@ class TestRealContentScanning:
 
         # Should have no findings or only non-blocking ones
         blocking_findings = [
-            f for f in findings
-            if f.severity in (ScanSeverity.CRITICAL, ScanSeverity.HIGH)
+            f for f in findings if f.severity in (ScanSeverity.CRITICAL, ScanSeverity.HIGH)
         ]
         assert len(blocking_findings) == 0
 
@@ -160,10 +149,10 @@ class TestRealContentScanning:
             enable_gitleaks=False,
             enable_regex=True,
             regex_allowed_patterns={
-                'localhost-url': ['localhost', '127.0.0.1'],
-                'ip-private': ['192.168.1.100'],
-                'email': ['company.com']
-            }
+                "localhost-url": ["localhost", "127.0.0.1"],
+                "ip-private": ["192.168.1.100"],
+                "email": ["company.com"],
+            },
         )
 
         is_safe, findings = scanner.scan(SAMPLE_ANALYSIS)
@@ -174,12 +163,10 @@ class TestRealContentScanning:
         # But localhost and company emails should be filtered
         localhost_findings = [f for f in findings if f.rule_id == "localhost-url"]
         ip_findings = [
-            f for f in findings
-            if f.rule_id == "ip-private" and "192.168.1.100" in f.matched_text
+            f for f in findings if f.rule_id == "ip-private" and "192.168.1.100" in f.matched_text
         ]
         company_email_findings = [
-            f for f in findings
-            if f.rule_id == "email" and "company.com" in f.matched_text
+            f for f in findings if f.rule_id == "email" and "company.com" in f.matched_text
         ]
 
         assert len(localhost_findings) == 0
@@ -188,15 +175,12 @@ class TestRealContentScanning:
 
     def test_multi_file_scan_mixed_safety(self):
         """Test scanning multiple files with mixed safety levels."""
-        scanner = MultiLayerScanner(
-            enable_gitleaks=False,
-            enable_regex=True
-        )
+        scanner = MultiLayerScanner(enable_gitleaks=False, enable_regex=True)
 
         files = {
             "analysis.md": SAMPLE_ANALYSIS,
             "summary.md": SAFE_CONTENT,
-            "notes.txt": "Quick note: contact john@example.com"
+            "notes.txt": "Quick note: contact john@example.com",
         }
 
         all_safe, findings_by_file = scanner.scan_multiple(files)
@@ -215,10 +199,7 @@ class TestRealContentScanning:
 
     def test_format_report_realistic(self):
         """Test report formatting with realistic content."""
-        scanner = MultiLayerScanner(
-            enable_gitleaks=False,
-            enable_regex=True
-        )
+        scanner = MultiLayerScanner(enable_gitleaks=False, enable_regex=True)
 
         is_safe, findings = scanner.scan(SAMPLE_ANALYSIS)
 
@@ -254,10 +235,7 @@ def main():
     # Test 3: With gitleaks (if available)
     print("\n\nTest 3: Testing gitleaks integration...")
     try:
-        scanner_with_gitleaks = MultiLayerScanner(
-            enable_gitleaks=True,
-            enable_regex=True
-        )
+        scanner_with_gitleaks = MultiLayerScanner(enable_gitleaks=True, enable_regex=True)
         is_safe, findings = scanner_with_gitleaks.scan(SAMPLE_ANALYSIS)
         print(f"Result: {'✅ SAFE' if is_safe else '❌ UNSAFE'}")
         print(f"Total findings: {len(findings)}")

@@ -10,20 +10,14 @@ Usage:
     python3 create_database.py
 """
 
-import sqlite3
-import os
-import sys
 import logging
-from pathlib import Path
+import os
+import sqlite3
 
 from claude_code_analytics import config
 
-
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(levelname)s: %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -200,30 +194,36 @@ def create_database(db_path: str) -> None:
 
         # Verify tables were created
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT name FROM sqlite_master
             WHERE type='table'
             ORDER BY name
-        """)
+        """
+        )
         tables = [row[0] for row in cursor.fetchall()]
         logger.info(f"Created tables: {', '.join(tables)}")
 
         # Verify views were created
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT name FROM sqlite_master
             WHERE type='view'
             ORDER BY name
-        """)
+        """
+        )
         views = [row[0] for row in cursor.fetchall()]
         if views:
             logger.info(f"Created views: {', '.join(views)}")
 
         # Verify indexes were created
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT name FROM sqlite_master
             WHERE type='index' AND name LIKE 'idx_%'
             ORDER BY name
-        """)
+        """
+        )
         indexes = [row[0] for row in cursor.fetchall()]
         if indexes:
             logger.info(f"Created indexes: {len(indexes)} total")

@@ -8,19 +8,14 @@ This script:
 3. Supports boolean queries, phrase matching, and advanced search
 """
 
-import sqlite3
 import logging
-from pathlib import Path
+import sqlite3
 import sys
 
 from claude_code_analytics import config
 
-
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(levelname)s: %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -90,7 +85,8 @@ def create_fts_index(db_path: str):
         logger.info("Populating fts_messages...")
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO fts_messages (
                 rowid, content, role, project_name, session_id,
                 message_id, timestamp, message_index
@@ -108,7 +104,8 @@ def create_fts_index(db_path: str):
             JOIN sessions s ON m.session_id = s.session_id
             JOIN projects p ON s.project_id = p.project_id
             WHERE m.content IS NOT NULL AND LENGTH(m.content) > 0
-        """)
+        """
+        )
 
         message_count = cursor.rowcount
         logger.info(f"Indexed {message_count:,} messages")
@@ -116,7 +113,8 @@ def create_fts_index(db_path: str):
         # Populate fts_tool_uses from tool_uses table
         logger.info("Populating fts_tool_uses...")
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO fts_tool_uses (
                 rowid, tool_name, tool_input, tool_result, project_name,
                 session_id, tool_use_id, timestamp
@@ -133,7 +131,8 @@ def create_fts_index(db_path: str):
             FROM tool_uses t
             JOIN sessions s ON t.session_id = s.session_id
             JOIN projects p ON s.project_id = p.project_id
-        """)
+        """
+        )
 
         tool_count = cursor.rowcount
         logger.info(f"Indexed {tool_count:,} tool uses")
@@ -146,7 +145,9 @@ def create_fts_index(db_path: str):
         logger.info(f"  Tool uses indexed: {tool_count:,}")
 
         # Calculate index size
-        cursor.execute("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
+        cursor.execute(
+            "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()"
+        )
         db_size_bytes = cursor.fetchone()[0]
         db_size_mb = db_size_bytes / (1024 * 1024)
         logger.info(f"  Total database size: {db_size_mb:.1f} MB")
@@ -187,6 +188,7 @@ def main():
     except Exception as e:
         logger.error(f"Fatal error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

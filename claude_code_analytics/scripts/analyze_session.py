@@ -19,22 +19,25 @@ Usage:
 """
 
 import argparse
-import sqlite3
 import os
+import sqlite3
 import sys
 from pathlib import Path
-from typing import Optional, Dict
-from dotenv import load_dotenv
+from typing import Optional
+
 import yaml
+from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
-from claude_code_analytics.streamlit_app.services.llm_providers import create_provider, OpenRouterProvider
+from claude_code_analytics.streamlit_app.services.llm_providers import (
+    create_provider,
+)
 
 # Load environment variables from .env file
 load_dotenv()
 
 
-def load_prompts() -> tuple[Dict[str, str], Environment]:
+def load_prompts() -> tuple[dict[str, str], Environment]:
     """
     Load analysis prompts from Jinja2 template files.
 
@@ -46,7 +49,7 @@ def load_prompts() -> tuple[Dict[str, str], Environment]:
 
     # Load metadata
     metadata_file = prompts_dir / "metadata.yaml"
-    with open(metadata_file, 'r') as f:
+    with open(metadata_file) as f:
         metadata = yaml.safe_load(f)
 
     # Create Jinja2 environment
@@ -76,12 +79,15 @@ def get_session_transcript(session_id: str, db_path: str) -> Optional[str]:
     # Get project info from database
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT p.project_id, p.project_name
         FROM sessions s
         JOIN projects p ON s.project_id = p.project_id
         WHERE s.session_id = ?
-    """, (session_id,))
+    """,
+        (session_id,),
+    )
 
     result = cursor.fetchone()
     conn.close()
@@ -115,8 +121,9 @@ def get_session_transcript(session_id: str, db_path: str) -> Optional[str]:
     pretty_print_script = Path.home() / ".claude" / "scripts" / "pretty-print-transcript.py"
 
     import subprocess
+
     try:
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             subprocess.run([str(pretty_print_script), str(jsonl_file)], stdout=f, check=True)
         print(f"✅ Transcript saved to {output_file}")
         return str(output_file)
@@ -129,7 +136,7 @@ def analyze_with_llm(
     transcript_path: str,
     analysis_type: str,
     custom_prompt: Optional[str] = None,
-    model: Optional[str] = None
+    model: Optional[str] = None,
 ) -> str:
     """
     Analyze transcript using configured LLM provider.
@@ -147,11 +154,11 @@ def analyze_with_llm(
     provider = create_provider(default_model=model)
 
     # Read transcript
-    with open(transcript_path, 'r', encoding='utf-8') as f:
+    with open(transcript_path, encoding="utf-8") as f:
         transcript = f.read()
 
     # Build prompt based on analysis type
-    if analysis_type == 'custom':
+    if analysis_type == "custom":
         if not custom_prompt:
             raise ValueError("custom_prompt is required for 'custom' analysis type")
         # Automatically append the transcript
@@ -165,17 +172,17 @@ def analyze_with_llm(
 
         # Load and render Jinja2 template
         try:
-            template_file = metadata['file']
+            template_file = metadata["file"]
             template = JINJA_ENV.get_template(template_file)
             prompt = template.render(transcript=transcript)
         except TemplateNotFound:
             raise ValueError(f"Template file not found: {metadata['file']}")
 
-        analysis_name = metadata['name']
+        analysis_name = metadata["name"]
 
     # Determine provider name
     provider_name = type(provider).__name__.replace("Provider", "")
-    model_name = model or getattr(provider, 'default_model', 'default')
+    model_name = model or getattr(provider, "default_model", "default")
 
     print(f"🤖 Running {analysis_name} with {provider_name} ({model_name})...")
     print(f"📊 Transcript size: {len(transcript):,} characters")
@@ -185,7 +192,9 @@ def analyze_with_llm(
 
     # Print token usage if available
     if response.input_tokens or response.output_tokens:
-        print(f"📈 Token usage: {response.input_tokens or 0:,} input, {response.output_tokens or 0:,} output")
+        print(
+            f"📈 Token usage: {response.input_tokens or 0:,} input, {response.output_tokens or 0:,} output"
+        )
 
     return response.text
 
@@ -193,7 +202,7 @@ def analyze_with_llm(
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description='Analyze Claude Code conversation sessions',
+        description="Analyze Claude Code conversation sessions",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Analysis Types:
@@ -207,36 +216,35 @@ Examples:
   %(prog)s abc123 --type=errors --model=anthropic/claude-sonnet-4.5
   %(prog)s abc123 --type=custom --prompt="Summarize main topics" --output=summary.md
   %(prog)s abc123 --type=agent_usage --model=openai/gpt-5.2-chat
-        """
+        """,
     )
-    parser.add_argument('session_id', nargs='?', help='Session UUID to analyze')
+    parser.add_argument("session_id", nargs="?", help="Session UUID to analyze")
     parser.add_argument(
-        '--type',
-        choices=['decisions', 'errors', 'agent_usage', 'custom'],
-        default='decisions',
-        help='Type of analysis to perform (default: decisions)'
+        "--type",
+        choices=["decisions", "errors", "agent_usage", "custom"],
+        default="decisions",
+        help="Type of analysis to perform (default: decisions)",
+    )
+    parser.add_argument("--prompt", help="Custom analysis prompt (required when --type=custom)")
+    parser.add_argument(
+        "--model",
+        help='Model to use (e.g., "deepseek/deepseek-v3.2", "anthropic/claude-sonnet-4.5"). Defaults to provider default or OPENROUTER_MODEL env var.',
     )
     parser.add_argument(
-        '--prompt',
-        help='Custom analysis prompt (required when --type=custom)'
+        "--project", help="Analyze all sessions for a project (not yet implemented)"
     )
     parser.add_argument(
-        '--model',
-        help='Model to use (e.g., "deepseek/deepseek-v3.2", "anthropic/claude-sonnet-4.5"). Defaults to provider default or OPENROUTER_MODEL env var.'
+        "--db",
+        default=str(Path.home() / "claude-conversations" / "conversations.db"),
+        help="Path to database (default: ~/claude-conversations/conversations.db)",
     )
-    parser.add_argument('--project', help='Analyze all sessions for a project (not yet implemented)')
-    parser.add_argument(
-        '--db',
-        default=str(Path.home() / 'claude-conversations' / 'conversations.db'),
-        help='Path to database (default: ~/claude-conversations/conversations.db)'
-    )
-    parser.add_argument('--output', help='Output file path (default: stdout)')
+    parser.add_argument("--output", help="Output file path (default: stdout)")
 
     args = parser.parse_args()
 
     # Check for API key (either OpenRouter or Google)
-    openrouter_key = os.getenv('OPENROUTER_API_KEY')
-    google_key = os.getenv('GOOGLE_API_KEY')
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    google_key = os.getenv("GOOGLE_API_KEY")
 
     if not openrouter_key and not google_key:
         print("❌ Error: No LLM API key configured", file=sys.stderr)
@@ -257,7 +265,7 @@ Examples:
         sys.exit(1)
 
     # Validate custom prompt if needed
-    if args.type == 'custom' and not args.prompt:
+    if args.type == "custom" and not args.prompt:
         print("❌ Error: --prompt is required when using --type=custom", file=sys.stderr)
         sys.exit(1)
 
@@ -266,37 +274,38 @@ Examples:
     transcript_path = get_session_transcript(args.session_id, args.db)
 
     if not transcript_path:
-        print(f"❌ Could not find or generate transcript for session {args.session_id}", file=sys.stderr)
+        print(
+            f"❌ Could not find or generate transcript for session {args.session_id}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # Analyze
     try:
         analysis = analyze_with_llm(
-            transcript_path,
-            args.type,
-            custom_prompt=args.prompt,
-            model=args.model
+            transcript_path, args.type, custom_prompt=args.prompt, model=args.model
         )
 
         # Output
         if args.output:
             output_path = Path(args.output)
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, 'w', encoding='utf-8') as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 f.write(analysis)
             print(f"\n✅ Analysis saved to {output_path}")
         else:
             # Get analysis name from metadata
             metadata = PROMPT_METADATA.get(args.type, {})
-            analysis_name = metadata.get('name', args.type.upper())
-            print("\n" + "="*100)
+            analysis_name = metadata.get("name", args.type.upper())
+            print("\n" + "=" * 100)
             print(analysis_name.upper())
-            print("="*100 + "\n")
+            print("=" * 100 + "\n")
             print(analysis)
 
     except Exception as e:
         print(f"❌ Error during analysis: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

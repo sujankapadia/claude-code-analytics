@@ -1,26 +1,34 @@
 """Analysis runner page."""
 
-import streamlit as st
-import sys
+import shutil
 import subprocess
-from pathlib import Path
 from datetime import datetime
-import pandas as pd
+
 import altair as alt
+import pandas as pd
+import streamlit as st
 
 # Add parent directory to path for imports
-
 from claude_code_analytics import config
-from claude_code_analytics.streamlit_app.services import DatabaseService, AnalysisService, OpenRouterProvider, GistPublisher
-from claude_code_analytics.streamlit_app.models import AnalysisType
 from claude_code_analytics.scanner import MultiLayerScanner
+from claude_code_analytics.streamlit_app.models import AnalysisType
+from claude_code_analytics.streamlit_app.services import (
+    AnalysisService,
+    DatabaseService,
+    GistPublisher,
+    OpenRouterProvider,
+)
 
 
 def get_git_commit_id() -> str:
     """Get current git commit ID."""
     try:
+        git_path = shutil.which("git")
+        if not git_path:
+            return "unknown"
+
         result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
+            [git_path, "rev-parse", "HEAD"],
             capture_output=True,
             text=True,
             timeout=5,
@@ -78,6 +86,7 @@ def format_analysis_with_metadata(
 
     return metadata + result_text
 
+
 # Initialize services
 if "db_service" not in st.session_state:
     st.session_state.db_service = DatabaseService()
@@ -90,16 +99,19 @@ analysis_service = st.session_state.analysis_service
 
 st.title("🔬 Run Analysis")
 
-st.markdown("""
+st.markdown(
+    """
 Perform AI-powered analysis on your conversation sessions using state-of-the-art LLMs.
-""")
+"""
+)
 
 # Check for API key
 api_key_configured = analysis_service.api_key is not None
 
 if not api_key_configured:
     st.error("⚠️ LLM API key not configured!")
-    st.markdown("""
+    st.markdown(
+        """
     To use the analysis feature, you need to set an API key:
 
     **Option 1: OpenRouter (Recommended)** - Access 300+ models
@@ -121,7 +133,8 @@ if not api_key_configured:
     export GOOGLE_API_KEY="your-api-key-here"
     streamlit run streamlit_app/app.py
     ```
-    """)
+    """
+    )
     st.stop()
 
 # Check for URL parameters (coming from search page)
@@ -149,8 +162,7 @@ try:
 
     # Create session options
     session_options = {
-        f"{s.project_name} | {s.session_id[:8]}... | {s.start_time}": s.session_id
-        for s in sessions
+        f"{s.project_name} | {s.session_id[:8]}... | {s.start_time}": s.session_id for s in sessions
     }
 
     # Pre-select if coming from URL or browser
@@ -192,60 +204,74 @@ try:
             if timeline_data and len(timeline_data) > 0:
                 # Parse session start time for calculating days elapsed
                 from datetime import datetime as dt
-                session_start = dt.fromisoformat(timeline_data[0]['timestamp'].replace('Z', '+00:00'))
+
+                session_start = dt.fromisoformat(
+                    timeline_data[0]["timestamp"].replace("Z", "+00:00")
+                )
 
                 # Transform data for chart
                 chart_data = []
                 for point in timeline_data:
-                    timestamp = dt.fromisoformat(point['timestamp'].replace('Z', '+00:00'))
+                    timestamp = dt.fromisoformat(point["timestamp"].replace("Z", "+00:00"))
                     days_elapsed = (timestamp - session_start).total_seconds() / 86400
 
-                    chart_data.append({
-                        'Days from Start': round(days_elapsed, 2),
-                        'Cumulative Tokens': point['cumulative_tokens'],
-                        'Date': timestamp.strftime('%Y-%m-%d %H:%M'),
-                    })
+                    chart_data.append(
+                        {
+                            "Days from Start": round(days_elapsed, 2),
+                            "Cumulative Tokens": point["cumulative_tokens"],
+                            "Date": timestamp.strftime("%Y-%m-%d %H:%M"),
+                        }
+                    )
 
                 # Create DataFrame
                 df_chart = pd.DataFrame(chart_data)
 
                 # Create Altair chart
-                chart = alt.Chart(df_chart).mark_line(
-                    point=True,
-                    color='#2E86AB'
-                ).encode(
-                    x=alt.X('Days from Start:Q', title='Days from Session Start'),
-                    y=alt.Y('Cumulative Tokens:Q', title='Cumulative Tokens', axis=alt.Axis(format=',')),
-                    tooltip=[
-                        alt.Tooltip('Date:N', title='Date'),
-                        alt.Tooltip('Days from Start:Q', title='Days Elapsed', format='.1f'),
-                        alt.Tooltip('Cumulative Tokens:Q', title='Cumulative Tokens', format=',')
-                    ]
-                ).properties(
-                    height=400,
-                    title='Cumulative Token Usage Over Session Duration'
-                ).interactive()
+                chart = (
+                    alt.Chart(df_chart)
+                    .mark_line(point=True, color="#2E86AB")
+                    .encode(
+                        x=alt.X("Days from Start:Q", title="Days from Session Start"),
+                        y=alt.Y(
+                            "Cumulative Tokens:Q",
+                            title="Cumulative Tokens",
+                            axis=alt.Axis(format=","),
+                        ),
+                        tooltip=[
+                            alt.Tooltip("Date:N", title="Date"),
+                            alt.Tooltip("Days from Start:Q", title="Days Elapsed", format=".1f"),
+                            alt.Tooltip(
+                                "Cumulative Tokens:Q", title="Cumulative Tokens", format=","
+                            ),
+                        ],
+                    )
+                    .properties(height=400, title="Cumulative Token Usage Over Session Duration")
+                    .interactive()
+                )
 
                 # Display chart
                 st.altair_chart(chart, use_container_width=True)
 
                 # Show summary stats
                 col1, col2, col3 = st.columns(3)
-                total_tokens = timeline_data[-1]['cumulative_tokens']
-                total_days = chart_data[-1]['Days from Start']
+                total_tokens = timeline_data[-1]["cumulative_tokens"]
+                total_days = chart_data[-1]["Days from Start"]
                 avg_per_day = total_tokens / total_days if total_days > 0 else 0
 
                 col1.metric("Total Tokens", f"{total_tokens:,}")
                 col2.metric("Duration", f"{total_days:.1f} days")
                 col3.metric("Avg/Day", f"{avg_per_day:,.0f}")
 
-                st.info("💡 **Tip**: Hover over the chart to see token counts at specific dates. Use this to identify high-activity periods for targeted analysis.")
+                st.info(
+                    "💡 **Tip**: Hover over the chart to see token counts at specific dates. Use this to identify high-activity periods for targeted analysis."
+                )
             else:
                 st.warning("No token data available for this session.")
 
         except Exception as e:
             st.error(f"Error creating token usage chart: {e}")
             import traceback
+
             with st.expander("Error details"):
                 st.code(traceback.format_exc())
 
@@ -263,7 +289,7 @@ try:
         scope_options,
         index=default_scope_index,
         horizontal=True,
-        help="Select which portion of the session to analyze"
+        help="Select which portion of the session to analyze",
     )
 
     # Initialize scope variables
@@ -278,8 +304,17 @@ try:
 
         # Parse session timestamps
         from datetime import datetime as dt
-        session_start = dt.fromisoformat(session.start_time) if isinstance(session.start_time, str) else session.start_time
-        session_end = dt.fromisoformat(session.end_time) if isinstance(session.end_time, str) else session.end_time
+
+        session_start = (
+            dt.fromisoformat(session.start_time)
+            if isinstance(session.start_time, str)
+            else session.start_time
+        )
+        session_end = (
+            dt.fromisoformat(session.end_time)
+            if isinstance(session.end_time, str)
+            else session.end_time
+        )
 
         col1, col2 = st.columns(2)
 
@@ -289,12 +324,10 @@ try:
                 value=session_start.date(),
                 min_value=session_start.date(),
                 max_value=session_end.date(),
-                help="Select the start date for analysis"
+                help="Select the start date for analysis",
             )
             start_time_input = st.time_input(
-                "Start Time",
-                value=session_start.time(),
-                help="Select the start time for analysis"
+                "Start Time", value=session_start.time(), help="Select the start time for analysis"
             )
 
         with col2:
@@ -303,12 +336,10 @@ try:
                 value=session_end.date(),
                 min_value=session_start.date(),
                 max_value=session_end.date(),
-                help="Select the end date for analysis"
+                help="Select the end date for analysis",
             )
             end_time_input = st.time_input(
-                "End Time",
-                value=session_end.time(),
-                help="Select the end time for analysis"
+                "End Time", value=session_end.time(), help="Select the end time for analysis"
             )
 
         # Combine date and time
@@ -323,19 +354,17 @@ try:
         # Preview: Get messages in range and estimate tokens
         try:
             messages_in_range = db_service.get_messages_in_range(
-                session_id=selected_session_id,
-                start_time=start_time,
-                end_time=end_time
+                session_id=selected_session_id, start_time=start_time, end_time=end_time
             )
             tool_uses_in_range = db_service.get_tool_uses_in_range(
-                session_id=selected_session_id,
-                start_time=start_time,
-                end_time=end_time
+                session_id=selected_session_id, start_time=start_time, end_time=end_time
             )
 
             # Format and estimate tokens
             if messages_in_range:
-                transcript_preview = analysis_service.format_messages_simple(messages_in_range, tool_uses_in_range)
+                transcript_preview = analysis_service.format_messages_simple(
+                    messages_in_range, tool_uses_in_range
+                )
                 estimated_tokens = analysis_service.estimate_token_count(transcript_preview)
 
                 # Display preview info
@@ -345,7 +374,9 @@ try:
 
                 # Token estimation with color-coded warnings
                 if estimated_tokens > 200000:
-                    st.error(f"🔴 Very large: ~{estimated_tokens:,} tokens (may fail or be very expensive)")
+                    st.error(
+                        f"🔴 Very large: ~{estimated_tokens:,} tokens (may fail or be very expensive)"
+                    )
                 elif estimated_tokens > 100000:
                     st.warning(f"🟡 Large: ~{estimated_tokens:,} tokens (may be expensive)")
                 else:
@@ -367,7 +398,7 @@ try:
             "Message Index",
             min_value=0,
             value=default_msg_index,
-            help="The message index to focus analysis on (from search results)"
+            help="The message index to focus analysis on (from search results)",
         )
 
         # Context window slider
@@ -376,15 +407,19 @@ try:
             min_value=1,
             max_value=20,
             value=20,
-            help="Number of messages before and after the search hit to include"
+            help="Number of messages before and after the search hit to include",
         )
 
         # Preview: Get messages around index and estimate tokens
         try:
-            messages_around, tool_uses_around, formatted_preview = analysis_service.get_messages_around_index(
+            (
+                messages_around,
+                tool_uses_around,
+                formatted_preview,
+            ) = analysis_service.get_messages_around_index(
                 session_id=selected_session_id,
                 message_index=selected_message_index,
-                context_window=context_window
+                context_window=context_window,
             )
 
             if messages_around:
@@ -397,14 +432,18 @@ try:
 
                 # Token estimation with color-coded warnings
                 if estimated_tokens > 200000:
-                    st.error(f"🔴 Very large: ~{estimated_tokens:,} tokens (may fail or be very expensive)")
+                    st.error(
+                        f"🔴 Very large: ~{estimated_tokens:,} tokens (may fail or be very expensive)"
+                    )
                 elif estimated_tokens > 100000:
                     st.warning(f"🟡 Large: ~{estimated_tokens:,} tokens (may be expensive)")
                 else:
                     st.info(f"🟢 Estimated tokens: ~{estimated_tokens:,}")
 
                 # Show snippet of the target message
-                st.caption(f"**Target message {selected_message_index}** will be highlighted in the analysis transcript")
+                st.caption(
+                    f"**Target message {selected_message_index}** will be highlighted in the analysis transcript"
+                )
             else:
                 st.warning("⚠️ No messages found around the specified index. Adjust your selection.")
                 st.stop()
@@ -418,7 +457,9 @@ try:
 
     else:
         # Entire session mode - estimate from full session (if needed)
-        st.info(f"📊 Analyzing all {session.message_count} messages and {session.tool_use_count} tool uses in this session")
+        st.info(
+            f"📊 Analyzing all {session.message_count} messages and {session.tool_use_count} tool uses in this session"
+        )
 
     st.divider()
 
@@ -429,8 +470,7 @@ try:
 
     # Create radio buttons for analysis types
     analysis_type_options = {
-        f"**{meta.name}**: {meta.description}": key
-        for key, meta in available_types.items()
+        f"**{meta.name}**: {meta.description}": key for key, meta in available_types.items()
     }
 
     selected_display = st.radio(
@@ -450,7 +490,7 @@ try:
             "Prompt:",
             height=200,
             placeholder="Example: Analyze this conversation and identify the main topics discussed, key insights shared, and any action items mentioned.",
-            help="Enter your analysis instructions. The transcript will be automatically added after your prompt."
+            help="Enter your analysis instructions. The transcript will be automatically added after your prompt.",
         )
 
     st.divider()
@@ -465,18 +505,18 @@ try:
             "Choose model selection method:",
             ["Quick Select (13 curated models)", "Browse All Models (300+)"],
             index=0,
-            help="Quick Select shows recommended models. Browse All lets you choose from the full catalog."
+            help="Quick Select shows recommended models. Browse All lets you choose from the full catalog.",
         )
 
         if model_selection_mode == "Quick Select (13 curated models)":
             # Quick select dropdown
-            model_options = {label: model_id for label, model_id in OpenRouterProvider.QUICK_SELECT_MODELS}
+            model_options = dict(OpenRouterProvider.QUICK_SELECT_MODELS)
 
             selected_model_label = st.selectbox(
                 "Choose model:",
                 options=list(model_options.keys()),
                 index=4,  # Default to DeepSeek V3.2
-                help="Curated list of newest premium models from 2025."
+                help="Curated list of newest premium models from 2025.",
             )
 
             selected_model = model_options[selected_model_label]
@@ -497,13 +537,14 @@ try:
 
                         # Filter for text generation models
                         text_models = [
-                            m for m in all_models
-                            if 'text' in m['architecture']['output_modalities']
-                            and m['pricing']['prompt'] != '0'
+                            m
+                            for m in all_models
+                            if "text" in m["architecture"]["output_modalities"]
+                            and m["pricing"]["prompt"] != "0"
                         ]
 
                         # Sort by newest first
-                        text_models.sort(key=lambda m: m['created'], reverse=True)
+                        text_models.sort(key=lambda m: m["created"], reverse=True)
 
                         # Store in session state (limit to 100 for performance)
                         st.session_state.all_openrouter_models = text_models[:100]
@@ -520,15 +561,17 @@ try:
                 # Create dataframe
                 df_data = []
                 for m in text_models:
-                    prompt_price = float(m['pricing']['prompt']) * 1_000_000
-                    completion_price = float(m['pricing']['completion']) * 1_000_000
-                    df_data.append({
-                        'Model ID': m['id'],
-                        'Name': m['name'],
-                        'Input $/1M': f"${prompt_price:.2f}",
-                        'Output $/1M': f"${completion_price:.2f}",
-                        'Context': f"{m['context_length']:,}",
-                    })
+                    prompt_price = float(m["pricing"]["prompt"]) * 1_000_000
+                    completion_price = float(m["pricing"]["completion"]) * 1_000_000
+                    df_data.append(
+                        {
+                            "Model ID": m["id"],
+                            "Name": m["name"],
+                            "Input $/1M": f"${prompt_price:.2f}",
+                            "Output $/1M": f"${completion_price:.2f}",
+                            "Context": f"{m['context_length']:,}",
+                        }
+                    )
 
                 df = pd.DataFrame(df_data)
 
@@ -547,13 +590,15 @@ try:
                 # Check if a row was selected
                 if event.selection and event.selection.rows:
                     selected_row_idx = event.selection.rows[0]
-                    selected_model = text_models[selected_row_idx]['id']
-                    selected_model_name = text_models[selected_row_idx]['name']
+                    selected_model = text_models[selected_row_idx]["id"]
+                    selected_model_name = text_models[selected_row_idx]["name"]
 
                     st.success(f"✅ Selected: **{selected_model_name}**")
                     st.code(selected_model, language="text")
                 else:
-                    st.warning("⚠️ Please select a model from the table above by clicking its checkbox.")
+                    st.warning(
+                        "⚠️ Please select a model from the table above by clicking its checkbox."
+                    )
                     # Don't allow analysis to run without selection
                     selected_model = None
 
@@ -603,27 +648,36 @@ try:
                     provider_name=provider_name,
                     input_tokens=result.input_tokens or 0,
                     output_tokens=result.output_tokens or 0,
-                    custom_prompt=custom_prompt if selected_analysis_type == AnalysisType.CUSTOM else None,
+                    custom_prompt=(
+                        custom_prompt if selected_analysis_type == AnalysisType.CUSTOM else None
+                    ),
                 )
 
                 # Generate default filename with timestamp
                 timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
                 # Sanitize project name for filename (remove special chars)
-                safe_project_name = "".join(c if c.isalnum() or c in ('-', '_') else '_' for c in session.project_name)
-                default_filename = f"{safe_project_name}_{selected_analysis_type.value}_{timestamp_str}.md"
+                safe_project_name = "".join(
+                    c if c.isalnum() or c in ("-", "_") else "_" for c in session.project_name
+                )
+                default_filename = (
+                    f"{safe_project_name}_{selected_analysis_type.value}_{timestamp_str}.md"
+                )
 
                 # Store result in session state so it persists across reruns
                 st.session_state.analysis_result = result
                 st.session_state.formatted_result = formatted_result
                 st.session_state.default_filename = default_filename
                 st.session_state.save_to_file = save_to_file
-                st.session_state.custom_prompt = custom_prompt if selected_analysis_type == AnalysisType.CUSTOM else None
+                st.session_state.custom_prompt = (
+                    custom_prompt if selected_analysis_type == AnalysisType.CUSTOM else None
+                )
 
                 st.success("✅ Analysis complete!")
 
             except Exception as e:
                 st.error(f"❌ Error running analysis: {e}")
                 import traceback
+
                 with st.expander("Error details"):
                     st.code(traceback.format_exc())
 
@@ -656,12 +710,12 @@ try:
             "Filename:",
             value=default_filename,
             help="Customize the filename for download/save. Must end with .md extension.",
-            key="custom_filename"
+            key="custom_filename",
         )
 
         # Ensure .md extension
-        if not filename.endswith('.md'):
-            filename = filename + '.md'
+        if not filename.endswith(".md"):
+            filename = filename + ".md"
 
         # Save to file if requested
         if save_to_file:
@@ -690,8 +744,11 @@ try:
 
         # Check if GitHub token is configured
         if not config.GITHUB_TOKEN:
-            st.warning("⚠️ GitHub token not configured. Set `GITHUB_TOKEN` in your `.env` file to enable gist publishing.")
-            st.markdown("""
+            st.warning(
+                "⚠️ GitHub token not configured. Set `GITHUB_TOKEN` in your `.env` file to enable gist publishing."
+            )
+            st.markdown(
+                """
             **Setup Instructions:**
             1. Create a Personal Access Token at [GitHub Settings](https://github.com/settings/tokens/new)
             2. Grant the `gist` scope (create gists)
@@ -700,7 +757,8 @@ try:
                GITHUB_TOKEN=your_token_here
                ```
             4. Restart the Streamlit app
-            """)
+            """
+            )
         else:
             # Gist configuration options
             col1, col2 = st.columns(2)
@@ -710,7 +768,7 @@ try:
                     "Visibility:",
                     ["Secret (unlisted)", "Public"],
                     index=0,
-                    help="Secret gists are unlisted but accessible via URL. Public gists appear in your profile."
+                    help="Secret gists are unlisted but accessible via URL. Public gists appear in your profile.",
                 )
                 is_public_gist = gist_visibility == "Public"
 
@@ -718,13 +776,13 @@ try:
                 include_session = st.checkbox(
                     "Include raw session transcript",
                     value=False,
-                    help="Attach the full conversation transcript alongside the analysis"
+                    help="Attach the full conversation transcript alongside the analysis",
                 )
 
             gist_description = st.text_input(
                 "Gist Description:",
                 value=f"Claude Code Analysis - {session.project_name}",
-                help="Brief description for your gist"
+                help="Brief description for your gist",
             )
 
             # Publish button
@@ -741,7 +799,9 @@ try:
                             # Get all messages for this session
                             messages = db_service.get_messages(selected_session_id)
                             tool_uses = db_service.get_tool_uses(selected_session_id)
-                            session_content = analysis_service.format_messages_simple(messages, tool_uses)
+                            session_content = analysis_service.format_messages_simple(
+                                messages, tool_uses
+                            )
 
                     # Run security scan and publish
                     with st.spinner("🔍 Scanning content for secrets and PII..."):
@@ -751,38 +811,49 @@ try:
                             description=gist_description,
                             is_public=is_public_gist,
                             analysis_filename=filename,
-                            session_filename="session_transcript.txt"
+                            session_filename="session_transcript.txt",
                         )
 
                     # Display results
                     if success:
-                        st.success(f"✅ Successfully published to GitHub Gist!")
+                        st.success("✅ Successfully published to GitHub Gist!")
                         st.markdown(f"**Gist URL:** [{result_msg}]({result_msg})")
 
                         # Show scan summary if there were non-blocking findings
                         if findings:
-                            with st.expander(f"🔍 Security Scan Results ({len(findings)} findings)", expanded=False):
+                            with st.expander(
+                                f"🔍 Security Scan Results ({len(findings)} findings)",
+                                expanded=False,
+                            ):
                                 st.markdown(MultiLayerScanner.format_report(findings))
-                                st.info("All findings above are informational (LOW/MEDIUM severity) and did not block publication.")
+                                st.info(
+                                    "All findings above are informational (LOW/MEDIUM severity) and did not block publication."
+                                )
                     else:
                         st.error("❌ Publication blocked due to security concerns")
                         st.markdown(result_msg)
 
                         # Show details about what was found
                         if findings:
-                            st.warning(f"**Found {len(findings)} security issue(s)** that prevent publication.")
-                            st.markdown("Please review and remove sensitive data before publishing:")
+                            st.warning(
+                                f"**Found {len(findings)} security issue(s)** that prevent publication."
+                            )
+                            st.markdown(
+                                "Please review and remove sensitive data before publishing:"
+                            )
                             with st.expander("🔍 View Security Findings", expanded=True):
                                 st.markdown(result_msg)
 
                 except Exception as e:
                     st.error(f"❌ Failed to publish gist: {e}")
                     import traceback
+
                     with st.expander("Error details"):
                         st.code(traceback.format_exc())
 
 except Exception as e:
     st.error(f"Error loading sessions: {e}")
     import traceback
+
     with st.expander("Error details"):
         st.code(traceback.format_exc())

@@ -1,7 +1,7 @@
 """Regex-based pattern scanner for sensitive data detection."""
 
 import re
-from typing import List, Optional, Dict, Set
+from typing import Optional
 
 from .base import ScanFinding, ScanSeverity
 
@@ -12,82 +12,82 @@ class RegexPatternScanner:
     # Built-in patterns for common sensitive data
     BUILTIN_PATTERNS = [
         {
-            'id': 'email',
-            'pattern': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
-            'description': 'Email address',
-            'severity': ScanSeverity.HIGH,
-            'redact': False,
+            "id": "email",
+            "pattern": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
+            "description": "Email address",
+            "severity": ScanSeverity.HIGH,
+            "redact": False,
         },
         {
-            'id': 'phone-us',
-            'pattern': r'\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b',
-            'description': 'US phone number',
-            'severity': ScanSeverity.HIGH,
-            'redact': False,
+            "id": "phone-us",
+            "pattern": r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b",
+            "description": "US phone number",
+            "severity": ScanSeverity.HIGH,
+            "redact": False,
         },
         {
-            'id': 'phone-us-parentheses',
-            'pattern': r'\(\d{3}\)\s?\d{3}[-.\s]?\d{4}\b',
-            'description': 'US phone number with parentheses',
-            'severity': ScanSeverity.HIGH,
-            'redact': False,
+            "id": "phone-us-parentheses",
+            "pattern": r"\(\d{3}\)\s?\d{3}[-.\s]?\d{4}\b",
+            "description": "US phone number with parentheses",
+            "severity": ScanSeverity.HIGH,
+            "redact": False,
         },
         {
-            'id': 'ssn',
-            'pattern': r'\b\d{3}-\d{2}-\d{4}\b',
-            'description': 'Social Security Number',
-            'severity': ScanSeverity.CRITICAL,
-            'redact': True,
+            "id": "ssn",
+            "pattern": r"\b\d{3}-\d{2}-\d{4}\b",
+            "description": "Social Security Number",
+            "severity": ScanSeverity.CRITICAL,
+            "redact": True,
         },
         {
-            'id': 'credit-card',
-            'pattern': r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b',
-            'description': 'Credit card number pattern',
-            'severity': ScanSeverity.CRITICAL,
-            'redact': True,
+            "id": "credit-card",
+            "pattern": r"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b",
+            "description": "Credit card number pattern",
+            "severity": ScanSeverity.CRITICAL,
+            "redact": True,
         },
         {
-            'id': 'ip-private',
-            'pattern': r'\b(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[01])\.\d{1,3}\.\d{1,3}|127\.\d{1,3}\.\d{1,3}\.\d{1,3})\b',
-            'description': 'Private IP address',
-            'severity': ScanSeverity.MEDIUM,
-            'redact': False,
+            "id": "ip-private",
+            "pattern": r"\b(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[01])\.\d{1,3}\.\d{1,3}|127\.\d{1,3}\.\d{1,3}\.\d{1,3})\b",
+            "description": "Private IP address",
+            "severity": ScanSeverity.MEDIUM,
+            "redact": False,
         },
         {
-            'id': 'database-url',
-            'pattern': r'(postgres|mysql|mongodb|redis|mariadb)://[^\s]+',
-            'description': 'Database connection string',
-            'severity': ScanSeverity.HIGH,
-            'redact': True,
+            "id": "database-url",
+            "pattern": r"(postgres|mysql|mongodb|redis|mariadb)://[^\s]+",
+            "description": "Database connection string",
+            "severity": ScanSeverity.HIGH,
+            "redact": True,
         },
         {
-            'id': 'localhost-url',
-            'pattern': r'https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?',
-            'description': 'Localhost URL',
-            'severity': ScanSeverity.MEDIUM,
-            'redact': False,
+            "id": "localhost-url",
+            "pattern": r"https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?",
+            "description": "Localhost URL",
+            "severity": ScanSeverity.MEDIUM,
+            "redact": False,
         },
         {
-            'id': 'jwt-token',
-            'pattern': r'eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+',
-            'description': 'JWT token',
-            'severity': ScanSeverity.CRITICAL,
-            'redact': True,
+            "id": "jwt-token",
+            "pattern": r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",
+            "description": "JWT token",
+            "severity": ScanSeverity.CRITICAL,
+            "redact": True,
         },
         {
-            'id': 'bearer-token',
-            'pattern': r'Bearer\s+[A-Za-z0-9\-._~+/]+=*',
-            'description': 'Bearer token',
-            'severity': ScanSeverity.CRITICAL,
-            'redact': True,
+            "id": "bearer-token",
+            "pattern": r"Bearer\s+[A-Za-z0-9\-._~+/]+=*",
+            "description": "Bearer token",
+            "severity": ScanSeverity.CRITICAL,
+            "redact": True,
         },
     ]
 
     def __init__(
         self,
-        custom_patterns: Optional[List[Dict]] = None,
-        allowed_patterns: Optional[Dict[str, List[str]]] = None,
-        use_builtin: bool = True
+        custom_patterns: Optional[list[dict]] = None,
+        allowed_patterns: Optional[dict[str, list[str]]] = None,
+        use_builtin: bool = True,
     ):
         """
         Initialize regex scanner.
@@ -112,18 +112,11 @@ class RegexPatternScanner:
 
         # Compile all patterns for performance
         self.compiled_patterns = [
-            {
-                **pattern,
-                'regex': re.compile(pattern['pattern'], re.IGNORECASE)
-            }
+            {**pattern, "regex": re.compile(pattern["pattern"], re.IGNORECASE)}
             for pattern in self.patterns
         ]
 
-    def scan(
-        self,
-        content: str,
-        filename: str = "content.txt"
-    ) -> List[ScanFinding]:
+    def scan(self, content: str, filename: str = "content.txt") -> list[ScanFinding]:
         """
         Scan content using regex patterns.
 
@@ -135,14 +128,14 @@ class RegexPatternScanner:
             List of findings
         """
         findings = []
-        lines = content.split('\n')
+        lines = content.split("\n")
 
         for pattern_def in self.compiled_patterns:
-            pattern_id = pattern_def['id']
-            regex = pattern_def['regex']
-            description = pattern_def['description']
-            severity = pattern_def['severity']
-            redact = pattern_def['redact']
+            pattern_id = pattern_def["id"]
+            regex = pattern_def["regex"]
+            description = pattern_def["description"]
+            severity = pattern_def["severity"]
+            redact = pattern_def["redact"]
 
             # Check each line
             for line_num, line in enumerate(lines, 1):
@@ -161,16 +154,18 @@ class RegexPatternScanner:
                         else:
                             display_text = "***REDACTED***"
 
-                    findings.append(ScanFinding(
-                        category="custom",
-                        severity=severity,
-                        rule_id=pattern_id,
-                        description=description,
-                        matched_text=display_text,
-                        line_number=line_num,
-                        file_name=filename,
-                        confidence=1.0
-                    ))
+                    findings.append(
+                        ScanFinding(
+                            category="custom",
+                            severity=severity,
+                            rule_id=pattern_id,
+                            description=description,
+                            matched_text=display_text,
+                            line_number=line_num,
+                            file_name=filename,
+                            confidence=1.0,
+                        )
+                    )
 
         return findings
 
