@@ -28,13 +28,27 @@ st.markdown(
 - Search within conversations
 - View tool uses linked to messages
 
+### 🔍 Search
+- Full-text search powered by SQLite FTS5
+- Search across messages, tool inputs, and tool results
+- Session-grouped results with pagination
+- Filter by project, date range, and tool name
+
 ### 🔬 Run Analysis
 - Perform AI-powered analysis on your conversations
 - Available analysis types:
   - **Technical Decisions**: Extract decisions, alternatives, and reasoning
   - **Error Patterns**: Identify errors, root causes, and resolutions
-- Export analysis results as markdown
+  - **AI Agent Usage**: Track tool usage and interaction patterns
+- Analysis scoping: analyze specific time ranges or search results
+- Publish analysis to GitHub Gist with automatic security scanning
+- Export results as markdown
 - Multiple AI provider options (Google Gemini, OpenRouter)
+
+### 📈 Visualization
+- Interactive token timeline showing cumulative usage
+- Token usage breakdown (input vs output)
+- Daily activity trends and session metrics
 
 ### 📊 Analytics Dashboard
 - Token usage statistics and trends
