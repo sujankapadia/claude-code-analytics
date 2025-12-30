@@ -310,7 +310,10 @@ class TestCreateProvider:
 
     def test_create_provider_with_explicit_gemini_key(self):
         """Test create_provider with explicitly provided Gemini key."""
-        with patch("google.generativeai.configure"):
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("google.generativeai.configure"),
+        ):
             provider = create_provider(gemini_api_key="gemini-explicit")
             assert isinstance(provider, GeminiProvider)
             assert provider.api_key == "gemini-explicit"

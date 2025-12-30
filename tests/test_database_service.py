@@ -142,12 +142,14 @@ def test_db():
             p.project_name,
             s.start_time,
             s.end_time,
-            COUNT(m.message_id) as message_count,
-            COUNT(DISTINCT CASE WHEN t.tool_name IS NOT NULL THEN t.tool_name END) as unique_tools
+            CAST((julianday(s.end_time) - julianday(s.start_time)) * 86400 AS INTEGER) as duration_seconds,
+            s.message_count,
+            s.tool_use_count,
+            COUNT(DISTINCT CASE WHEN m.role = 'user' THEN m.message_id END) as user_message_count,
+            COUNT(DISTINCT CASE WHEN m.role = 'assistant' THEN m.message_id END) as assistant_message_count
         FROM sessions s
-        JOIN projects p ON s.project_id = p.project_id
+        INNER JOIN projects p ON s.project_id = p.project_id
         LEFT JOIN messages m ON s.session_id = m.session_id
-        LEFT JOIN tool_uses t ON s.session_id = t.session_id
         GROUP BY s.session_id
     """
     )
@@ -157,10 +159,15 @@ def test_db():
         CREATE VIEW tool_usage_summary AS
         SELECT
             tool_name,
-            COUNT(*) as use_count,
-            SUM(CASE WHEN is_error = 1 THEN 1 ELSE 0 END) as error_count
+            COUNT(*) as total_uses,
+            SUM(CASE WHEN is_error = 1 THEN 1 ELSE 0 END) as error_count,
+            ROUND(SUM(CASE WHEN is_error = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as error_rate_percent,
+            COUNT(DISTINCT session_id) as sessions_used_in,
+            MIN(timestamp) as first_used,
+            MAX(timestamp) as last_used
         FROM tool_uses
         GROUP BY tool_name
+        ORDER BY total_uses DESC
     """
     )
 
