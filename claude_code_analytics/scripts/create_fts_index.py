@@ -19,6 +19,15 @@ FTS_SCHEMA = """
 -- ============================================================================
 -- FTS5 VIRTUAL TABLES
 -- ============================================================================
+--
+-- SECURITY NOTE: FTS5 queries accept user input via parameterized queries (?).
+-- While this prevents SQL injection, it does NOT prevent FTS5 syntax errors.
+-- User-supplied queries with invalid syntax (unmatched quotes, invalid operators)
+-- will cause sqlite3.OperationalError exceptions.
+--
+-- All code using MATCH queries should handle these errors gracefully with
+-- try-except blocks and provide helpful error messages to users.
+-- ============================================================================
 
 -- Drop existing tables if they exist
 DROP TABLE IF EXISTS fts_messages;

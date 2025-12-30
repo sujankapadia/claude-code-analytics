@@ -177,13 +177,16 @@ def search_messages(
 
     Args:
         conn: Database connection
-        query: FTS5 search query
+        query: FTS5 search query (user-supplied, may contain FTS5 operators)
         project: Filter by project name
         role: Filter by role
         limit: Maximum results
 
     Returns:
         List of matching messages
+
+    Raises:
+        sqlite3.OperationalError: If FTS5 query syntax is invalid
     """
     # Build WHERE clause
     where_parts = [f"fts_messages MATCH ?"]
@@ -219,7 +222,18 @@ def search_messages(
     params.append(limit)
 
     cursor = conn.cursor()
-    cursor.execute(sql, params)
+
+    try:
+        cursor.execute(sql, params)
+    except sqlite3.OperationalError as e:
+        # FTS5 syntax error - provide helpful message
+        if "fts5" in str(e).lower() or "syntax error" in str(e).lower():
+            raise sqlite3.OperationalError(
+                f"Invalid FTS5 query syntax: {e}\n"
+                f"Query: '{query}'\n"
+                f"Tip: Check for unmatched quotes, invalid operators, or special characters"
+            ) from e
+        raise
 
     results = []
     for row in cursor.fetchall():
@@ -249,12 +263,15 @@ def search_tools(
 
     Args:
         conn: Database connection
-        query: FTS5 search query
+        query: FTS5 search query (user-supplied, may contain FTS5 operators)
         project: Filter by project name
         limit: Maximum results
 
     Returns:
         List of matching tool uses
+
+    Raises:
+        sqlite3.OperationalError: If FTS5 query syntax is invalid
     """
     where_parts = [f"fts_tool_uses MATCH ?"]
     params = [query]
@@ -284,7 +301,18 @@ def search_tools(
     params.append(limit)
 
     cursor = conn.cursor()
-    cursor.execute(sql, params)
+
+    try:
+        cursor.execute(sql, params)
+    except sqlite3.OperationalError as e:
+        # FTS5 syntax error - provide helpful message
+        if "fts5" in str(e).lower() or "syntax error" in str(e).lower():
+            raise sqlite3.OperationalError(
+                f"Invalid FTS5 query syntax: {e}\n"
+                f"Query: '{query}'\n"
+                f"Tip: Check for unmatched quotes, invalid operators, or special characters"
+            ) from e
+        raise
 
     results = []
     for row in cursor.fetchall():

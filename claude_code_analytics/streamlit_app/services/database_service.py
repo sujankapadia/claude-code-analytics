@@ -41,6 +41,38 @@ class DatabaseService:
         conn.execute("PRAGMA foreign_keys = ON")
         return conn
 
+    def _execute_fts_query(
+        self,
+        cursor: sqlite3.Cursor,
+        sql: str,
+        params: list,
+        query_text: str
+    ) -> None:
+        """
+        Execute an FTS5 query with proper error handling.
+
+        Args:
+            cursor: Database cursor
+            sql: SQL query string
+            params: Query parameters
+            query_text: The user-supplied FTS query text (for error messages)
+
+        Raises:
+            sqlite3.OperationalError: If FTS5 query syntax is invalid
+        """
+        try:
+            cursor.execute(sql, params)
+        except sqlite3.OperationalError as e:
+            # FTS5 syntax error - provide helpful message
+            error_str = str(e).lower()
+            if "fts5" in error_str or "syntax error" in error_str:
+                raise sqlite3.OperationalError(
+                    f"Invalid FTS5 query syntax: {e}\n"
+                    f"Query: '{query_text}'\n"
+                    f"Tip: Check for unmatched quotes, invalid operators, or special characters"
+                ) from e
+            raise
+
     # =========================================================================
     # Project queries
     # =========================================================================
@@ -367,7 +399,7 @@ class DatabaseService:
         Search messages using FTS5 full-text search.
 
         Args:
-            query: Search query
+            query: Search query (user-supplied, may contain FTS5 operators)
             project_id: Optional filter by project
             role: Optional filter by role (user/assistant)
             start_date: Optional start date filter
@@ -377,6 +409,9 @@ class DatabaseService:
 
         Returns:
             List of matching messages with context
+
+        Raises:
+            sqlite3.OperationalError: If FTS5 query syntax is invalid
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -420,7 +455,7 @@ class DatabaseService:
         sql += " ORDER BY rank LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
-        cursor.execute(sql, params)
+        self._execute_fts_query(cursor, sql, params, query)
         rows = cursor.fetchall()
         conn.close()
 
