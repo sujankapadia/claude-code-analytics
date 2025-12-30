@@ -13,9 +13,18 @@ Usage:
 import sqlite3
 import os
 import sys
+import logging
 from pathlib import Path
 
 from claude_code_analytics import config
+
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s: %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 # SQLite schema definition
@@ -187,7 +196,7 @@ def create_database(db_path: str) -> None:
         # Execute the schema SQL
         conn.executescript(SCHEMA_SQL)
         conn.commit()
-        print(f"✅ Database schema created successfully at: {db_path}")
+        logger.info(f"Database schema created successfully at: {db_path}")
 
         # Verify tables were created
         cursor = conn.cursor()
@@ -197,7 +206,7 @@ def create_database(db_path: str) -> None:
             ORDER BY name
         """)
         tables = [row[0] for row in cursor.fetchall()]
-        print(f"\n📋 Created tables: {', '.join(tables)}")
+        logger.info(f"Created tables: {', '.join(tables)}")
 
         # Verify views were created
         cursor.execute("""
@@ -207,7 +216,7 @@ def create_database(db_path: str) -> None:
         """)
         views = [row[0] for row in cursor.fetchall()]
         if views:
-            print(f"👁️  Created views: {', '.join(views)}")
+            logger.info(f"Created views: {', '.join(views)}")
 
         # Verify indexes were created
         cursor.execute("""
@@ -217,10 +226,10 @@ def create_database(db_path: str) -> None:
         """)
         indexes = [row[0] for row in cursor.fetchall()]
         if indexes:
-            print(f"🔍 Created indexes: {len(indexes)} total")
+            logger.info(f"Created indexes: {len(indexes)} total")
 
     except sqlite3.Error as e:
-        print(f"❌ Error creating database: {e}")
+        logger.error(f"Error creating database: {e}")
         raise
     finally:
         conn.close()
@@ -231,17 +240,15 @@ def main():
     # Use config for database path
     db_path = config.DATABASE_PATH
 
-    print("🚀 Creating Claude Code conversation analytics database...")
-    print(f"📍 Database location: {db_path}\n")
+    logger.info("Creating Claude Code conversation analytics database...")
+    logger.info(f"Database location: {db_path}")
 
     # Create the database
     create_database(str(db_path))
 
-    print(f"\n✨ Done! You can now populate the database with conversation data.")
-    print(f"\nTo view the database:")
-    print(f"  sqlite3 {db_path}")
-    print(f"\nTo query the project summary:")
-    print(f"  sqlite3 {db_path} 'SELECT * FROM project_summary;'")
+    logger.info("Done! You can now populate the database with conversation data.")
+    logger.info(f"To view the database: sqlite3 {db_path}")
+    logger.info(f"To query the project summary: sqlite3 {db_path} 'SELECT * FROM project_summary;'")
 
 
 if __name__ == "__main__":
