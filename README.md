@@ -25,6 +25,20 @@ Before installing, you need:
   - macOS: `brew install jq`
   - Linux: `apt-get install jq` or `yum install jq`
 
+## Compatibility
+
+**Testing Status**: This is an alpha release (v0.1.0) that has been tested on:
+- **macOS 14.7** (Sonoma)
+- **Python 3.9-3.12** (CI tested on Ubuntu and macOS)
+- **Claude Code 2.0.21**
+
+**Platform Support**:
+- ✅ **macOS**: Fully tested and supported
+- ⚠️ **Linux**: Likely compatible (CI tests pass on Ubuntu) but not extensively tested on user systems
+- ❓ **Windows**: Untested - hook scripts may require WSL or adaptation
+
+If you encounter platform-specific issues, please [report them on GitHub](https://github.com/sujankapadia/claude-code-utils/issues).
+
 ## Quick Start
 
 ### 1. Install
