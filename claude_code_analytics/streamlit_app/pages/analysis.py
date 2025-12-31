@@ -610,7 +610,7 @@ try:
     col1, col2 = st.columns([1, 3])
 
     with col1:
-        run_button = st.button("🚀 Run Analysis", type="primary", use_column_width=True)
+        run_button = st.button("🚀 Run Analysis", type="primary", width="stretch")
 
     with col2:
         save_to_file = st.checkbox("Save result to file", value=False)
@@ -786,7 +786,7 @@ try:
             )
 
             # Publish button
-            if st.button("🔒 Scan & Publish to Gist", type="primary", use_column_width=True):
+            if st.button("🔒 Scan & Publish to Gist", type="primary", width="stretch"):
                 try:
                     # Initialize publisher and scanner
                     with st.spinner("Initializing security scanner..."):

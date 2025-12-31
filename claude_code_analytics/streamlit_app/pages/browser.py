@@ -86,10 +86,10 @@ try:
                 # Action buttons at the top
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("📖 View Full Conversation", use_column_width=True):
+                    if st.button("📖 View Full Conversation", width="stretch"):
                         st.switch_page("pages/conversation.py")
                 with col2:
-                    if st.button("🔬 Analyze This Session", use_column_width=True):
+                    if st.button("🔬 Analyze This Session", width="stretch"):
                         st.switch_page("pages/analysis.py")
 
                 # Session details below
