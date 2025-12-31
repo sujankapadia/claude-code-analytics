@@ -134,7 +134,7 @@ try:
                     "assistant_message_count": st.column_config.NumberColumn("Assistant Msgs"),
                 },
                 hide_index=True,
-                width="column",
+                width="stretch",
             )
 
     # Display all projects table at the bottom
@@ -157,7 +157,7 @@ try:
             "last_session": st.column_config.DatetimeColumn("Last Session"),
         },
         hide_index=True,
-        width="column",
+        width="stretch",
     )
 
 except Exception as e:

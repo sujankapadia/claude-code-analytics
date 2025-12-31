@@ -250,7 +250,7 @@ try:
                 )
 
                 # Display chart
-                st.altair_chart(chart, width="column")
+                st.altair_chart(chart, width="stretch")
 
                 # Show summary stats
                 col1, col2, col3 = st.columns(3)
@@ -580,7 +580,7 @@ try:
                 # Use dataframe with selection mode
                 event = st.dataframe(
                     df,
-                    width="column",
+                    width="stretch",
                     height=400,
                     hide_index=True,
                     on_select="rerun",
