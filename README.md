@@ -1,7 +1,7 @@
 # Claude Code Analytics
 
-[![Tests](https://github.com/sujankapadia/claude-code-utils/actions/workflows/tests.yml/badge.svg)](https://github.com/sujankapadia/claude-code-utils/actions/workflows/tests.yml)
-[![codecov](https://codecov.io/gh/sujankapadia/claude-code-utils/branch/main/graph/badge.svg)](https://codecov.io/gh/sujankapadia/claude-code-utils)
+[![Tests](https://github.com/sujankapadia/claude-code-analytics/actions/workflows/tests.yml/badge.svg)](https://github.com/sujankapadia/claude-code-analytics/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/sujankapadia/claude-code-analytics/branch/main/graph/badge.svg)](https://codecov.io/gh/sujankapadia/claude-code-analytics)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -37,15 +37,15 @@ Before installing, you need:
 - ⚠️ **Linux**: Likely compatible (CI tests pass on Ubuntu) but not extensively tested on user systems
 - ❓ **Windows**: Untested - hook scripts may require WSL or adaptation
 
-If you encounter platform-specific issues, please [report them on GitHub](https://github.com/sujankapadia/claude-code-utils/issues).
+If you encounter platform-specific issues, please [report them on GitHub](https://github.com/sujankapadia/claude-code-analytics/issues).
 
 ## Quick Start
 
 ### 1. Install
 
 ```bash
-git clone https://github.com/sujankapadia/claude-code-utils.git
-cd claude-code-utils
+git clone https://github.com/sujankapadia/claude-code-analytics.git
+cd claude-code-analytics
 ./install.sh
 ```
 
@@ -170,8 +170,8 @@ The Streamlit-based dashboard is your primary interface for exploring conversati
 ### 1. Install
 
 ```bash
-git clone https://github.com/yourusername/claude-code-utils.git
-cd claude-code-utils
+git clone https://github.com/yourusername/claude-code-analytics.git
+cd claude-code-analytics
 ./install.sh
 ```
 
@@ -736,7 +736,7 @@ If database import fails:
 ## Project Structure
 
 ```
-claude-code-utils/
+claude-code-analytics/
 ├── hooks/
 │   └── export-conversation.sh       # SessionEnd hook for auto-export
 ├── scripts/

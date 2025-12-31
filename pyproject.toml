@@ -47,10 +47,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/sujankapadia/claude-code-utils"
-Documentation = "https://github.com/sujankapadia/claude-code-utils#readme"
-Repository = "https://github.com/sujankapadia/claude-code-utils"
-Issues = "https://github.com/sujankapadia/claude-code-utils/issues"
+Homepage = "https://github.com/sujankapadia/claude-code-analytics"
+Documentation = "https://github.com/sujankapadia/claude-code-analytics#readme"
+Repository = "https://github.com/sujankapadia/claude-code-analytics"
+Issues = "https://github.com/sujankapadia/claude-code-analytics/issues"
 
 [project.scripts]
 claude-code-analytics = "claude_code_analytics.cli:dashboard"
