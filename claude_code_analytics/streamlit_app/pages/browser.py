@@ -86,10 +86,10 @@ try:
                 # Action buttons at the top
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("📖 View Full Conversation", use_container_width=True):
+                    if st.button("📖 View Full Conversation", use_column_width=True):
                         st.switch_page("pages/conversation.py")
                 with col2:
-                    if st.button("🔬 Analyze This Session", use_container_width=True):
+                    if st.button("🔬 Analyze This Session", use_column_width=True):
                         st.switch_page("pages/analysis.py")
 
                 # Session details below
@@ -134,7 +134,7 @@ try:
                     "assistant_message_count": st.column_config.NumberColumn("Assistant Msgs"),
                 },
                 hide_index=True,
-                use_container_width=True,
+                width="column",
             )
 
     # Display all projects table at the bottom
@@ -157,7 +157,7 @@ try:
             "last_session": st.column_config.DatetimeColumn("Last Session"),
         },
         hide_index=True,
-        use_container_width=True,
+        width="column",
     )
 
 except Exception as e:

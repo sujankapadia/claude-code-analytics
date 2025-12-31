@@ -250,7 +250,7 @@ try:
                 )
 
                 # Display chart
-                st.altair_chart(chart, use_container_width=True)
+                st.altair_chart(chart, width="column")
 
                 # Show summary stats
                 col1, col2, col3 = st.columns(3)
@@ -580,7 +580,7 @@ try:
                 # Use dataframe with selection mode
                 event = st.dataframe(
                     df,
-                    use_container_width=True,
+                    width="column",
                     height=400,
                     hide_index=True,
                     on_select="rerun",
@@ -610,7 +610,7 @@ try:
     col1, col2 = st.columns([1, 3])
 
     with col1:
-        run_button = st.button("🚀 Run Analysis", type="primary", use_container_width=True)
+        run_button = st.button("🚀 Run Analysis", type="primary", use_column_width=True)
 
     with col2:
         save_to_file = st.checkbox("Save result to file", value=False)
@@ -786,7 +786,7 @@ try:
             )
 
             # Publish button
-            if st.button("🔒 Scan & Publish to Gist", type="primary", use_container_width=True):
+            if st.button("🔒 Scan & Publish to Gist", type="primary", use_column_width=True):
                 try:
                     # Initialize publisher and scanner
                     with st.spinner("Initializing security scanner..."):

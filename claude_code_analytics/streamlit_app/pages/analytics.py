@@ -49,7 +49,7 @@ try:
                 "last_used": st.column_config.DatetimeColumn("Last Used"),
             },
             hide_index=True,
-            use_container_width=True,
+            width="column",
         )
 
         # Tool usage chart
@@ -69,7 +69,7 @@ try:
             .properties(height=400)
         )
 
-        st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, width="column")
 
     st.divider()
 
@@ -100,7 +100,7 @@ try:
             .properties(height=300)
         )
 
-        st.altair_chart(messages_chart, use_container_width=True)
+        st.altair_chart(messages_chart, width="column")
 
         # Token usage over time
         if "input_tokens" in daily_df.columns:
@@ -131,7 +131,7 @@ try:
                 .properties(height=300)
             )
 
-            st.altair_chart(token_chart, use_container_width=True)
+            st.altair_chart(token_chart, width="column")
 
         # Summary metrics
         col1, col2, col3, col4 = st.columns(4)
@@ -177,7 +177,7 @@ try:
                 "last_session": st.column_config.DatetimeColumn("Last Session"),
             },
             hide_index=True,
-            use_container_width=True,
+            width="column",
         )
 
         # Project distribution chart
@@ -196,7 +196,7 @@ try:
             .properties(height=400)
         )
 
-        st.altair_chart(project_chart, use_container_width=True)
+        st.altair_chart(project_chart, width="column")
 
 except Exception as e:
     st.error(f"Error loading analytics: {e}")
