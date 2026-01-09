@@ -88,6 +88,18 @@ Get API keys from [OpenRouter](https://openrouter.ai/keys) or [Google AI Studio]
 
 That's it! New conversations will be automatically captured when you exit Claude Code sessions.
 
+> **⚠️ Important: Transcript Retention**
+>
+> Claude Code automatically removes transcripts for sessions that have been inactive for more than **30 days** by default. This helps manage disk space but means older conversations may be deleted before you archive them.
+>
+> To change this retention period, edit `~/.claude/settings.json` and add:
+> ```json
+> {
+>   "cleanupPeriodDays": 90
+> }
+> ```
+> Set this to a higher value (e.g., 90, 180, or 365 days) to keep transcripts longer, or set it to `0` to disable automatic cleanup entirely.
+
 ---
 
 ## Key Features
