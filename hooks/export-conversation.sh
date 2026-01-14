@@ -14,6 +14,8 @@ fi
 
 # Setup debug logging (use env var or default)
 DEBUG_LOG="${CLAUDE_EXPORT_DEBUG_LOG:-$HOME/.claude/export-debug.log}"
+# Expand ~ if present in the path
+DEBUG_LOG="${DEBUG_LOG/#\~/$HOME}"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$DEBUG_LOG"
