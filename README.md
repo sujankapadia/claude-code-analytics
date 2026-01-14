@@ -30,7 +30,7 @@ Before installing, you need:
 **Testing Status**: This is an alpha release (v0.1.0) that has been tested on:
 - **macOS 14.7** (Sonoma)
 - **Python 3.9-3.12** (CI tested on Ubuntu and macOS)
-- **Claude Code 2.0.21**
+- **Claude Code 2.1.x**
 
 **Platform Support**:
 - ✅ **macOS**: Fully tested and supported
