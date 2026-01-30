@@ -219,6 +219,32 @@ def test_db():
     """
     )
 
+    # Insert a second session with a time gap for active-time testing
+    cursor.execute(
+        """
+        INSERT INTO sessions (session_id, project_id, start_time, end_time, message_count, tool_use_count)
+        VALUES ('session2', 'proj1', '2025-01-02T10:00:00', '2025-01-02T10:20:00', 3, 0)
+    """
+    )
+
+    # session2 messages: 0s -> 60s -> 660s (10-min gap, should be capped to 5 min)
+    cursor.execute(
+        """
+        INSERT INTO messages (session_id, message_index, role, content, timestamp, input_tokens, output_tokens)
+        VALUES
+            ('session2', 0, 'user', 'Start here', '2025-01-02T10:00:00', 5, 0),
+            ('session2', 1, 'assistant', 'Working on it', '2025-01-02T10:01:00', 3, 10),
+            ('session2', 2, 'user', 'Back after break', '2025-01-02T10:11:00', 4, 0)
+    """
+    )
+
+    cursor.execute(
+        """
+        INSERT INTO fts_messages (rowid, content)
+        SELECT message_id, content FROM messages WHERE session_id = 'session2'
+    """
+    )
+
     conn.commit()
     conn.close()
 
@@ -269,8 +295,8 @@ class TestProjectQueries:
         assert len(summaries) == 1
         assert isinstance(summaries[0], ProjectSummary)
         assert summaries[0].project_id == "proj1"
-        assert summaries[0].total_sessions == 1
-        assert summaries[0].total_messages == 3
+        assert summaries[0].total_sessions == 2
+        assert summaries[0].total_messages == 6
         assert summaries[0].total_tool_uses == 2
 
     def test_get_project_existing(self, test_db):
@@ -295,10 +321,11 @@ class TestSessionQueries:
         """Test getting all sessions for a project."""
         service = DatabaseService(db_path=test_db)
         sessions = service.get_sessions_for_project("proj1")
-        assert len(sessions) == 1
-        assert isinstance(sessions[0], Session)
-        assert sessions[0].session_id == "session1"
-        assert sessions[0].project_id == "proj1"
+        assert len(sessions) == 2
+        assert all(isinstance(s, Session) for s in sessions)
+        session_ids = {s.session_id for s in sessions}
+        assert "session1" in session_ids
+        assert "session2" in session_ids
 
     def test_get_sessions_for_nonexistent_project(self, test_db):
         """Test getting sessions for a project that doesn't exist."""
@@ -324,15 +351,15 @@ class TestSessionQueries:
         """Test getting all session summaries."""
         service = DatabaseService(db_path=test_db)
         summaries = service.get_session_summaries()
-        assert len(summaries) == 1
-        assert isinstance(summaries[0], SessionSummary)
-        assert summaries[0].message_count == 3
+        assert len(summaries) == 2
+        assert all(isinstance(s, SessionSummary) for s in summaries)
+        assert all(s.message_count == 3 for s in summaries)
 
     def test_get_session_summaries_with_project_filter(self, test_db):
         """Test getting session summaries filtered by project."""
         service = DatabaseService(db_path=test_db)
         summaries = service.get_session_summaries(project_id="proj1")
-        assert len(summaries) == 1
+        assert len(summaries) == 2
 
     def test_get_session_summaries_with_limit(self, test_db):
         """Test getting session summaries with limit."""
@@ -601,3 +628,90 @@ class TestEdgeCases:
         )
         assert isinstance(result["has_more"], bool)
         assert isinstance(result["total_sessions"], int)
+
+
+class TestActivityMetrics:
+    """Test active time and text volume methods."""
+
+    def test_active_time_for_session_basic(self, test_db):
+        """Test active time calculation for a simple session."""
+        service = DatabaseService(db_path=test_db)
+        result = service.get_active_time_for_session("session1")
+        # session1: 10:00 -> 10:01 -> 10:02 = 60+60 = 120s active, 120s wall
+        assert result["active_time_seconds"] == 120.0
+        assert result["total_duration_seconds"] == 120.0
+        assert result["idle_ratio"] == pytest.approx(0.0)
+
+    def test_active_time_with_idle_gap(self, test_db):
+        """Test active time capping for idle gaps."""
+        service = DatabaseService(db_path=test_db)
+        result = service.get_active_time_for_session("session2")
+        # session2: 10:00 -> 10:01 (60s) -> 10:11 (600s gap, capped to 300)
+        # active = 60 + 300 = 360s, wall = 660s
+        assert result["active_time_seconds"] == 360.0
+        assert result["total_duration_seconds"] == 660.0
+        assert result["idle_ratio"] == pytest.approx(1.0 - 360.0 / 660.0)
+
+    def test_active_time_nonexistent_session(self, test_db):
+        """Test active time for a session with no messages."""
+        service = DatabaseService(db_path=test_db)
+        result = service.get_active_time_for_session("nonexistent")
+        assert result["active_time_seconds"] == 0.0
+        assert result["total_duration_seconds"] == 0.0
+        assert result["idle_ratio"] == 0.0
+
+    def test_active_time_custom_idle_cap(self, test_db):
+        """Test active time with a custom idle cap."""
+        service = DatabaseService(db_path=test_db)
+        result = service.get_active_time_for_session("session2", idle_cap_seconds=60)
+        # session2: gap1=60s (within cap), gap2=600s (capped to 60)
+        # active = 60 + 60 = 120s
+        assert result["active_time_seconds"] == 120.0
+
+    def test_text_volume_for_session(self, test_db):
+        """Test text volume calculation for a session."""
+        service = DatabaseService(db_path=test_db)
+        result = service.get_text_volume_for_session("session1")
+        # user messages: "Hello world" (11) + "How are you?" (12) = 23
+        # assistant message prose: "Hi there!" (9)
+        # tool text: '{"file_path": "/test.py"}' (26) + 'File contents here' (18)
+        #          + '{"command": "ls"}' (17) + 'file1.txt\nfile2.txt' (18, \n=1 char) = 79
+        # assistant total = 9 + 79 = 88
+        assert result["user_text_chars"] == 23
+        assert result["assistant_text_chars"] == 88
+
+    def test_text_volume_nonexistent_session(self, test_db):
+        """Test text volume for a session with no messages."""
+        service = DatabaseService(db_path=test_db)
+        result = service.get_text_volume_for_session("nonexistent")
+        assert result["user_text_chars"] == 0
+        assert result["assistant_text_chars"] == 0
+
+    def test_aggregate_activity_metrics_all(self, test_db):
+        """Test aggregate metrics across all projects."""
+        service = DatabaseService(db_path=test_db)
+        result = service.get_aggregate_activity_metrics()
+        assert result["session_count"] == 2
+        assert result["total_active_time_seconds"] > 0
+        assert result["total_wall_time_seconds"] > 0
+        assert 0.0 <= result["overall_idle_ratio"] <= 1.0
+        assert result["total_user_text_chars"] > 0
+        assert result["total_assistant_text_chars"] > 0
+        assert result["avg_active_time_per_session"] == pytest.approx(
+            result["total_active_time_seconds"] / 2
+        )
+
+    def test_aggregate_activity_metrics_with_project_filter(self, test_db):
+        """Test aggregate metrics filtered by project."""
+        service = DatabaseService(db_path=test_db)
+        result = service.get_aggregate_activity_metrics(project_id="proj1")
+        assert result["session_count"] == 2  # Both sessions in proj1
+
+    def test_aggregate_activity_metrics_nonexistent_project(self, test_db):
+        """Test aggregate metrics for a project with no data."""
+        service = DatabaseService(db_path=test_db)
+        result = service.get_aggregate_activity_metrics(project_id="nonexistent")
+        assert result["session_count"] == 0
+        assert result["total_active_time_seconds"] == 0.0
+        assert result["total_user_text_chars"] == 0
+        assert result["total_assistant_text_chars"] == 0

@@ -1437,6 +1437,230 @@ class DatabaseService:
     # Analytics queries
     # =========================================================================
 
+    def get_active_time_for_session(
+        self, session_id: str, idle_cap_seconds: int = 300
+    ) -> dict[str, Any]:
+        """
+        Compute active time for a session by summing capped inter-message gaps.
+
+        Gaps longer than idle_cap_seconds are capped at that value, so idle
+        periods don't inflate the "active" time metric.
+
+        Args:
+            session_id: Session UUID
+            idle_cap_seconds: Maximum seconds to count for any single gap (default 300 = 5 min)
+
+        Returns:
+            Dictionary with:
+                - active_time_seconds: float
+                - total_duration_seconds: float
+                - idle_ratio: float (0.0 - 1.0)
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT timestamp FROM messages WHERE session_id = ? ORDER BY timestamp",
+            (session_id,),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+
+        if len(rows) < 2:
+            return {
+                "active_time_seconds": 0.0,
+                "total_duration_seconds": 0.0,
+                "idle_ratio": 0.0,
+            }
+
+        timestamps = [datetime.fromisoformat(row["timestamp"]) for row in rows]
+        total_duration = (timestamps[-1] - timestamps[0]).total_seconds()
+        active_time = 0.0
+        for i in range(1, len(timestamps)):
+            gap = (timestamps[i] - timestamps[i - 1]).total_seconds()
+            active_time += min(gap, idle_cap_seconds)
+
+        idle_ratio = 1.0 - (active_time / total_duration) if total_duration > 0 else 0.0
+
+        return {
+            "active_time_seconds": active_time,
+            "total_duration_seconds": total_duration,
+            "idle_ratio": idle_ratio,
+        }
+
+    def get_text_volume_for_session(self, session_id: str) -> dict[str, int]:
+        """
+        Get total text character counts per role for a session.
+
+        User text = message content where role='user'.
+        Assistant text = message content where role='assistant' + all tool_input
+        and tool_result text from tool_uses.
+
+        Args:
+            session_id: Session UUID
+
+        Returns:
+            Dictionary with:
+                - user_text_chars: int
+                - assistant_text_chars: int
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT role, COALESCE(SUM(LENGTH(content)), 0) as total_chars
+            FROM messages
+            WHERE session_id = ?
+            GROUP BY role
+            """,
+            (session_id,),
+        )
+        rows = cursor.fetchall()
+
+        result = {"user_text_chars": 0, "assistant_text_chars": 0}
+        for row in rows:
+            if row["role"] == "user":
+                result["user_text_chars"] = row["total_chars"]
+            elif row["role"] == "assistant":
+                result["assistant_text_chars"] = row["total_chars"]
+
+        # Add tool text (tool_input + tool_result) to assistant total
+        cursor.execute(
+            """
+            SELECT COALESCE(SUM(LENGTH(tool_input)), 0) + COALESCE(SUM(LENGTH(tool_result)), 0)
+                as tool_chars
+            FROM tool_uses
+            WHERE session_id = ?
+            """,
+            (session_id,),
+        )
+        tool_row = cursor.fetchone()
+        conn.close()
+
+        if tool_row:
+            result["assistant_text_chars"] += tool_row["tool_chars"]
+        return result
+
+    def get_aggregate_activity_metrics(
+        self, project_id: Optional[str] = None, idle_cap_seconds: int = 300
+    ) -> dict[str, Any]:
+        """
+        Get aggregate activity and text volume metrics across sessions.
+
+        Args:
+            project_id: Optional filter by project
+            idle_cap_seconds: Maximum seconds to count for any single gap
+
+        Returns:
+            Dictionary with:
+                - total_active_time_seconds: float
+                - total_wall_time_seconds: float
+                - overall_idle_ratio: float
+                - total_user_text_chars: int
+                - total_assistant_text_chars: int
+                - session_count: int
+                - avg_active_time_per_session: float
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        # Text volume query
+        text_sql = """
+            SELECT m.role, COALESCE(SUM(LENGTH(m.content)), 0) as total_chars
+            FROM messages m
+        """
+        params: list[Any] = []
+        if project_id:
+            text_sql += " JOIN sessions s ON m.session_id = s.session_id WHERE s.project_id = ?"
+            params.append(project_id)
+        text_sql += " GROUP BY m.role"
+        cursor.execute(text_sql, params)
+        text_rows = cursor.fetchall()
+
+        user_chars = 0
+        assistant_chars = 0
+        for row in text_rows:
+            if row["role"] == "user":
+                user_chars = row["total_chars"]
+            elif row["role"] == "assistant":
+                assistant_chars = row["total_chars"]
+
+        # Add tool text to assistant total
+        tool_sql = """
+            SELECT COALESCE(SUM(LENGTH(t.tool_input)), 0) + COALESCE(SUM(LENGTH(t.tool_result)), 0)
+                as tool_chars
+            FROM tool_uses t
+        """
+        tool_params: list[Any] = []
+        if project_id:
+            tool_sql += " JOIN sessions s ON t.session_id = s.session_id WHERE s.project_id = ?"
+            tool_params.append(project_id)
+        cursor.execute(tool_sql, tool_params)
+        tool_row = cursor.fetchone()
+        if tool_row:
+            assistant_chars += tool_row["tool_chars"]
+
+        # Active time: fetch all message timestamps grouped by session
+        ts_sql = """
+            SELECT m.session_id, m.timestamp
+            FROM messages m
+        """
+        ts_params: list[Any] = []
+        if project_id:
+            ts_sql += " JOIN sessions s ON m.session_id = s.session_id WHERE s.project_id = ?"
+            ts_params.append(project_id)
+        ts_sql += " ORDER BY m.session_id, m.timestamp"
+        cursor.execute(ts_sql, ts_params)
+        ts_rows = cursor.fetchall()
+        conn.close()
+
+        total_active = 0.0
+        total_wall = 0.0
+        session_count = 0
+        current_session_id = None
+        session_timestamps: list[datetime] = []
+
+        def _process_session(timestamps: list[datetime]) -> tuple[float, float]:
+            if len(timestamps) < 2:
+                return 0.0, 0.0
+            wall = (timestamps[-1] - timestamps[0]).total_seconds()
+            active = 0.0
+            for i in range(1, len(timestamps)):
+                gap = (timestamps[i] - timestamps[i - 1]).total_seconds()
+                active += min(gap, idle_cap_seconds)
+            return active, wall
+
+        for row in ts_rows:
+            sid = row["session_id"]
+            if sid != current_session_id:
+                if current_session_id is not None:
+                    active, wall = _process_session(session_timestamps)
+                    total_active += active
+                    total_wall += wall
+                    session_count += 1
+                current_session_id = sid
+                session_timestamps = []
+            session_timestamps.append(datetime.fromisoformat(row["timestamp"]))
+
+        # Process last session
+        if current_session_id is not None:
+            active, wall = _process_session(session_timestamps)
+            total_active += active
+            total_wall += wall
+            session_count += 1
+
+        overall_idle = 1.0 - (total_active / total_wall) if total_wall > 0 else 0.0
+        avg_active = total_active / session_count if session_count > 0 else 0.0
+
+        return {
+            "total_active_time_seconds": total_active,
+            "total_wall_time_seconds": total_wall,
+            "overall_idle_ratio": overall_idle,
+            "total_user_text_chars": user_chars,
+            "total_assistant_text_chars": assistant_chars,
+            "session_count": session_count,
+            "avg_active_time_per_session": avg_active,
+        }
+
     def get_daily_statistics(self, days: int = 30) -> list[dict[str, Any]]:
         """
         Get daily aggregated statistics.

@@ -5,6 +5,11 @@ import streamlit as st
 
 # Add parent directory to path for imports
 from claude_code_analytics.streamlit_app.services import DatabaseService
+from claude_code_analytics.streamlit_app.services.format_utils import (
+    format_char_count,
+    format_duration,
+    format_percentage,
+)
 
 # Initialize service
 if "db_service" not in st.session_state:
@@ -107,6 +112,86 @@ try:
                     "Cache Read Tokens",
                     f"{token_usage.get('cache_read_tokens', 0):,}",
                 )
+
+                # Activity & Volume section
+                st.markdown("#### Activity & Volume")
+
+                active_time = db_service.get_active_time_for_session(selected_session_id)
+                text_vol = db_service.get_text_volume_for_session(selected_session_id)
+
+                # Get message counts from the session summary
+                session_summary = None
+                for s in sessions:
+                    if s.session_id == selected_session_id:
+                        session_summary = s
+                        break
+
+                # Row 1: Session-level metrics
+                ac1, ac2, ac3 = st.columns(3)
+                ac1.metric(
+                    "Active Time",
+                    format_duration(active_time["active_time_seconds"]),
+                )
+                if session_summary:
+                    ac2.metric(
+                        "Msgs (U:A)",
+                        f"{session_summary.user_message_count} : {session_summary.assistant_message_count}",
+                    )
+
+                user_chars = text_vol["user_text_chars"]
+                asst_chars = text_vol["assistant_text_chars"]
+                total_chars = user_chars + asst_chars
+                if user_chars > 0:
+                    ratio = asst_chars / user_chars
+                    ac3.metric("Text Ratio (U:A)", f"1 : {ratio:.1f}")
+                else:
+                    ac3.metric("Text Ratio (U:A)", "N/A")
+
+                # Row 2: Text volume
+                tv1, tv2 = st.columns(2)
+                tv1.metric(
+                    "User Text",
+                    f"{format_char_count(user_chars)} ({format_percentage(user_chars, total_chars)})",
+                )
+                tv2.metric(
+                    "Asst Text",
+                    f"{format_char_count(asst_chars)} ({format_percentage(asst_chars, total_chars)})",
+                )
+
+                # Project-level totals
+                st.markdown("#### Project Totals")
+                proj_metrics = db_service.get_aggregate_activity_metrics(
+                    project_id=selected_project_id
+                )
+                proj_user = proj_metrics["total_user_text_chars"]
+                proj_asst = proj_metrics["total_assistant_text_chars"]
+                proj_total = proj_user + proj_asst
+
+                pm1, pm2, pm3 = st.columns(3)
+                pm1.metric(
+                    "Total Active Time",
+                    format_duration(proj_metrics["total_active_time_seconds"]),
+                )
+                pm2.metric(
+                    "Avg Active / Session",
+                    format_duration(proj_metrics["avg_active_time_per_session"]),
+                )
+                pm3.metric("Sessions", f"{proj_metrics['session_count']:,}")
+
+                pt1, pt2, pt3 = st.columns(3)
+                pt1.metric(
+                    "Total User Text",
+                    f"{format_char_count(proj_user)} ({format_percentage(proj_user, proj_total)})",
+                )
+                pt2.metric(
+                    "Total Asst Text",
+                    f"{format_char_count(proj_asst)} ({format_percentage(proj_asst, proj_total)})",
+                )
+                if proj_user > 0:
+                    proj_ratio = proj_asst / proj_user
+                    pt3.metric("Text Ratio (U:A)", f"1 : {proj_ratio:.1f}")
+                else:
+                    pt3.metric("Text Ratio (U:A)", "N/A")
 
             # Display sessions table
             st.divider()

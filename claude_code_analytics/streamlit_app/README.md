@@ -8,6 +8,8 @@ A Streamlit web application for analyzing and visualizing Claude Code conversati
 - View all your projects and conversation sessions
 - See metadata like message counts, timestamps, and tool usage
 - Filter and search through your conversations
+- Session activity metrics: active time, message counts (user:assistant), text volume ratios
+- Project-level totals: aggregate active time, average per session, total text volume
 
 ### 💬 View Conversations
 - Read full conversation transcripts
@@ -28,6 +30,7 @@ A Streamlit web application for analyzing and visualizing Claude Code conversati
 - Tool usage patterns and error rates
 - Project and session metrics
 - Daily activity charts
+- Activity & volume metrics (active time, text volume ratios, per-project breakdown)
 - Interactive visualizations
 
 ## Architecture
@@ -42,7 +45,8 @@ streamlit_app/
 │   └── analysis_models.py  # Models for analysis functionality
 ├── services/              # Business logic layer
 │   ├── database_service.py # Database operations
-│   └── analysis_service.py # Analysis operations
+│   ├── analysis_service.py # Analysis operations
+│   └── format_utils.py     # Formatting helpers (duration, char count, percentage)
 └── pages/                 # UI pages
     ├── home.py           # Home page
     ├── browser.py        # Session browser

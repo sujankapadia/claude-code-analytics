@@ -6,6 +6,10 @@ import streamlit as st
 
 # Add parent directory to path for imports
 from claude_code_analytics.streamlit_app.services import DatabaseService
+from claude_code_analytics.streamlit_app.services.format_utils import (
+    format_char_count,
+    format_duration,
+)
 
 # Initialize service
 if "db_service" not in st.session_state:
@@ -197,6 +201,88 @@ try:
         )
 
         st.altair_chart(project_chart, width="stretch")
+
+    st.divider()
+
+    # === Activity & Volume Metrics ===
+    st.subheader("Activity & Volume Metrics")
+
+    agg = db_service.get_aggregate_activity_metrics()
+
+    # Row 1: Time metrics
+    am1, am2, am3 = st.columns(3)
+    am1.metric("Total Active Time", format_duration(agg["total_active_time_seconds"]))
+    am2.metric(
+        "Avg Active / Session",
+        format_duration(agg["avg_active_time_per_session"]),
+    )
+    am3.metric("Sessions", f"{agg['session_count']:,}")
+
+    # Row 2: Text volume
+    total_text = agg["total_user_text_chars"] + agg["total_assistant_text_chars"]
+    vm1, vm2, vm3 = st.columns(3)
+    vm1.metric(
+        "Total User Text",
+        format_char_count(agg["total_user_text_chars"]),
+    )
+    vm2.metric(
+        "Total Asst Text",
+        format_char_count(agg["total_assistant_text_chars"]),
+    )
+    if agg["total_user_text_chars"] > 0:
+        ratio = agg["total_assistant_text_chars"] / agg["total_user_text_chars"]
+        vm3.metric("Text Ratio (U:A)", f"1 : {ratio:.1f}")
+    else:
+        vm3.metric("Text Ratio (U:A)", "N/A")
+
+    # Per-project breakdown
+    st.markdown("#### Active Time by Project")
+
+    project_rows = []
+    for p in projects:
+        p_agg = db_service.get_aggregate_activity_metrics(project_id=p.project_id)
+        if p_agg["session_count"] > 0:
+            project_rows.append(
+                {
+                    "Project": p.project_name,
+                    "Active Time": format_duration(p_agg["total_active_time_seconds"]),
+                    "Avg Active": format_duration(p_agg["avg_active_time_per_session"]),
+                    "Sessions": p_agg["session_count"],
+                    "User Chars": format_char_count(p_agg["total_user_text_chars"]),
+                    "Asst Chars": format_char_count(p_agg["total_assistant_text_chars"]),
+                    "_active_seconds": p_agg["total_active_time_seconds"],
+                }
+            )
+
+    if project_rows:
+        proj_df = pd.DataFrame(project_rows)
+        st.dataframe(
+            proj_df.drop(columns=["_active_seconds"]),
+            hide_index=True,
+            width="stretch",
+        )
+
+        # Horizontal bar chart
+        chart_df = proj_df[["Project", "_active_seconds"]].copy()
+        chart_df = chart_df.rename(columns={"_active_seconds": "Active Seconds"})
+        bar_chart = (
+            alt.Chart(chart_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("Active Seconds:Q", title="Active Time (seconds)"),
+                y=alt.Y("Project:N", sort="-x", title="Project"),
+                color=alt.Color(
+                    "Active Seconds:Q",
+                    scale=alt.Scale(scheme="viridis"),
+                    legend=None,
+                ),
+                tooltip=["Project", "Active Seconds"],
+            )
+            .properties(height=max(len(project_rows) * 40, 200))
+        )
+        st.altair_chart(bar_chart, width="stretch")
+    else:
+        st.info("No activity data available.")
 
 except Exception as e:
     st.error(f"Error loading analytics: {e}")

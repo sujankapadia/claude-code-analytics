@@ -108,7 +108,7 @@ That's it! New conversations will be automatically captured when you exit Claude
 
 The Streamlit-based dashboard is your primary interface for exploring conversations:
 
-- **Session Browser** - View, filter, and navigate all your Claude Code sessions with pagination support
+- **Session Browser** - View, filter, and navigate all your Claude Code sessions with pagination support, session-level activity metrics (active time, text volume), and project-level aggregate totals
 - **Conversation Viewer** - Terminal-style interface that faithfully recreates your sessions:
   - Inline tool calls and results
   - Role-based filtering (user/assistant)
@@ -120,6 +120,7 @@ The Streamlit-based dashboard is your primary interface for exploring conversati
   - Tool usage distribution and error rates
   - Project statistics (sessions, messages, tool uses, activity timeline)
   - Daily activity trends
+  - Activity & volume metrics (active time, text volume ratios, per-project breakdown)
 - **Full-Text Search** - FTS5-powered search across all messages, tool inputs, and tool results:
   - Scope filtering (messages, tool inputs/results)
   - Project and date range filters
@@ -176,6 +177,7 @@ The Streamlit-based dashboard is your primary interface for exploring conversati
 - **Tool usage stats** - Track which tools you use most, error rates, session distribution
 - **Daily trends** - Message volume, token usage, and activity over time
 - **Project insights** - Compare activity levels across different projects
+- **Activity metrics** - Active time per session (idle gaps capped at 5 min), text volume ratios (user vs assistant including tool text), per-project breakdowns
 
 ## Quick Start
 
@@ -390,6 +392,8 @@ The **Browse Sessions** page shows all your conversations:
 - Sort by date or activity level
 - Pagination for large conversation histories
 - Click any session to view full conversation
+- Session activity metrics: active time, message counts, text volume ratios
+- Project-level totals: aggregate active time, average per session, total text volume
 
 ### Search Conversations
 
@@ -406,6 +410,7 @@ The **Analytics Dashboard** provides visual insights:
 - **Daily Activity** - Messages, tokens, and sessions over time (configurable time range)
 - **Token Usage** - Input vs output tokens with stacked area chart
 - **Project Statistics** - Sessions, messages, tool uses, and activity timeline per project (sorted by message volume)
+- **Activity & Volume Metrics** - Total active time, average per session, text volume (user vs assistant with ratios), per-project breakdown table and bar chart
 
 ### Run AI Analysis
 
@@ -763,7 +768,8 @@ claude-code-analytics/
 │   ├── models/                      # Pydantic data models
 │   │   └── __init__.py
 │   ├── services/                    # Business logic layer
-│   │   └── database_service.py
+│   │   ├── database_service.py
+│   │   └── format_utils.py
 │   └── pages/                       # Dashboard pages
 │       ├── browser.py               # Session browser
 │       ├── conversation.py          # Conversation viewer

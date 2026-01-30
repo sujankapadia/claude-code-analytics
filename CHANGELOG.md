@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Activity & Volume Metrics** - Track active time and text volume across sessions and projects
+  - **Active Time Calculation** - Sums time between consecutive messages with idle gaps capped at 5 minutes, giving a realistic measure of hands-on time (wall clock duration is unreliable for re-entered sessions)
+  - **Text Volume Analysis** - Character counts for user text and assistant text (including tool inputs/results), with ratios and percentages
+  - **Session-Level Metrics** (Browse Sessions page) - Active time, message counts (user:assistant), text ratio, user/assistant text with percentages
+  - **Project-Level Totals** (Browse Sessions page) - Aggregate active time, average active time per session, total text volume across all sessions in the selected project
+  - **Aggregate Dashboard** (Analytics page) - Total active time, average per session, session count, total user/assistant text, text ratio, per-project breakdown table and bar chart
+  - **Formatting Utilities** - New `format_utils.py` module with `format_duration()`, `format_char_count()`, and `format_percentage()` helpers
+  - Three new database service methods: `get_active_time_for_session()`, `get_text_volume_for_session()`, `get_aggregate_activity_metrics()`
+  - Comprehensive test coverage (23 formatting tests, 9 activity metrics tests)
+
 ## [0.1.0] - 2025-12-30
 
 ### Added
