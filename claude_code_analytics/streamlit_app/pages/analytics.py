@@ -219,8 +219,7 @@ try:
     am3.metric("Sessions", f"{agg['session_count']:,}")
 
     # Row 2: Text volume
-    total_text = agg["total_user_text_chars"] + agg["total_assistant_text_chars"]
-    vm1, vm2, vm3 = st.columns(3)
+    vm1, vm2, vm3, vm4 = st.columns(4)
     vm1.metric(
         "Total User Text",
         format_char_count(agg["total_user_text_chars"]),
@@ -229,11 +228,15 @@ try:
         "Total Asst Text",
         format_char_count(agg["total_assistant_text_chars"]),
     )
+    vm3.metric(
+        "Tool Output",
+        format_char_count(agg["total_tool_output_chars"]),
+    )
     if agg["total_user_text_chars"] > 0:
         ratio = agg["total_assistant_text_chars"] / agg["total_user_text_chars"]
-        vm3.metric("Text Ratio (U:A)", f"1 : {ratio:.1f}")
+        vm4.metric("Text Ratio (U:A)", f"1 : {ratio:.1f}")
     else:
-        vm3.metric("Text Ratio (U:A)", "N/A")
+        vm4.metric("Text Ratio (U:A)", "N/A")
 
     # Per-project breakdown
     st.markdown("#### Active Time by Project")
@@ -250,6 +253,7 @@ try:
                     "Sessions": p_agg["session_count"],
                     "User Chars": format_char_count(p_agg["total_user_text_chars"]),
                     "Asst Chars": format_char_count(p_agg["total_assistant_text_chars"]),
+                    "Tool Output": format_char_count(p_agg["total_tool_output_chars"]),
                     "_active_seconds": p_agg["total_active_time_seconds"],
                 }
             )

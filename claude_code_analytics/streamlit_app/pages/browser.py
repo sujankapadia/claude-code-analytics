@@ -140,7 +140,8 @@ try:
 
                 user_chars = text_vol["user_text_chars"]
                 asst_chars = text_vol["assistant_text_chars"]
-                total_chars = user_chars + asst_chars
+                tool_out_chars = text_vol["tool_output_chars"]
+                total_chars = user_chars + asst_chars + tool_out_chars
                 if user_chars > 0:
                     ratio = asst_chars / user_chars
                     ac3.metric("Text Ratio (U:A)", f"1 : {ratio:.1f}")
@@ -148,7 +149,7 @@ try:
                     ac3.metric("Text Ratio (U:A)", "N/A")
 
                 # Row 2: Text volume
-                tv1, tv2 = st.columns(2)
+                tv1, tv2, tv3 = st.columns(3)
                 tv1.metric(
                     "User Text",
                     f"{format_char_count(user_chars)} ({format_percentage(user_chars, total_chars)})",
@@ -156,6 +157,10 @@ try:
                 tv2.metric(
                     "Asst Text",
                     f"{format_char_count(asst_chars)} ({format_percentage(asst_chars, total_chars)})",
+                )
+                tv3.metric(
+                    "Tool Output",
+                    f"{format_char_count(tool_out_chars)} ({format_percentage(tool_out_chars, total_chars)})",
                 )
 
                 # Project-level totals
@@ -165,7 +170,8 @@ try:
                 )
                 proj_user = proj_metrics["total_user_text_chars"]
                 proj_asst = proj_metrics["total_assistant_text_chars"]
-                proj_total = proj_user + proj_asst
+                proj_tool_out = proj_metrics["total_tool_output_chars"]
+                proj_total = proj_user + proj_asst + proj_tool_out
 
                 pm1, pm2, pm3 = st.columns(3)
                 pm1.metric(
@@ -178,7 +184,7 @@ try:
                 )
                 pm3.metric("Sessions", f"{proj_metrics['session_count']:,}")
 
-                pt1, pt2, pt3 = st.columns(3)
+                pt1, pt2, pt3, pt4 = st.columns(4)
                 pt1.metric(
                     "Total User Text",
                     f"{format_char_count(proj_user)} ({format_percentage(proj_user, proj_total)})",
@@ -187,11 +193,15 @@ try:
                     "Total Asst Text",
                     f"{format_char_count(proj_asst)} ({format_percentage(proj_asst, proj_total)})",
                 )
+                pt3.metric(
+                    "Tool Output",
+                    f"{format_char_count(proj_tool_out)} ({format_percentage(proj_tool_out, proj_total)})",
+                )
                 if proj_user > 0:
                     proj_ratio = proj_asst / proj_user
-                    pt3.metric("Text Ratio (U:A)", f"1 : {proj_ratio:.1f}")
+                    pt4.metric("Text Ratio (U:A)", f"1 : {proj_ratio:.1f}")
                 else:
-                    pt3.metric("Text Ratio (U:A)", "N/A")
+                    pt4.metric("Text Ratio (U:A)", "N/A")
 
             # Display sessions table
             st.divider()

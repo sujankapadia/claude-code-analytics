@@ -674,11 +674,12 @@ class TestActivityMetrics:
         result = service.get_text_volume_for_session("session1")
         # user messages: "Hello world" (11) + "How are you?" (12) = 23
         # assistant message prose: "Hi there!" (9)
-        # tool text: '{"file_path": "/test.py"}' (26) + 'File contents here' (18)
-        #          + '{"command": "ls"}' (17) + 'file1.txt\nfile2.txt' (18, \n=1 char) = 79
-        # assistant total = 9 + 79 = 88
+        # tool_input: '{"file_path": "/test.py"}' (25) + '{"command": "ls"}' (17) = 42
+        # tool_result (tool output): 'File contents here' (18) + 'file1.txt\nfile2.txt' (19) = 37
+        # assistant total = 9 + 42 = 51
         assert result["user_text_chars"] == 23
-        assert result["assistant_text_chars"] == 88
+        assert result["assistant_text_chars"] == 51
+        assert result["tool_output_chars"] == 37
 
     def test_text_volume_nonexistent_session(self, test_db):
         """Test text volume for a session with no messages."""
@@ -686,6 +687,7 @@ class TestActivityMetrics:
         result = service.get_text_volume_for_session("nonexistent")
         assert result["user_text_chars"] == 0
         assert result["assistant_text_chars"] == 0
+        assert result["tool_output_chars"] == 0
 
     def test_aggregate_activity_metrics_all(self, test_db):
         """Test aggregate metrics across all projects."""
@@ -697,6 +699,7 @@ class TestActivityMetrics:
         assert 0.0 <= result["overall_idle_ratio"] <= 1.0
         assert result["total_user_text_chars"] > 0
         assert result["total_assistant_text_chars"] > 0
+        assert result["total_tool_output_chars"] >= 0
         assert result["avg_active_time_per_session"] == pytest.approx(
             result["total_active_time_seconds"] / 2
         )
@@ -715,3 +718,4 @@ class TestActivityMetrics:
         assert result["total_active_time_seconds"] == 0.0
         assert result["total_user_text_chars"] == 0
         assert result["total_assistant_text_chars"] == 0
+        assert result["total_tool_output_chars"] == 0

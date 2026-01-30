@@ -1492,8 +1492,9 @@ class DatabaseService:
         Get total text character counts per role for a session.
 
         User text = message content where role='user'.
-        Assistant text = message content where role='assistant' + all tool_input
-        and tool_result text from tool_uses.
+        Assistant text = message content where role='assistant' + tool_input
+        from tool_uses (commands the agent issued).
+        Tool output = tool_result from tool_uses (system responses).
 
         Args:
             session_id: Session UUID
@@ -1502,6 +1503,7 @@ class DatabaseService:
             Dictionary with:
                 - user_text_chars: int
                 - assistant_text_chars: int
+                - tool_output_chars: int
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -1516,18 +1518,18 @@ class DatabaseService:
         )
         rows = cursor.fetchall()
 
-        result = {"user_text_chars": 0, "assistant_text_chars": 0}
+        result = {"user_text_chars": 0, "assistant_text_chars": 0, "tool_output_chars": 0}
         for row in rows:
             if row["role"] == "user":
                 result["user_text_chars"] = row["total_chars"]
             elif row["role"] == "assistant":
                 result["assistant_text_chars"] = row["total_chars"]
 
-        # Add tool text (tool_input + tool_result) to assistant total
+        # tool_input adds to assistant total; tool_result is separate tool output
         cursor.execute(
             """
-            SELECT COALESCE(SUM(LENGTH(tool_input)), 0) + COALESCE(SUM(LENGTH(tool_result)), 0)
-                as tool_chars
+            SELECT COALESCE(SUM(LENGTH(tool_input)), 0) as tool_input_chars,
+                   COALESCE(SUM(LENGTH(tool_result)), 0) as tool_output_chars
             FROM tool_uses
             WHERE session_id = ?
             """,
@@ -1537,7 +1539,8 @@ class DatabaseService:
         conn.close()
 
         if tool_row:
-            result["assistant_text_chars"] += tool_row["tool_chars"]
+            result["assistant_text_chars"] += tool_row["tool_input_chars"]
+            result["tool_output_chars"] = tool_row["tool_output_chars"]
         return result
 
     def get_aggregate_activity_metrics(
@@ -1557,6 +1560,7 @@ class DatabaseService:
                 - overall_idle_ratio: float
                 - total_user_text_chars: int
                 - total_assistant_text_chars: int
+                - total_tool_output_chars: int
                 - session_count: int
                 - avg_active_time_per_session: float
         """
@@ -1584,10 +1588,10 @@ class DatabaseService:
             elif row["role"] == "assistant":
                 assistant_chars = row["total_chars"]
 
-        # Add tool text to assistant total
+        # tool_input adds to assistant total; tool_result is separate tool output
         tool_sql = """
-            SELECT COALESCE(SUM(LENGTH(t.tool_input)), 0) + COALESCE(SUM(LENGTH(t.tool_result)), 0)
-                as tool_chars
+            SELECT COALESCE(SUM(LENGTH(t.tool_input)), 0) as tool_input_chars,
+                   COALESCE(SUM(LENGTH(t.tool_result)), 0) as tool_output_chars
             FROM tool_uses t
         """
         tool_params: list[Any] = []
@@ -1596,8 +1600,10 @@ class DatabaseService:
             tool_params.append(project_id)
         cursor.execute(tool_sql, tool_params)
         tool_row = cursor.fetchone()
+        tool_output_chars = 0
         if tool_row:
-            assistant_chars += tool_row["tool_chars"]
+            assistant_chars += tool_row["tool_input_chars"]
+            tool_output_chars = tool_row["tool_output_chars"]
 
         # Active time: fetch all message timestamps grouped by session
         ts_sql = """
@@ -1657,6 +1663,7 @@ class DatabaseService:
             "overall_idle_ratio": overall_idle,
             "total_user_text_chars": user_chars,
             "total_assistant_text_chars": assistant_chars,
+            "total_tool_output_chars": tool_output_chars,
             "session_count": session_count,
             "avg_active_time_per_session": avg_active,
         }
