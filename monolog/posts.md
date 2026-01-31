@@ -23,3 +23,5 @@ Added activity and volume tracking to the dashboard. The goal: understand not ju
 This distinction matters because tool output is neither party's work -- it's just the system echoing back results. Lumping it with assistant text made the assistant look like it was producing 5-10x the user's output, when really most of that was file contents being read back. Now the User:Assistant ratio only compares what each side actually authored, and tool output is shown separately.
 
 The metrics appear in three places: per-session in the Browse Sessions page, per-project totals below that, and across all projects in the Analytics dashboard with a per-project breakdown table.
+
+![Project totals for claude-code-analytics showing active time, text volume by category, and user-to-assistant ratio](claude-code-analytics-project-totals-activity-volume.jpeg)
