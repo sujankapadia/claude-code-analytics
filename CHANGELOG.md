@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Token Counts in Project Summary** - Display total input/output tokens per project on the Browse Sessions page and in the project_summary SQL view
 - **Activity & Volume Metrics** - Track active time and text volume across sessions and projects
   - **Active Time Calculation** - Sums time between consecutive messages with idle gaps capped at 5 minutes, giving a realistic measure of hands-on time (wall clock duration is unreliable for re-entered sessions)
   - **Text Volume Analysis** - Character counts for user text and assistant text (including tool inputs/results), with ratios and percentages
@@ -17,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Formatting Utilities** - New `format_utils.py` module with `format_duration()`, `format_char_count()`, and `format_percentage()` helpers
   - Three new database service methods: `get_active_time_for_session()`, `get_text_volume_for_session()`, `get_aggregate_activity_metrics()`
   - Comprehensive test coverage (23 formatting tests, 9 activity metrics tests)
+
+### Fixed
+- **SessionEnd hook timeout** - Remove unnecessary `sleep 1` in `export-conversation.sh` that caused the hook to exceed its timeout window and get cancelled
+- **Dashboard launch path** - Fix stale Streamlit app path in `run_dashboard.sh` (`streamlit_app/app.py` → `claude_code_analytics/streamlit_app/app.py`)
 
 ## [0.1.0] - 2025-12-30
 
