@@ -29,17 +29,21 @@ Browse and explore your Claude Code conversation sessions organized by project.
 try:
     projects = db_service.get_project_summaries()
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
 
     total_projects = len(projects)
     total_sessions = sum(p.total_sessions for p in projects)
     total_messages = sum(p.total_messages for p in projects)
     total_tools = sum(p.total_tool_uses for p in projects)
+    total_input_tokens = sum(p.total_input_tokens for p in projects)
+    total_output_tokens = sum(p.total_output_tokens for p in projects)
 
     col1.metric("Projects", total_projects)
     col2.metric("Sessions", total_sessions)
     col3.metric("Messages", f"{total_messages:,}")
     col4.metric("Tool Uses", f"{total_tools:,}")
+    col5.metric("Input Tokens", f"{total_input_tokens:,}")
+    col6.metric("Output Tokens", f"{total_output_tokens:,}")
 
     st.divider()
 

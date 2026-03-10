@@ -124,10 +124,20 @@ SELECT
     MIN(s.start_time) as first_session,
     MAX(s.end_time) as last_session,
     COALESCE(SUM(s.message_count), 0) as total_messages,
-    COALESCE(SUM(s.tool_use_count), 0) as total_tool_uses
+    COALESCE(SUM(s.tool_use_count), 0) as total_tool_uses,
+    COALESCE(SUM(m.total_input_tokens), 0) as total_input_tokens,
+    COALESCE(SUM(m.total_output_tokens), 0) as total_output_tokens
 FROM
     projects p
     LEFT JOIN sessions s ON p.project_id = s.project_id
+    LEFT JOIN (
+        SELECT session_id,
+               SUM(COALESCE(input_tokens, 0)) as total_input_tokens,
+               SUM(COALESCE(output_tokens, 0)) as total_output_tokens
+        FROM messages
+        WHERE role = 'assistant'
+        GROUP BY session_id
+    ) m ON s.session_id = m.session_id
 GROUP BY
     p.project_id, p.project_name;
 

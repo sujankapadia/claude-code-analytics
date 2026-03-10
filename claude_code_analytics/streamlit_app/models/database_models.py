@@ -80,6 +80,8 @@ class ProjectSummary(BaseModel):
     last_session: Optional[datetime]
     total_messages: int
     total_tool_uses: int
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
 
     class Config:
         from_attributes = True
