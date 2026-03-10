@@ -35,4 +35,4 @@ fi
 echo "🚀 Launching Claude Code Analytics Dashboard..."
 echo ""
 
-streamlit run streamlit_app/app.py
+streamlit run claude_code_analytics/streamlit_app/app.py

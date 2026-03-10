@@ -37,9 +37,8 @@ log "  transcript_path: $TRANSCRIPT_PATH"
 log "  session_id: $SESSION_ID"
 log "  project_dir: $PROJECT_DIR_PATH"
 
-# Give the file system a moment to flush writes
-log "Waiting 1 second for file system flush..."
-sleep 1
+# Transcript should already be written by SessionEnd
+log "Proceeding with export..."
 
 # Check what files exist in the project directory
 log "Files in project directory:"
