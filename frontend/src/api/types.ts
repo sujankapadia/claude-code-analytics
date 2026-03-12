@@ -151,6 +151,13 @@ export interface SearchResponse {
   total_sessions: number;
 }
 
+export interface HeatmapCell {
+  day_of_week: number;
+  hour: number;
+  message_count: number;
+  session_count: number;
+}
+
 export interface SSEvent {
   type: string;
   [key: string]: unknown;

@@ -1700,3 +1700,29 @@ class DatabaseService:
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
+
+    def get_hourly_activity_heatmap(self, days: int = 90) -> list[dict[str, Any]]:
+        """Get message activity grouped by day-of-week and hour-of-day.
+
+        Returns a list of dicts with keys: day_of_week (0=Sun..6=Sat),
+        hour (0-23), message_count, session_count.
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                CAST(strftime('%w', timestamp) AS INTEGER) as day_of_week,
+                CAST(strftime('%H', timestamp) AS INTEGER) as hour,
+                COUNT(*) as message_count,
+                COUNT(DISTINCT session_id) as session_count
+            FROM messages
+            WHERE timestamp >= datetime('now', '-' || ? || ' days')
+            GROUP BY day_of_week, hour
+            ORDER BY day_of_week, hour
+            """,
+            (days,),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]

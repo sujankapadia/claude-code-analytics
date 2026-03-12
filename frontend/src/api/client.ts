@@ -4,6 +4,7 @@ import type {
   AggregateActivity,
   ActivityMetrics,
   DailyStats,
+  HeatmapCell,
   McpStats,
   Message,
   ProjectSummary,
@@ -86,6 +87,9 @@ export const fetchToolStats = () => get<ToolUsageSummary[]>("/analytics/tools");
 export const fetchToolNames = () => get<string[]>("/analytics/tools/names");
 
 export const fetchMcpStats = () => get<McpStats>("/analytics/tools/mcp");
+
+export const fetchHeatmap = (days?: number) =>
+  get<HeatmapCell[]>("/analytics/heatmap", { days });
 
 export const fetchActivityMetrics = (params?: { project_id?: string; idle_cap?: number }) =>
   get<AggregateActivity>("/analytics/activity", params);

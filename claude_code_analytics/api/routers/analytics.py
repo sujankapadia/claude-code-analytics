@@ -35,6 +35,12 @@ def get_mcp_stats(db: DatabaseService = Depends(get_db_service)):
     return db.get_mcp_tool_stats()
 
 
+@router.get("/heatmap")
+def get_hourly_heatmap(days: int = 90, db: DatabaseService = Depends(get_db_service)):
+    """Get hourly activity heatmap data (day-of-week x hour-of-day)."""
+    return db.get_hourly_activity_heatmap(days=days)
+
+
 @router.get("/activity")
 def get_activity_metrics(
     project_id: Optional[str] = None,
