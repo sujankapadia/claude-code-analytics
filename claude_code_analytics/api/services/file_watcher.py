@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import logging
+import sqlite3
 import time
 from pathlib import Path
 
@@ -25,8 +26,96 @@ class FileWatcher:
         self._last_import: dict[str, float] = {}
 
     async def start(self) -> None:
-        """Start watching for file changes."""
+        """Run catch-up import for missed files, then start watching."""
+        await self._catchup_import()
         self._task = asyncio.create_task(self._watch())
+
+    async def _catchup_import(self) -> None:
+        """Import any .jsonl files that changed while the app was not running.
+
+        Compares file mtime against the session's last known end_time in the DB.
+        New files (not in DB) and files modified after their DB timestamp are imported.
+        """
+        watch_dir = config.CLAUDE_CODE_PROJECTS_DIR
+        if not watch_dir.exists():
+            return
+
+        db_path = str(config.DATABASE_PATH)
+        if not Path(db_path).exists():
+            return
+
+        loop = asyncio.get_event_loop()
+
+        # Build a map of session_id -> last known end_time (as epoch)
+        def _get_session_timestamps() -> dict[str, float]:
+            from datetime import datetime, timezone
+
+            conn = sqlite3.connect(db_path)
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT session_id, end_time FROM sessions WHERE end_time IS NOT NULL"
+                )
+                result = {}
+                for session_id, end_time_str in cursor.fetchall():
+                    try:
+                        dt = datetime.fromisoformat(end_time_str)
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        result[session_id] = dt.timestamp()
+                    except (ValueError, AttributeError):
+                        pass
+                return result
+            finally:
+                conn.close()
+
+        try:
+            session_times = await loop.run_in_executor(None, _get_session_timestamps)
+        except Exception:
+            logger.exception("Failed to read session timestamps for catch-up")
+            return
+
+        # Scan all .jsonl files and find ones that need importing
+        stale_files: list[Path] = []
+        for project_dir in watch_dir.iterdir():
+            if not project_dir.is_dir():
+                continue
+            for jsonl_file in project_dir.glob("*.jsonl"):
+                session_id = jsonl_file.stem
+                file_mtime = jsonl_file.stat().st_mtime
+                db_time = session_times.get(session_id)
+                if db_time is None or file_mtime > db_time + 1:
+                    stale_files.append(jsonl_file)
+
+        if not stale_files:
+            logger.info("Catch-up: all sessions up to date")
+            return
+
+        logger.info(f"Catch-up: importing {len(stale_files)} changed session(s)")
+
+        from claude_code_analytics.api.services.import_service import import_single_session
+
+        imported = 0
+        now = time.monotonic()
+        for path in stale_files:
+            try:
+                result = await loop.run_in_executor(None, import_single_session, path)
+                # Seed cooldown so the watcher doesn't re-import these immediately
+                self._last_import[str(path)] = now
+                if result:
+                    imported += 1
+                    await self.event_bus.publish(
+                        {
+                            "type": "session_imported",
+                            "session_id": path.stem,
+                            "messages": result[0],
+                            "tool_uses": result[1],
+                        }
+                    )
+            except Exception:
+                logger.exception(f"Catch-up: failed to import {path.name}")
+
+        logger.info(f"Catch-up: imported {imported} session(s)")
 
     async def stop(self) -> None:
         """Stop the file watcher."""
