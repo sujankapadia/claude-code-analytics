@@ -43,6 +43,17 @@ export function ConversationViewer({
     return map;
   }, [toolUses]);
 
+  // Filter out empty user messages (tool-result acknowledgments with no text)
+  const visibleMessages = useMemo(() => {
+    return messages.filter((msg) => {
+      if (msg.role === "user" && !msg.content?.trim()) {
+        // Keep if it has associated tool uses
+        return toolsByMessage.has(msg.message_index);
+      }
+      return true;
+    });
+  }, [messages, toolsByMessage]);
+
   // Tool count by message_index for minimap
   const toolCountByIndex = useMemo(() => {
     const map = new Map<number, number>();
@@ -57,29 +68,29 @@ export function ConversationViewer({
     if (!searchQuery || searchQuery.length < 2) return [];
     const q = searchQuery.toLowerCase();
     const matches: number[] = [];
-    messages.forEach((msg, i) => {
+    visibleMessages.forEach((msg, i) => {
       if (msg.content?.toLowerCase().includes(q)) {
         matches.push(i);
       }
     });
     return matches;
-  }, [messages, searchQuery]);
+  }, [visibleMessages, searchQuery]);
 
   // Estimate row height based on content
   const estimateSize = useCallback(
     (index: number) => {
-      const msg = messages[index];
+      const msg = visibleMessages[index];
       const contentLen = msg.content?.length ?? 0;
       const toolCount = toolsByMessage.get(msg.message_index)?.length ?? 0;
       // Base height (header) + content lines + tool cards
       const contentLines = Math.ceil(contentLen / 80);
       return 60 + contentLines * 20 + toolCount * 40;
     },
-    [messages, toolsByMessage]
+    [visibleMessages, toolsByMessage]
   );
 
   const virtualizer = useVirtualizer({
-    count: messages.length,
+    count: visibleMessages.length,
     getScrollElement: () => parentRef.current,
     estimateSize,
     overscan: 5,
@@ -93,10 +104,10 @@ export function ConversationViewer({
 
   // Scroll to initial index
   useEffect(() => {
-    if (initialIndex != null && initialIndex >= 0 && initialIndex < messages.length) {
+    if (initialIndex != null && initialIndex >= 0 && initialIndex < visibleMessages.length) {
       virtualizer.scrollToIndex(initialIndex, { align: "start" });
     }
-  }, [initialIndex, messages.length, virtualizer]);
+  }, [initialIndex, visibleMessages.length, virtualizer]);
 
   // Jump to message from minimap
   const handleMinimapJump = useCallback(
@@ -144,7 +155,7 @@ export function ConversationViewer({
     <div className="flex h-[calc(100vh-14rem)] gap-2">
       {/* Minimap */}
       <ConversationMinimap
-        messages={messages}
+        messages={visibleMessages}
         toolCountByIndex={toolCountByIndex}
         visibleRange={visibleRange}
         onJump={handleMinimapJump}
@@ -192,7 +203,7 @@ export function ConversationViewer({
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-2">
           <span className="text-sm font-medium">
-            {messages.length} messages
+            {visibleMessages.length} messages
           </span>
           <div className="flex items-center gap-2">
             {!searchOpen && (
@@ -214,7 +225,7 @@ export function ConversationViewer({
             style={{ height: `${virtualizer.getTotalSize()}px` }}
           >
             {virtualItems.map((virtualRow) => {
-              const msg = messages[virtualRow.index];
+              const msg = visibleMessages[virtualRow.index];
               const tools = toolsByMessage.get(msg.message_index) ?? [];
               const isSearchMatch = searchMatches.includes(virtualRow.index);
 
