@@ -4,13 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import {
   BarChart3,
   BrainCircuit,
+  FileText,
   FolderOpen,
   Home,
   Import,
   MessageSquare,
   Search,
 } from "lucide-react";
-import { fetchProjects, fetchSessions } from "@/api/client";
+import { fetchProjects, fetchSessions, fetchSearch } from "@/api/client";
 import {
   Dialog,
   DialogContent,
@@ -24,11 +25,62 @@ interface CommandItem {
   sublabel?: string;
   icon: React.ReactNode;
   action: () => void;
+  score?: number;
+}
+
+/** Fuzzy match: checks if all chars of `pattern` appear in `text` in order.
+ *  Returns a score (lower = better) or -1 for no match. */
+function fuzzyMatch(text: string, pattern: string): number {
+  const t = text.toLowerCase();
+  const p = pattern.toLowerCase();
+  let ti = 0;
+  let pi = 0;
+  let score = 0;
+  let lastMatchIdx = -1;
+
+  while (ti < t.length && pi < p.length) {
+    if (t[ti] === p[pi]) {
+      // Bonus for consecutive matches
+      const gap = lastMatchIdx >= 0 ? ti - lastMatchIdx - 1 : 0;
+      score += gap;
+      // Bonus for matching at word boundaries
+      if (ti === 0 || t[ti - 1] === " " || t[ti - 1] === "/" || t[ti - 1] === "-") {
+        score -= 2;
+      }
+      lastMatchIdx = ti;
+      pi++;
+    }
+    ti++;
+  }
+
+  if (pi < p.length) return -1; // Not all chars matched
+  return score;
+}
+
+function fuzzyFilter(items: CommandItem[], query: string): CommandItem[] {
+  const q = query.trim();
+  if (!q) return items;
+
+  const scored: Array<{ item: CommandItem; score: number }> = [];
+  for (const item of items) {
+    const labelScore = fuzzyMatch(item.label, q);
+    const subScore = item.sublabel ? fuzzyMatch(item.sublabel, q) : -1;
+    const best = labelScore >= 0 && subScore >= 0
+      ? Math.min(labelScore, subScore)
+      : Math.max(labelScore, subScore);
+    if (best >= 0) {
+      scored.push({ item: { ...item, score: best }, score: best });
+    }
+  }
+
+  scored.sort((a, b) => a.score - b.score);
+  return scored.map((s) => s.item);
 }
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -44,6 +96,24 @@ export function CommandPalette() {
     queryKey: ["sessions", { limit: 50 }],
     queryFn: () => fetchSessions({ limit: 50 }),
     enabled: open,
+  });
+
+  // Debounce query for FTS search (250ms)
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setDebouncedQuery("");
+      return;
+    }
+    const timer = setTimeout(() => setDebouncedQuery(query.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // FTS backend search
+  const { data: searchResults } = useQuery({
+    queryKey: ["command-palette-search", debouncedQuery],
+    queryFn: () => fetchSearch({ q: debouncedQuery, per_page: 5 }),
+    enabled: open && debouncedQuery.length >= 2,
+    staleTime: 10_000,
   });
 
   // Cmd+K to open
@@ -62,6 +132,7 @@ export function CommandPalette() {
   useEffect(() => {
     if (open) {
       setQuery("");
+      setDebouncedQuery("");
       setSelectedIdx(0);
       setTimeout(() => inputRef.current?.focus(), 0);
     }
@@ -134,15 +205,36 @@ export function CommandPalette() {
     return [...pages, ...projectItems, ...sessionItems];
   }, [projects, sessions, go]);
 
+  // FTS results as CommandItems
+  const ftsItems = useMemo<CommandItem[]>(() => {
+    if (!searchResults) return [];
+    const results: CommandItem[] = [];
+    for (const [sessionId, hits] of Object.entries(searchResults.results_by_session)) {
+      for (const hit of hits.slice(0, 2)) {
+        const snippet = hit.snippet
+          ? hit.snippet.slice(0, 80) + (hit.snippet.length > 80 ? "..." : "")
+          : hit.matched_content.slice(0, 80);
+        results.push({
+          id: `fts-${sessionId}-${hit.message_index}`,
+          label: snippet,
+          sublabel: `${hit.project_name.split("/").pop()} · ${hit.result_type}`,
+          icon: <FileText className="size-4" />,
+          action: () => go(`/sessions/${sessionId}#msg-${hit.message_index}`),
+        });
+      }
+      if (results.length >= 5) break;
+    }
+    return results;
+  }, [searchResults, go]);
+
   const filtered = useMemo(() => {
-    if (!query.trim()) return items;
-    const q = query.toLowerCase();
-    return items.filter(
-      (item) =>
-        item.label.toLowerCase().includes(q) ||
-        item.sublabel?.toLowerCase().includes(q),
-    );
-  }, [items, query]);
+    const localResults = fuzzyFilter(items, query);
+    if (ftsItems.length === 0) return localResults;
+    // Combine: local results first, then FTS results (deduplicated)
+    const ftsIds = new Set(ftsItems.map((f) => f.id));
+    const combined = localResults.filter((r) => !ftsIds.has(r.id));
+    return [...combined, ...ftsItems];
+  }, [items, ftsItems, query]);
 
   // Clamp selection
   useEffect(() => {
@@ -168,6 +260,9 @@ export function CommandPalette() {
     }
   };
 
+  const hasFts = ftsItems.length > 0;
+  const localCount = filtered.length - ftsItems.length;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-lg gap-0 overflow-hidden p-0">
@@ -189,37 +284,49 @@ export function CommandPalette() {
             ESC
           </kbd>
         </div>
-        <div ref={listRef} className="max-h-72 overflow-auto p-1">
+        <div ref={listRef} className="max-h-80 overflow-auto p-1">
           {filtered.length === 0 && (
             <p className="py-6 text-center text-sm text-muted-foreground">
               No results found.
             </p>
           )}
-          {filtered.map((item, i) => (
-            <button
-              key={item.id}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm",
-                i === selectedIdx
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-muted/50",
-              )}
-              onClick={() => item.action()}
-              onMouseEnter={() => setSelectedIdx(i)}
-            >
-              <span className="shrink-0 text-muted-foreground">
-                {item.icon}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{item.label}</span>
-                {item.sublabel && (
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {item.sublabel}
-                  </span>
+          {filtered.map((item, i) => {
+            // Show separator before FTS results
+            const isFtsStart = hasFts && i === localCount;
+            return (
+              <div key={item.id}>
+                {isFtsStart && (
+                  <div className="px-3 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Content matches
+                  </div>
                 )}
-              </span>
-            </button>
-          ))}
+                <button
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm",
+                    i === selectedIdx
+                      ? "bg-accent text-accent-foreground"
+                      : "hover:bg-muted/50",
+                  )}
+                  onClick={() => item.action()}
+                  onMouseEnter={() => setSelectedIdx(i)}
+                >
+                  <span className="shrink-0 text-muted-foreground">
+                    {item.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">
+                      {item.label}
+                    </span>
+                    {item.sublabel && (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {item.sublabel}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </div>
+            );
+          })}
         </div>
         <div className="border-t px-3 py-2 text-[10px] text-muted-foreground">
           <kbd className="rounded border bg-muted px-1">↑↓</kbd> navigate{" "}
