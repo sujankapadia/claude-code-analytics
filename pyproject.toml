@@ -37,6 +37,9 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "tiktoken>=0.5.0",
     "requests>=2.31.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "watchfiles>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -57,12 +60,15 @@ claude-code-analytics = "claude_code_analytics.cli:dashboard"
 claude-code-import = "claude_code_analytics.cli:import_conversations"
 claude-code-search = "claude_code_analytics.cli:search"
 claude-code-analyze = "claude_code_analytics.cli:analyze"
+claude-code-api = "claude_code_analytics.cli:api"
 
-[tool.setuptools]
-packages = ["claude_code_analytics"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["claude_code_analytics*"]
 
 [tool.setuptools.package-data]
 claude_code_analytics = [
+    "api/**/*",
     "streamlit_app/**/*",
     "scripts/**/*",
     "prompts/**/*",
