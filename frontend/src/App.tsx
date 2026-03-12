@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { CommandPalette } from "@/components/command-palette";
 import { useEventSource } from "@/hooks/use-event-source";
 import { Separator } from "@/components/ui/separator";
 
@@ -25,7 +26,11 @@ function AppShell() {
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-5" />
           <span className="text-sm text-muted-foreground">Claude Code Analytics</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px]">⌘K</kbd>
+          </span>
         </header>
+        <CommandPalette />
         <div className="p-6">
           <Routes>
             <Route path="/" element={<DashboardPage />} />
