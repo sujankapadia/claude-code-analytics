@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   BarChart3,
+  BrainCircuit,
   FolderOpen,
   Home,
   Import,
@@ -27,6 +28,7 @@ const navItems = [
   { to: "/sessions", label: "Sessions", icon: MessageSquare },
   { to: "/search", label: "Search", icon: Search },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/analysis", label: "Analysis", icon: BrainCircuit },
   { to: "/import", label: "Import", icon: Import },
 ];
 

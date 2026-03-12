@@ -3,12 +3,15 @@
 import type {
   AggregateActivity,
   ActivityMetrics,
+  AnalysisResult,
+  AnalysisTypeInfo,
   DailyStats,
   HeatmapCell,
   McpStats,
   Message,
   ProjectSummary,
   Project,
+  PublishResult,
   SearchResponse,
   SessionSummary,
   Session,
@@ -93,3 +96,46 @@ export const fetchHeatmap = (days?: number) =>
 
 export const fetchActivityMetrics = (params?: { project_id?: string; idle_cap?: number }) =>
   get<AggregateActivity>("/analytics/activity", params);
+
+// -- Analysis --
+
+export const fetchAnalysisTypes = () =>
+  get<Record<string, AnalysisTypeInfo>>("/analysis/types");
+
+export async function runAnalysis(params: {
+  session_id: string;
+  analysis_type: string;
+  custom_prompt?: string;
+  model?: string;
+  message_index?: number;
+  context_window?: number;
+}): Promise<AnalysisResult> {
+  const res = await fetch(`${BASE}/analysis/run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`API ${res.status}: ${body}`);
+  }
+  return res.json() as Promise<AnalysisResult>;
+}
+
+export async function publishAnalysis(params: {
+  analysis_content: string;
+  session_content?: string;
+  description?: string;
+  is_public?: boolean;
+}): Promise<PublishResult> {
+  const res = await fetch(`${BASE}/analysis/publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`API ${res.status}: ${body}`);
+  }
+  return res.json() as Promise<PublishResult>;
+}

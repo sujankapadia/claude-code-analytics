@@ -158,6 +158,27 @@ export interface HeatmapCell {
   session_count: number;
 }
 
+export interface AnalysisTypeInfo {
+  name: string;
+  description: string;
+  file: string;
+}
+
+export interface AnalysisResult {
+  session_id: string;
+  analysis_type: string;
+  result_text: string;
+  created_at: string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  model_name: string | null;
+}
+
+export interface PublishResult {
+  url: string;
+  findings: unknown[];
+}
+
 export interface SSEvent {
   type: string;
   [key: string]: unknown;
