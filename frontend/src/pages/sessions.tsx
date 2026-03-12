@@ -55,6 +55,7 @@ export default function SessionsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const projectId = searchParams.get("project_id") ?? undefined;
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const { data: projects } = useQuery({
     queryKey: ["projects"],
@@ -66,10 +67,23 @@ export default function SessionsPage() {
     queryFn: () => fetchSessions({ project_id: projectId }),
   });
 
+  const filteredSessions = useMemo(() => {
+    if (!sessions) return [];
+    const q = search.toLowerCase().trim();
+    if (!q) return sessions;
+    return sessions.filter((s) => {
+      return (
+        (s.first_user_message?.toLowerCase().includes(q) ?? false) ||
+        s.project_name.toLowerCase().includes(q) ||
+        s.session_id.toLowerCase().includes(q)
+      );
+    });
+  }, [sessions, search]);
+
   const parentRef = useRef<HTMLDivElement>(null);
 
   const rowVirtualizer = useVirtualizer({
-    count: sessions?.length ?? 0,
+    count: filteredSessions.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 72,
     overscan: 10,
@@ -85,33 +99,43 @@ export default function SessionsPage() {
       {/* Left panel: filter + session list */}
       <div className="flex w-80 shrink-0 flex-col rounded-lg border lg:w-96">
         {/* Filter bar */}
-        <div className="flex items-center gap-2 border-b p-3">
-          <Select
-            value={projectId ?? "all"}
-            onValueChange={(v) => {
-              if (v === "all") {
-                setSearchParams({});
-              } else {
-                setSearchParams({ project_id: v });
-              }
-              setSelectedId(null);
-            }}
-          >
-            <SelectTrigger className="h-8 flex-1 text-xs">
-              <SelectValue placeholder="All projects" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All projects</SelectItem>
-              {projects?.map((p) => (
-                <SelectItem key={p.project_id} value={p.project_id}>
-                  {p.project_name.split("/").pop()}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {sessions?.length ?? 0} sessions
-          </span>
+        <div className="space-y-2 border-b p-3">
+          <div className="flex items-center gap-2">
+            <Select
+              value={projectId ?? "all"}
+              onValueChange={(v) => {
+                if (v === "all") {
+                  setSearchParams({});
+                } else {
+                  setSearchParams({ project_id: v });
+                }
+                setSelectedId(null);
+              }}
+            >
+              <SelectTrigger className="h-8 flex-1 text-xs">
+                <SelectValue placeholder="All projects" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All projects</SelectItem>
+                {projects?.map((p) => (
+                  <SelectItem key={p.project_id} value={p.project_id}>
+                    {p.project_name.split("/").pop()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {filteredSessions.length}
+              {search && sessions ? `/${sessions.length}` : ""} sessions
+            </span>
+          </div>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filter by message, project, or ID..."
+            className="h-8 w-full rounded-md border bg-transparent px-3 text-xs outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+          />
         </div>
 
         {/* Virtual session list */}
@@ -130,7 +154,7 @@ export default function SessionsPage() {
               }}
             >
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const s = sessions![virtualRow.index];
+                const s = filteredSessions[virtualRow.index];
                 const shortProject = s.project_name.split("/").pop();
                 const isSelected = s.session_id === selectedId;
                 return (
@@ -150,18 +174,19 @@ export default function SessionsPage() {
                     tabIndex={0}
                     role="button"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-sm font-medium">
-                        {s.session_id.slice(0, 8)}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {formatDateShort(s.start_time)}
-                      </span>
+                    <div className="truncate text-sm">
+                      {s.first_user_message
+                        ? s.first_user_message.slice(0, 80) +
+                          (s.first_user_message.length > 80 ? "..." : "")
+                        : s.session_id.slice(0, 8)}
                     </div>
-                    <div className="mt-0.5 flex items-center justify-between text-xs text-muted-foreground">
-                      <span className="truncate">{shortProject}</span>
+                    <div className="mt-0.5 flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span className="truncate">
+                        {shortProject} · {formatDateShort(s.start_time)}
+                      </span>
                       <span className="shrink-0 ml-2">
-                        {s.message_count} msgs · {formatDuration(s.duration_seconds)}
+                        {s.message_count} msgs · {s.tool_use_count} tools ·{" "}
+                        {formatDuration(s.duration_seconds)}
                       </span>
                     </div>
                   </div>
@@ -225,13 +250,19 @@ function SessionPreview({ session }: { session: SessionSummary }) {
   return (
     <div className="p-5 space-y-5">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="font-mono text-lg font-bold">
-            {session.session_id.slice(0, 8)}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base font-semibold leading-snug">
+            {session.first_user_message
+              ? session.first_user_message.slice(0, 120) +
+                (session.first_user_message.length > 120 ? "..." : "")
+              : session.session_id.slice(0, 8)}
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {session.project_name.split("/").pop()}
+            <span className="ml-2 font-mono opacity-60">
+              {session.session_id.slice(0, 8)}
+            </span>
           </p>
         </div>
         <Link
