@@ -3,12 +3,16 @@
 import asyncio
 import contextlib
 import logging
+import time
 from pathlib import Path
 
 from claude_code_analytics import config
 from claude_code_analytics.api.services.event_bus import EventBus
 
 logger = logging.getLogger(__name__)
+
+# Minimum seconds between imports of the same file
+_PER_FILE_COOLDOWN = 30.0
 
 
 class FileWatcher:
@@ -18,6 +22,7 @@ class FileWatcher:
         self.event_bus = event_bus
         self.debounce_seconds = debounce_seconds
         self._task: asyncio.Task | None = None
+        self._last_import: dict[str, float] = {}
 
     async def start(self) -> None:
         """Start watching for file changes."""
@@ -52,6 +57,15 @@ class FileWatcher:
                     if path.suffix != ".jsonl":
                         continue
                     if change_type in (Change.added, Change.modified):
+                        now = time.monotonic()
+                        last = self._last_import.get(path_str, 0.0)
+                        if now - last < _PER_FILE_COOLDOWN:
+                            logger.debug(
+                                f"Skipping {path.name} (cooldown, "
+                                f"{now - last:.0f}s since last import)"
+                            )
+                            continue
+                        self._last_import[path_str] = now
                         logger.info(f"Detected change: {path.name}")
                         await self._import_session(path)
         except asyncio.CancelledError:
