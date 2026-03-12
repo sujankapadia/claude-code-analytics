@@ -100,6 +100,7 @@ class SessionSummary(BaseModel):
     tool_use_count: int
     user_message_count: int
     assistant_message_count: int
+    first_user_message: Optional[str] = None
 
     class Config:
         from_attributes = True

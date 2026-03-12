@@ -153,7 +153,11 @@ SELECT
     s.message_count,
     s.tool_use_count,
     COUNT(DISTINCT CASE WHEN m.role = 'user' THEN m.message_id END) as user_message_count,
-    COUNT(DISTINCT CASE WHEN m.role = 'assistant' THEN m.message_id END) as assistant_message_count
+    COUNT(DISTINCT CASE WHEN m.role = 'assistant' THEN m.message_id END) as assistant_message_count,
+    (SELECT SUBSTR(m2.content, 1, 200)
+     FROM messages m2
+     WHERE m2.session_id = s.session_id AND m2.role = 'user'
+     ORDER BY m2.message_index ASC LIMIT 1) as first_user_message
 FROM
     sessions s
     INNER JOIN projects p ON s.project_id = p.project_id

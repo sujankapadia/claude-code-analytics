@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   fetchSessions,
@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 
 export default function AnalysisPage() {
   const [projectId, setProjectId] = useState<string>("all");
+  const [sessionSearch, setSessionSearch] = useState("");
   const [sessionId, setSessionId] = useState<string>("");
   const [analysisType, setAnalysisType] = useState<string>("decisions");
   const [customPrompt, setCustomPrompt] = useState("");
@@ -59,6 +60,19 @@ export default function AnalysisPage() {
       setPublishUrl(data.url);
     },
   });
+
+  const filteredSessions = useMemo(() => {
+    if (!sessions) return [];
+    const q = sessionSearch.toLowerCase().trim();
+    if (!q) return sessions;
+    return sessions.filter((s) => {
+      return (
+        (s.first_user_message?.toLowerCase().includes(q) ?? false) ||
+        s.project_name.toLowerCase().includes(q) ||
+        s.session_id.toLowerCase().includes(q)
+      );
+    });
+  }, [sessions, sessionSearch]);
 
   const selectedSession = useMemo(
     () => sessions?.find((s) => s.session_id === sessionId),
@@ -102,48 +116,16 @@ export default function AnalysisPage() {
             </div>
 
             {/* Session selector */}
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Session</label>
-              <Select value={sessionId} onValueChange={setSessionId}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Select a session" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sessions?.map((s) => (
-                    <SelectItem key={s.session_id} value={s.session_id}>
-                      <span className="font-mono">
-                        {s.session_id.slice(0, 8)}
-                      </span>
-                      <span className="ml-2 text-muted-foreground">
-                        {s.message_count} msgs ·{" "}
-                        {s.project_name.split("/").pop()}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Session info */}
-            {selectedSession && (
-              <div className="rounded border bg-muted/30 p-2 text-xs text-muted-foreground space-y-0.5">
-                <p>
-                  <span className="font-medium text-foreground">
-                    {selectedSession.message_count}
-                  </span>{" "}
-                  messages ·{" "}
-                  <span className="font-medium text-foreground">
-                    {selectedSession.tool_use_count}
-                  </span>{" "}
-                  tool uses
-                </p>
-                <p>
-                  {selectedSession.start_time
-                    ? new Date(selectedSession.start_time).toLocaleString()
-                    : "—"}
-                </p>
-              </div>
-            )}
+            <SessionPicker
+              sessions={filteredSessions}
+              selectedSession={selectedSession ?? null}
+              searchValue={sessionSearch}
+              onSearchChange={setSessionSearch}
+              onSelect={(id) => {
+                setSessionId(id);
+                setSessionSearch("");
+              }}
+            />
 
             {/* Analysis type */}
             <div className="space-y-1.5">
@@ -316,6 +298,119 @@ export default function AnalysisPage() {
   );
 }
 
+function SessionPicker({
+  sessions,
+  selectedSession,
+  searchValue,
+  onSearchChange,
+  onSelect,
+}: {
+  sessions: import("@/api/types").SessionSummary[];
+  selectedSession: import("@/api/types").SessionSummary | null;
+  searchValue: string;
+  onSearchChange: (v: string) => void;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  }, [open]);
+
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs text-muted-foreground">Session</label>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "flex h-8 w-full items-center rounded-md border bg-transparent px-3 text-left text-xs",
+          "hover:bg-muted/50 focus:outline-none focus:ring-1 focus:ring-ring",
+          !selectedSession && "text-muted-foreground",
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate">
+          {selectedSession
+            ? selectedSession.first_user_message?.slice(0, 60) ??
+              selectedSession.session_id.slice(0, 8)
+            : "Select a session..."}
+        </span>
+        <svg
+          className="ml-2 size-3 shrink-0 text-muted-foreground"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="rounded-lg border bg-popover shadow-md">
+          <div className="border-b p-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={searchValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search by message, project..."
+              className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+          <div className="max-h-64 overflow-auto p-1">
+            {sessions.length === 0 ? (
+              <p className="py-4 text-center text-xs text-muted-foreground">
+                No matching sessions
+              </p>
+            ) : (
+              sessions.map((s) => (
+                <button
+                  key={s.session_id}
+                  type="button"
+                  onClick={() => {
+                    onSelect(s.session_id);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full cursor-default items-center rounded-md px-2 py-1.5 text-left",
+                    s.session_id === selectedSession?.session_id
+                      ? "bg-accent text-accent-foreground"
+                      : "hover:bg-muted/50",
+                  )}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs">
+                      {s.first_user_message
+                        ? s.first_user_message.slice(0, 80) +
+                          (s.first_user_message.length > 80 ? "..." : "")
+                        : s.session_id.slice(0, 8)}
+                    </div>
+                    <div className="truncate text-[10px] text-muted-foreground">
+                      {s.project_name.split("/").pop()} ·{" "}
+                      {s.start_time
+                        ? new Date(s.start_time).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                          })
+                        : "—"}{" "}
+                      · {s.message_count} msgs · {s.tool_use_count} tools
+                      {s.duration_seconds != null && (
+                        <> · {formatDuration(s.duration_seconds)}</>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Simple markdown-to-HTML renderer for analysis output. */
 function MarkdownContent({ text }: { text: string }) {
   const html = useMemo(() => {
@@ -373,4 +468,12 @@ function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return n.toString();
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  return `${hrs}h ${mins % 60}m`;
 }

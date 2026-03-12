@@ -29,6 +29,7 @@ export interface SessionSummary {
   tool_use_count: number;
   user_message_count: number;
   assistant_message_count: number;
+  first_user_message: string | null;
 }
 
 export interface Session {
