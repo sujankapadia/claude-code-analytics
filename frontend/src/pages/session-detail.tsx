@@ -1,13 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useLocation, Link } from "react-router-dom";
 import {
   fetchSession,
   fetchSessionMessages,
+  fetchSessionToolUses,
   fetchSessionTokens,
   fetchSessionActivity,
   fetchSessionTextVolume,
 } from "@/api/client";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ConversationViewer } from "@/components/conversation/conversation-viewer";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -17,6 +19,13 @@ function formatNumber(n: number): string {
 
 export default function SessionDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+
+  // Parse #msg-N from URL hash for deep linking
+  const initialIndex = (() => {
+    const match = location.hash.match(/^#msg-(\d+)$/);
+    return match ? parseInt(match[1], 10) : undefined;
+  })();
 
   const { data: session } = useQuery({
     queryKey: ["session", id],
@@ -27,6 +36,12 @@ export default function SessionDetailPage() {
   const { data: messages, isPending: msgsLoading } = useQuery({
     queryKey: ["session", id, "messages"],
     queryFn: () => fetchSessionMessages(id!),
+    enabled: !!id,
+  });
+
+  const { data: toolUses, isPending: toolsLoading } = useQuery({
+    queryKey: ["session", id, "tool-uses"],
+    queryFn: () => fetchSessionToolUses(id!),
     enabled: !!id,
   });
 
@@ -52,8 +67,11 @@ export default function SessionDetailPage() {
     return <div className="p-4 text-muted-foreground">Loading session...</div>;
   }
 
+  const isLoading = msgsLoading || toolsLoading;
+
   return (
     <div className="space-y-4">
+      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link to="/sessions" className="hover:underline">
           Sessions
@@ -63,12 +81,16 @@ export default function SessionDetailPage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Messages" value={session.message_count} />
         <StatCard label="Tool Uses" value={session.tool_use_count} />
         <StatCard
           label="Tokens"
-          value={tokens ? formatNumber(tokens.input_tokens + tokens.output_tokens) : "—"}
+          value={
+            tokens
+              ? formatNumber(tokens.input_tokens + tokens.output_tokens)
+              : "—"
+          }
         />
         <StatCard
           label="Active Time"
@@ -78,64 +100,45 @@ export default function SessionDetailPage() {
               : "—"
           }
         />
-      </div>
-
-      {/* Text volume */}
-      {textVolume && (
-        <div className="rounded-lg border bg-card p-4">
-          <h3 className="mb-2 text-sm font-medium text-muted-foreground">Text Volume</h3>
-          <div className="flex gap-6 text-sm">
-            <span>User: {formatNumber(textVolume.user_text_chars)} chars</span>
-            <span>Assistant: {formatNumber(textVolume.assistant_text_chars)} chars</span>
-            <span>Tool Output: {formatNumber(textVolume.tool_output_chars)} chars</span>
-          </div>
-        </div>
-      )}
-
-      {/* Messages */}
-      <div className="rounded-lg border">
-        <div className="border-b px-4 py-3">
-          <h2 className="text-sm font-medium">
-            Conversation {messages ? `(${messages.length} messages)` : ""}
-          </h2>
-        </div>
-        {msgsLoading ? (
-          <div className="p-4 text-muted-foreground">Loading messages...</div>
-        ) : (
-          <ScrollArea className="h-[60vh]">
-            <div className="divide-y">
-              {messages?.map((msg) => (
-                <div key={msg.message_id} className="px-4 py-3">
-                  <div className="mb-1 flex items-center gap-2">
-                    <span
-                      className={`text-xs font-semibold ${
-                        msg.role === "user" ? "text-blue-500" : "text-green-500"
-                      }`}
-                    >
-                      {msg.role}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(msg.timestamp).toLocaleTimeString()}
-                    </span>
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm">
-                    {msg.content
-                      ? msg.content.length > 500
-                        ? msg.content.slice(0, 500) + "..."
-                        : msg.content
-                      : "—"}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
+        {textVolume && (
+          <>
+            <StatCard
+              label="User Text"
+              value={formatNumber(textVolume.user_text_chars) + " chars"}
+            />
+            <StatCard
+              label="Assistant Text"
+              value={formatNumber(textVolume.assistant_text_chars) + " chars"}
+            />
+          </>
         )}
       </div>
+
+      {/* Conversation Viewer */}
+      {isLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-[60vh] w-full" />
+        </div>
+      ) : messages && toolUses ? (
+        <ConversationViewer
+          messages={messages}
+          toolUses={toolUses}
+          tokens={tokens}
+          initialIndex={initialIndex}
+        />
+      ) : null}
     </div>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function StatCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
   return (
     <div className="rounded-lg border bg-card p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
