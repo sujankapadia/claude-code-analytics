@@ -49,7 +49,12 @@ def decode_project_name(project_id: str) -> str:
     """
     Convert encoded project directory name to human-readable path.
 
-    Example: "-Users-skapadia-dev-personal-monolog" -> "/Users/skapadia/dev/personal/monolog"
+    Resolves ambiguity between path separators and literal hyphens by checking
+    which paths actually exist on the filesystem. Uses recursive backtracking
+    to find the correct split.
+
+    Example: "-Users-skapadia-dev-chariot-jellico-prototyping"
+             -> "/Users/skapadia/dev/chariot/jellico-prototyping"
 
     Args:
         project_id: Encoded directory name
@@ -57,11 +62,31 @@ def decode_project_name(project_id: str) -> str:
     Returns:
         Human-readable project path
     """
-    if project_id.startswith("-"):
-        # Remove leading dash and replace remaining dashes with slashes
-        parts = project_id[1:].split("-")
-        return "/" + "/".join(parts)
-    return project_id
+    if not project_id.startswith("-"):
+        return project_id
+
+    parts = project_id[1:].split("-")
+
+    def _resolve(idx: int, current: str) -> str | None:
+        if idx == len(parts):
+            return current if Path(current).exists() else None
+        # Try extending with "/" — but only if `current` is a directory
+        if Path(current).is_dir():
+            result = _resolve(idx + 1, current + "/" + parts[idx])
+            if result is not None:
+                return result
+        # Try extending with "-" (literal hyphen in a directory name)
+        result = _resolve(idx + 1, current + "-" + parts[idx])
+        if result is not None:
+            return result
+        return None
+
+    result = _resolve(1, "/" + parts[0])
+    if result is not None:
+        return result
+
+    # Fallback: naive replacement (shouldn't normally reach here)
+    return "/" + "/".join(parts)
 
 
 def extract_text_from_content(content: Any) -> str:
@@ -476,8 +501,8 @@ def import_project(project_dir: Path, conn: sqlite3.Connection) -> tuple[int, in
     except sqlite3.IntegrityError:
         logger.debug(f"  Project {project_id} already exists")
 
-    # Find all JSONL files
-    jsonl_files = list(project_dir.glob("*.jsonl"))
+    # Find all JSONL files (including subagent files in subdirectories)
+    jsonl_files = list(project_dir.glob("**/*.jsonl"))
     if not jsonl_files:
         logger.info("  No JSONL files found")
         return (0, 0, 0)
@@ -488,6 +513,9 @@ def import_project(project_dir: Path, conn: sqlite3.Connection) -> tuple[int, in
     total_tool_uses = 0
 
     for session_file in jsonl_files:
+        # Skip compact files — compacted summaries of existing sessions
+        if "-acompact-" in session_file.stem:
+            continue
         logger.info(f"  📄 Importing session: {session_file.name}")
         try:
             msg_count, tool_count = process_session(session_file, project_id, conn)

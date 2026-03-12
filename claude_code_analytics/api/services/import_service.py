@@ -41,8 +41,15 @@ def import_single_session(
     if not session_path.exists() or session_path.suffix != ".jsonl":
         return None
 
-    # Derive project_id from parent directory
-    project_id = session_path.parent.name
+    # Skip compact files — they're compacted summaries of existing sessions
+    if "-acompact-" in session_path.stem:
+        return None
+
+    # Derive project_id from parent directory.
+    # Subagent files live at <project-id>/<session-id>/subagents/<agent>.jsonl,
+    # so walk up to find the real project directory.
+    parent = session_path.parent
+    project_id = parent.parent.parent.name if parent.name == "subagents" else parent.name
     project_name = decode_project_name(project_id)
     session_id = session_path.stem
 

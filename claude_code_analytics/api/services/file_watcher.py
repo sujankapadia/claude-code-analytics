@@ -80,7 +80,7 @@ class FileWatcher:
         for project_dir in watch_dir.iterdir():
             if not project_dir.is_dir():
                 continue
-            for jsonl_file in project_dir.glob("*.jsonl"):
+            for jsonl_file in project_dir.glob("**/*.jsonl"):
                 session_id = jsonl_file.stem
                 file_mtime = jsonl_file.stat().st_mtime
                 db_time = session_times.get(session_id)

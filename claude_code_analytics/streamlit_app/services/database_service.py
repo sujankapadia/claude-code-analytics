@@ -17,6 +17,37 @@ from claude_code_analytics.streamlit_app.models import (
 )
 
 
+def _sanitize_fts_query(query: str) -> str:
+    """Sanitize a user query for FTS5 MATCH.
+
+    FTS5 treats characters like ``-``, ``.``, ``:``, etc. as operators.
+    If the query doesn't look like it's using explicit FTS5 syntax (AND/OR/NOT,
+    column filters, prefix *), wrap each token in double-quotes so special chars
+    are treated as literals.
+    """
+    # If the user explicitly uses FTS5 boolean operators, pass through as-is
+    if any(op in query.upper().split() for op in ("AND", "OR", "NOT")):
+        return query
+    # If it looks like a column filter (e.g. "content:foo"), pass through
+    if ":" in query and not query.startswith('"'):
+        return query
+    # Quote each whitespace-separated token to escape special chars
+    tokens = query.split()
+    quoted = []
+    for token in tokens:
+        # Already quoted or is a prefix query (ends with *)
+        if (token.startswith('"') and token.endswith('"')) or token.endswith("*"):
+            quoted.append(token)
+        else:
+            # Escape any internal double-quotes
+            quoted.append('"' + token.replace('"', '""') + '"')
+    result = " ".join(quoted)
+    # Guard against unbalanced quotes (e.g. user typed a single ")
+    if result.count('"') % 2:
+        result += '"'
+    return result
+
+
 class DatabaseService:
     """Service for database operations."""
 
@@ -408,6 +439,7 @@ class DatabaseService:
         Raises:
             sqlite3.OperationalError: If FTS5 query syntax is invalid
         """
+        query = _sanitize_fts_query(query)
         conn = self._get_connection()
         cursor = conn.cursor()
 
@@ -481,6 +513,7 @@ class DatabaseService:
         Returns:
             List of matching tool uses
         """
+        query = _sanitize_fts_query(query)
         conn = self._get_connection()
         cursor = conn.cursor()
 
@@ -552,6 +585,7 @@ class DatabaseService:
         Returns:
             List of matching tool uses
         """
+        query = _sanitize_fts_query(query)
         conn = self._get_connection()
         cursor = conn.cursor()
 
@@ -624,6 +658,7 @@ class DatabaseService:
         Returns:
             List of all matching results (messages and tool uses)
         """
+        query = _sanitize_fts_query(query)
         conn = self._get_connection()
         cursor = conn.cursor()
 
@@ -773,6 +808,7 @@ class DatabaseService:
         Returns:
             Total count of matches in this session
         """
+        query = _sanitize_fts_query(query)
         conn = self._get_connection()
         cursor = conn.cursor()
 
@@ -923,6 +959,7 @@ class DatabaseService:
                 - has_more: bool indicating if there are more pages
                 - total_sessions: Total number of sessions with matches
         """
+        query = _sanitize_fts_query(query)
         conn = self._get_connection()
         cursor = conn.cursor()
 
