@@ -5,15 +5,17 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A analysis tool for [Claude Code](https://claude.com/claude-code) that automatically captures, archives, and analyzes your AI development conversations. Features an interactive dashboard, full-text search, and AI-powered insights across all your sessions.
+An analysis tool for [Claude Code](https://claude.com/claude-code) that automatically captures, archives, and analyzes your AI development conversations. Features a React dashboard with real-time updates, full-text search, AI-powered insights, and natural language prompt discovery across all your sessions.
 
 ## What It Does
 
 Claude Code Analytics transforms your AI development workflow into actionable insights:
 - **Automatically captures** every conversation when you exit Claude Code
-- **Stores and indexes** conversations in a searchable SQLite database
-- **Provides an interactive dashboard** to explore patterns, tool usage, and decisions
-- **Enables AI-powered analysis** of your development sessions using 300+ LLM models
+- **Real-time import** — a file watcher detects new sessions and imports them instantly, with SSE push to the UI
+- **Stores and indexes** conversations in a searchable SQLite database with FTS5
+- **React dashboard** — modern SPA with virtual scrolling, command palette (Cmd+K), and dark mode
+- **Find Examples** — ask "How do I use Playwright to test a component?" and get shareable prompts from your history
+- **AI-powered analysis** of your development sessions using 300+ LLM models
 
 ## Prerequisites
 
@@ -88,6 +90,20 @@ Get API keys from [OpenRouter](https://openrouter.ai/keys) or [Google AI Studio]
 
 That's it! New conversations will be automatically captured when you exit Claude Code sessions.
 
+### 5. (Optional) Launch the React Frontend
+
+The React frontend provides a modern alternative to the Streamlit dashboard with real-time updates, virtual scrolling, and a command palette.
+
+```bash
+# Start the API server
+claude-code-api
+
+# In another terminal, start the React dev server
+cd frontend && npm install && npm run dev
+```
+
+The React app opens at `http://localhost:5173`. The API server watches for new session files and pushes updates to the UI in real time.
+
 > **⚠️ Important: Transcript Retention**
 >
 > Claude Code automatically removes transcripts for sessions that have been inactive for more than **30 days** by default. This helps manage disk space but means older conversations may be deleted before you archive them.
@@ -104,9 +120,33 @@ That's it! New conversations will be automatically captured when you exit Claude
 
 ## Key Features
 
-### 📊 Interactive Dashboard
+### ⚛️ React Frontend (New)
 
-The Streamlit-based dashboard is your primary interface for exploring conversations:
+A modern single-page application with real-time updates:
+
+- **Dashboard** — KPI cards, daily activity charts, activity heatmap (day × hour), projects table
+- **Sessions** — Split-view with searchable session list (first user message preview) and detail pane
+- **Conversation Viewer** — Virtual scrolling for 1000+ message sessions, collapsible tool cards, minimap navigation, in-conversation search (Cmd+F), token usage bar
+- **Search** — FTS5 search with scope/project/tool filters, search history, keyboard navigation
+- **Analytics** — Tool usage distribution, MCP server stats, daily trend charts
+- **Analysis** — LLM-powered session analysis with searchable session picker, Gist publishing
+- **Find Examples** — Natural language discovery of prompts and sessions (FTS + LLM ranking)
+- **Command Palette** — Cmd+K for quick navigation across pages, projects, sessions, and content search
+- **Real-time updates** — File watcher auto-imports new sessions, SSE pushes updates to the UI
+
+### 🔎 Find Examples
+
+Answer "How do I use Playwright to test a component?" by searching your conversation history:
+
+- **Prompts mode** — Finds specific user messages you can copy and share as templates
+- **Sessions mode** — Finds sessions where a technique or workflow was demonstrated
+- FTS keyword extraction + tool name pattern detection narrows to ~20-30 candidates
+- LLM ranks for relevance (~3-8k tokens per query, minimal cost)
+- Copy button for instant sharing, deep links to source conversations
+
+### 📊 Interactive Dashboard (Streamlit)
+
+The Streamlit-based dashboard is the original interface for exploring conversations:
 
 - **Session Browser** - View, filter, and navigate all your Claude Code sessions with pagination support, session-level activity metrics (active time, text volume), and project-level aggregate totals
 - **Conversation Viewer** - Terminal-style interface that faithfully recreates your sessions:
@@ -544,25 +584,31 @@ Claude Code Session
        ↓
 SessionEnd Hook (export-conversation.sh)
        ↓
-~/claude-conversations/
-  ├── project-name/
-  │   ├── session-YYYYMMDD-HHMMSS.jsonl  (raw data)
-  │   └── session-YYYYMMDD-HHMMSS.txt    (readable format)
-       ↓
-Import Script (import_conversations.py)
-       ↓
+~/.claude/projects/{encoded-path}/
+  └── session-uuid.jsonl
+       ↓                          ↓
+File Watcher (auto)         Import Script (manual)
+       ↓                          ↓
 SQLite Database (conversations.db)
   ├── projects
   ├── sessions
   ├── messages
   ├── tool_uses
-  └── fts_messages (full-text search index)
+  └── fts_messages / fts_tool_uses (FTS5)
        ↓
-Streamlit Dashboard
-  ├── Browse & filter sessions
-  ├── Search conversations
-  ├── View analytics
-  └── Run AI analysis
+FastAPI Backend (port 8000)
+  ├── REST API (/api/*)
+  ├── SSE Events (/api/events)
+  └── Static file serving (production)
+       ↓                          ↓
+React Frontend (5173)    Streamlit Dashboard (8501)
+  ├── Dashboard            ├── Browse sessions
+  ├── Sessions             ├── Search
+  ├── Search               ├── Analytics
+  ├── Analytics            └── AI Analysis
+  ├── Analysis
+  ├── Find Examples
+  └── Import
 ```
 
 ### Hook System
@@ -754,43 +800,46 @@ If database import fails:
 
 ```
 claude-code-analytics/
-├── hooks/
-│   └── export-conversation.sh       # SessionEnd hook for auto-export
-├── scripts/
-│   ├── pretty-print-transcript.py   # Convert JSONL to readable text
-│   ├── create_database.py           # Create SQLite database schema
-│   ├── import_conversations.py      # Import conversations to database
-│   ├── create_fts_index.py          # Create full-text search index
-│   ├── search_fts.py                # CLI search tool
-│   └── analyze_session.py           # CLI analysis tool
-├── streamlit_app/
-│   ├── app.py                       # Dashboard entry point
-│   ├── models/                      # Pydantic data models
-│   │   └── __init__.py
-│   ├── services/                    # Business logic layer
-│   │   ├── database_service.py
-│   │   └── format_utils.py
-│   └── pages/                       # Dashboard pages
-│       ├── browser.py               # Session browser
-│       ├── conversation.py          # Conversation viewer
-│       ├── search.py                # Full-text search
-│       ├── analytics.py             # Analytics dashboard
-│       └── ai_analysis.py           # AI-powered analysis
-├── prompts/                         # Analysis prompt templates
-│   ├── metadata.yaml                # Analysis type definitions
-│   ├── decisions.md                 # Technical decisions prompt
-│   ├── errors.md                    # Error patterns prompt
-│   └── agent_usage.md               # AI agent usage analysis
-├── docs/                            # Documentation
-│   ├── index.html                   # Landing page (GitHub Pages)
-│   └── technical/                   # Technical documentation
-│       ├── agent-knowledge-retention.md
-│       ├── deep-linking-implementation.md
-│       ├── mcp-server-analytics.md
-│       └── search-feature-requirements.md
-├── install.sh                       # Automated installer
-├── run_dashboard.sh                 # Dashboard launcher
-└── README.md                        # This file
+├── claude_code_analytics/
+│   ├── api/                            # FastAPI backend
+│   │   ├── app.py                      # App factory, CORS, lifespan
+│   │   ├── dependencies.py             # DI for database & analysis services
+│   │   ├── routers/                    # API endpoints
+│   │   │   ├── projects.py             # GET /projects
+│   │   │   ├── sessions.py             # GET /sessions, messages, tokens, etc.
+│   │   │   ├── search.py               # GET /search (FTS5)
+│   │   │   ├── analytics.py            # GET /analytics (daily, tools, heatmap)
+│   │   │   ├── analysis.py             # POST /analysis/run, /analysis/publish
+│   │   │   ├── examples.py             # POST /examples/prompts, /examples/sessions
+│   │   │   ├── import_data.py          # POST /import (SSE progress)
+│   │   │   └── events.py               # GET /events (SSE stream)
+│   │   └── services/                   # Background services
+│   │       ├── event_bus.py            # Async fan-out for SSE
+│   │       ├── file_watcher.py         # watchfiles-based auto-import
+│   │       └── import_service.py       # Incremental import with FTS updates
+│   ├── streamlit_app/                  # Legacy Streamlit dashboard
+│   │   ├── app.py                      # Dashboard entry point
+│   │   ├── models/                     # Pydantic data models
+│   │   ├── services/                   # Shared business logic
+│   │   │   ├── database_service.py     # SQLite queries (used by both frontends)
+│   │   │   ├── analysis_service.py     # LLM analysis orchestration
+│   │   │   └── format_utils.py         # Duration/size formatting
+│   │   └── pages/                      # Streamlit pages
+│   ├── prompts/                        # Analysis prompt templates (Jinja2)
+│   └── scripts/                        # CLI scripts (import, search, analyze)
+├── frontend/                           # React frontend
+│   ├── src/
+│   │   ├── api/                        # Typed API client + response types
+│   │   ├── components/                 # UI components (sidebar, conversation viewer, etc.)
+│   │   ├── hooks/                      # SSE hook for real-time updates
+│   │   └── pages/                      # Route pages (dashboard, sessions, search, etc.)
+│   └── package.json
+├── hooks/                              # Claude Code SessionEnd hook
+│   └── export-conversation.sh
+├── docs/                               # Documentation + proposals
+├── install.sh                          # Automated installer
+├── run_dashboard.sh                    # Streamlit launcher
+└── README.md
 ```
 
 ## Documentation
@@ -886,13 +935,13 @@ logger.warning("Interrupted by user")
 
 ## Future Roadmap
 
+- **Tool-name filtering** - Filter search and session results by which tools were used
+- **Copyable excerpts** - Select message ranges and copy as formatted markdown for sharing
+- **Session tags** - Auto-tag sessions by workflow type for browsable discovery
 - **Vector embeddings** - Semantic search across conversations
 - **Cost tracking** - Monitor LLM API costs per analysis
-- **Model comparison** - A/B test analysis quality across models
 - **Export formats** - HTML, PDF conversation exports
-- **Real-time analysis** - Analyze conversations as they happen
 - **Cloud sync** - Optional backup to cloud storage
-- **Presidio integration** - Advanced PII detection with entity recognition
 
 ## Contributing
 

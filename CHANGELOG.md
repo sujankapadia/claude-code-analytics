@@ -8,6 +8,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- **FastAPI Backend** - Full REST API replacing direct database access from the Streamlit frontend
+  - 22 GET and 4 POST endpoints across 8 routers (projects, sessions, search, analytics, analysis, examples, import, events)
+  - SSE (Server-Sent Events) endpoint for real-time updates
+  - File watcher service that auto-imports new sessions from `~/.claude/projects/` using `watchfiles`
+  - Startup catch-up import for sessions created while the server was offline
+  - EventBus service for fan-out of real-time events to connected clients
+  - Incremental import service with inline FTS index updates
+  - CLI entry point: `claude-code-api` with `--host`, `--port`, `--reload` options
+
+- **React Frontend** - Modern SPA replacing the Streamlit dashboard
+  - **Dashboard** — KPI cards, daily activity charts, activity heatmap (day × hour), projects table
+  - **Sessions** — Split-view with searchable session list (showing first user message) and detail preview with stats cards
+  - **Session Detail** — Full conversation viewer with virtual scrolling (`@tanstack/react-virtual`), collapsible tool cards, minimap navigation, in-conversation search (Cmd+F), token usage bar
+  - **Search** — FTS5 search with scope/project/tool filters, search history, keyboard navigation, URL sync
+  - **Analytics** — Tool usage distribution, MCP server stats, daily trend charts
+  - **Analysis** — LLM-powered session analysis with model selection, searchable session picker, Gist publishing
+  - **Examples** — Natural language prompt and session discovery (see below)
+  - **Import** — Streaming import with SSE progress
+  - **Command Palette** — Cmd+K quick navigation with fuzzy search across pages, projects, sessions, and FTS content search
+  - Real-time cache invalidation via SSE (`useEventSource` hook)
+  - Dark mode with Tailwind CSS v4 and Base UI headless components
+
+- **Find Examples Feature** — Hybrid FTS + LLM search for prompt and workflow discovery
+  - `POST /api/examples/prompts` — Find specific user prompts that demonstrate a technique, shareable as templates
+  - `POST /api/examples/sessions` — Find sessions where a workflow or technique was used
+  - Natural language queries are decomposed into FTS keywords + tool name patterns
+  - FTS narrows to ~20-30 candidates, then LLM (DeepSeek v3.2 via OpenRouter) ranks for relevance
+  - Compaction/continuation messages automatically excluded from results
+  - Frontend page with Prompts/Sessions toggle, project filter, copy-to-clipboard, and deep links to conversations
+  - Minimal LLM cost: ~3-8k input tokens per query
+
 - **Token Counts in Project Summary** - Display total input/output tokens per project on the Browse Sessions page and in the project_summary SQL view
 - **Activity & Volume Metrics** - Track active time and text volume across sessions and projects
   - **Active Time Calculation** - Sums time between consecutive messages with idle gaps capped at 5 minutes, giving a realistic measure of hands-on time (wall clock duration is unreliable for re-entered sessions)
@@ -19,7 +51,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Three new database service methods: `get_active_time_for_session()`, `get_text_volume_for_session()`, `get_aggregate_activity_metrics()`
   - Comprehensive test coverage (23 formatting tests, 9 activity metrics tests)
 
+### Changed
+- **Conversation Viewer** — Empty user messages (tool-result acknowledgments with no text) are now hidden, reducing noise by ~30%
+- **Sessions Page** — Session list shows first user message instead of UUID; added search filter
+- **Analysis Page** — Session dropdown replaced with searchable session picker (Combobox)
+
 ### Fixed
+- **FTS5 query escaping** — Properly escape special characters in user queries to prevent SQLite FTS5 syntax errors
+- **Subagent project association** — Fix project ID resolution for sessions imported from subagent directories
+- **Project name decoding** — Correctly decode URL-encoded project paths for display
 - **SessionEnd hook timeout** - Remove unnecessary `sleep 1` in `export-conversation.sh` that caused the hook to exceed its timeout window and get cancelled
 - **Dashboard launch path** - Fix stale Streamlit app path in `run_dashboard.sh` (`streamlit_app/app.py` → `claude_code_analytics/streamlit_app/app.py`)
 
