@@ -184,3 +184,50 @@ export interface SSEvent {
   type: string;
   [key: string]: unknown;
 }
+
+// -- Examples --
+
+export interface PromptMatch {
+  session_id: string;
+  message_index: number;
+  project_name: string;
+  content: string;
+  timestamp: string | null;
+  relevance: string;
+}
+
+export interface FindPromptsResponse {
+  query: string;
+  prompts: PromptMatch[];
+  candidate_count: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  model_name: string | null;
+}
+
+export interface MatchingExcerpt {
+  message_index: number;
+  role: string;
+  content: string;
+  timestamp: string | null;
+}
+
+export interface SessionMatch {
+  session_id: string;
+  project_name: string;
+  first_user_message: string | null;
+  message_count: number;
+  tool_use_count: number;
+  relevance: string;
+  suggested_excerpt_range: string | null;
+  matching_excerpts: MatchingExcerpt[];
+}
+
+export interface FindSessionsResponse {
+  query: string;
+  matches: SessionMatch[];
+  candidate_count: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  model_name: string | null;
+}

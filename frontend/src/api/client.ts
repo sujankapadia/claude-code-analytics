@@ -6,6 +6,8 @@ import type {
   AnalysisResult,
   AnalysisTypeInfo,
   DailyStats,
+  FindPromptsResponse,
+  FindSessionsResponse,
   HeatmapCell,
   McpStats,
   Message,
@@ -120,6 +122,44 @@ export async function runAnalysis(params: {
     throw new Error(`API ${res.status}: ${body}`);
   }
   return res.json() as Promise<AnalysisResult>;
+}
+
+// -- Examples --
+
+export async function findExamplePrompts(params: {
+  query: string;
+  project_id?: string;
+  max_results?: number;
+}): Promise<FindPromptsResponse> {
+  const res = await fetch(`${BASE}/examples/prompts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`API ${res.status}: ${body}`);
+  }
+  return res.json() as Promise<FindPromptsResponse>;
+}
+
+export async function findExampleSessions(params: {
+  query: string;
+  project_id?: string;
+  max_results?: number;
+  scope?: string;
+  role?: string;
+}): Promise<FindSessionsResponse> {
+  const res = await fetch(`${BASE}/examples/sessions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`API ${res.status}: ${body}`);
+  }
+  return res.json() as Promise<FindSessionsResponse>;
 }
 
 export async function publishAnalysis(params: {
