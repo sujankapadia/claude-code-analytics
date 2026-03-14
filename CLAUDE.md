@@ -28,3 +28,7 @@ The API includes a file watcher that auto-imports new sessions from `~/.claude/p
 - Frontend pages in `frontend/src/pages/`, one file per route
 - API client in `frontend/src/api/client.ts` with typed responses from `frontend/src/api/types.ts`
 - Pre-commit hooks run black, ruff, ruff-format, and bandit — black and ruff-format conflict on f-string quotes, use `SKIP=black` if needed
+
+## Code Review Fixes
+
+When resolving code review findings, follow the process in `CODE_REVIEW_PROCESS.md`. Every fix must include a test (or documented manual verification if not unit-testable).
