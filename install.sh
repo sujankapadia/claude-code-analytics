@@ -32,7 +32,12 @@ fi
 PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 REQUIRED_VERSION="3.9"
 
-if [ "$(printf '%s\n' "$REQUIRED_VERSION" "$PYTHON_VERSION" | sort -V | head -n1)" != "$REQUIRED_VERSION" ]; then
+# POSIX-compatible version comparison (sort -V not available on macOS BSD)
+version_gte() {
+    [ "$(printf '%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | head -n1)" = "$1" ]
+}
+
+if ! version_gte "$REQUIRED_VERSION" "$PYTHON_VERSION"; then
     echo -e "${RED}Error: Python $REQUIRED_VERSION or higher required, found $PYTHON_VERSION${NC}"
     echo -e "${YELLOW}Please upgrade Python: https://www.python.org/downloads/${NC}"
     exit 1
@@ -47,7 +52,7 @@ fi
 
 NODE_VERSION=$(node -v | sed 's/^v//')
 REQUIRED_NODE="18.0.0"
-if [ "$(printf '%s\n' "$REQUIRED_NODE" "$NODE_VERSION" | sort -V | head -n1)" != "$REQUIRED_NODE" ]; then
+if ! version_gte "$REQUIRED_NODE" "$NODE_VERSION"; then
     echo -e "${RED}Error: Node.js $REQUIRED_NODE or higher required, found $NODE_VERSION${NC}"
     exit 1
 fi
@@ -134,11 +139,18 @@ if [ -f "$SETTINGS_FILE" ]; then
     echo -e "${GREEN}✓ Backed up existing settings to $SETTINGS_FILE.backup${NC}"
 
     if [ "$USE_JQ" = true ]; then
-        # Use jq to merge the hook with proper structure
-        tmp_file=$(mktemp)
-        jq --arg cmd "$HOOK_COMMAND" '.hooks.SessionEnd = [{"matcher": "", "hooks": [{"type": "command", "command": $cmd}]}]' "$SETTINGS_FILE" > "$tmp_file"
-        mv "$tmp_file" "$SETTINGS_FILE"
-        echo -e "${GREEN}✓ Updated SessionEnd hook in settings.json${NC}"
+        # Check if our hook already exists before adding
+        if jq -e --arg cmd "$HOOK_COMMAND" '.hooks.SessionEnd[]?.hooks[]? | select(.command == $cmd)' "$SETTINGS_FILE" > /dev/null 2>&1; then
+            echo -e "${GREEN}✓ SessionEnd hook already configured${NC}"
+        else
+            # Append our hook entry without destroying existing hooks
+            tmp_file=$(mktemp)
+            jq --arg cmd "$HOOK_COMMAND" '
+                .hooks.SessionEnd = (.hooks.SessionEnd // []) + [{"matcher": "", "hooks": [{"type": "command", "command": $cmd}]}]
+            ' "$SETTINGS_FILE" > "$tmp_file"
+            mv "$tmp_file" "$SETTINGS_FILE"
+            echo -e "${GREEN}✓ Added SessionEnd hook to settings.json (existing hooks preserved)${NC}"
+        fi
     else
         # Manual JSON editing
         echo -e "${YELLOW}Please manually add the following to your $SETTINGS_FILE:${NC}"

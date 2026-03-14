@@ -116,7 +116,8 @@ CREATE INDEX IF NOT EXISTS idx_tool_uses_is_error ON tool_uses(is_error);
 -- ============================================================================
 
 -- Project summary view - aggregated statistics per project
-CREATE VIEW IF NOT EXISTS project_summary AS
+DROP VIEW IF EXISTS project_summary;
+CREATE VIEW project_summary AS
 SELECT
     p.project_id,
     p.project_name,
@@ -144,7 +145,8 @@ GROUP BY
     p.project_id, p.project_name;
 
 -- Session summary view - detailed statistics per session
-CREATE VIEW IF NOT EXISTS session_summary AS
+DROP VIEW IF EXISTS session_summary;
+CREATE VIEW session_summary AS
 SELECT
     s.session_id,
     s.project_id,
@@ -168,7 +170,8 @@ GROUP BY
     s.session_id;
 
 -- Tool usage summary - statistics by tool name
-CREATE VIEW IF NOT EXISTS tool_usage_summary AS
+DROP VIEW IF EXISTS tool_usage_summary;
+CREATE VIEW tool_usage_summary AS
 SELECT
     tool_name,
     COUNT(*) as total_uses,

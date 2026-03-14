@@ -154,9 +154,9 @@ class FileWatcher:
                                 f"{now - last:.0f}s since last import)"
                             )
                             continue
-                        self._last_import[path_str] = now
                         logger.info(f"Detected change: {path.name}")
                         await self._import_session(path)
+                        self._last_import[path_str] = time.monotonic()
         except asyncio.CancelledError:
             logger.info("File watcher stopped")
             raise

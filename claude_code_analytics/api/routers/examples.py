@@ -336,13 +336,9 @@ async def find_example_sessions(
     except Exception:
         pass  # FTS may fail on unusual queries; continue with other signals
 
-    # 1b. Find sessions that used matching tools (direct SQL for performance)
+    # 1b. Find sessions that used matching tools (via injected db service)
     if tool_patterns:
-        import sqlite3
-
-        from claude_code_analytics import config
-
-        conn = sqlite3.connect(str(config.DATABASE_PATH))
+        conn = db._get_connection()
         try:
             for pattern in tool_patterns:
                 like = f"%{pattern}%"
@@ -358,8 +354,8 @@ async def find_example_sessions(
                         "SELECT DISTINCT session_id FROM tool_uses WHERE tool_name LIKE ?",
                         (like,),
                     ).fetchall()
-                for (sid,) in rows:
-                    candidate_ids.add(sid)
+                for row in rows:
+                    candidate_ids.add(row[0])
         finally:
             conn.close()
 
@@ -597,11 +593,7 @@ async def find_example_prompts(
     # Step 2: If tool patterns detected, also find sessions with those tools
     # and grab their user messages that mention any of the search terms
     if tool_patterns and len(fts_hits) < 20:
-        import sqlite3
-
-        from claude_code_analytics import config
-
-        conn = sqlite3.connect(str(config.DATABASE_PATH))
+        conn = db._get_connection()
         try:
             existing_keys = {(h["session_id"], h["message_index"]) for h in fts_hits}
             for pattern in tool_patterns:

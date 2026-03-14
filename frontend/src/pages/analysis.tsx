@@ -46,7 +46,9 @@ function loadProviderConfig(): ProviderConfig | null {
 }
 
 function saveProviderConfig(config: ProviderConfig) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  // Persist everything except api_key — keep secrets in memory only
+  const { api_key, ...safe } = config;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
 }
 
 function defaultConfigFromInfo(info: ProviderInfo): ProviderConfig {
@@ -180,7 +182,11 @@ export default function AnalysisPage() {
     }
   }, [selectedSession]);
 
-  const canRun = sessionId && analysisType && (analysisType !== "custom" || customPrompt.trim());
+  const canRun =
+    sessionId &&
+    analysisType &&
+    (analysisType !== "custom" || customPrompt.trim()) &&
+    (scopeMode !== "search_hit" || messageIndex !== null);
 
   return (
     <div className="space-y-6">

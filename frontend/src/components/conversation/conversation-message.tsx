@@ -81,8 +81,9 @@ export function ConversationMessage({
                 "transition-opacity",
                 bookmark
                   ? "text-amber-500 opacity-100"
-                  : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-amber-500"
+                  : "text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-amber-500"
               )}
+              aria-label={bookmark ? "Edit bookmark" : "Bookmark this message"}
               title={bookmark ? "Edit bookmark" : "Bookmark this message"}
             >
               {bookmark ? (

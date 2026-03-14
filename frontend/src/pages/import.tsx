@@ -21,37 +21,57 @@ export default function ImportPage() {
     setRunning(true);
     setEvents([]);
 
-    fetch("/api/import", { method: "POST" }).then(async (res) => {
-      const reader = res.body?.getReader();
-      if (!reader) return;
+    fetch("/api/import", { method: "POST" })
+      .then(async (res) => {
+        if (!res.ok) {
+          setEvents((prev) => [
+            ...prev,
+            { type: "import_complete", error: `Import failed: ${res.status} ${res.statusText}` },
+          ]);
+          setRunning(false);
+          return;
+        }
 
-      const decoder = new TextDecoder();
-      let buffer = "";
+        const reader = res.body?.getReader();
+        if (!reader) {
+          setRunning(false);
+          return;
+        }
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const event: ImportEvent = JSON.parse(line.slice(6));
-              setEvents((prev) => [...prev, event]);
-              if (event.type === "import_complete") {
-                setRunning(false);
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const event: ImportEvent = JSON.parse(line.slice(6));
+                setEvents((prev) => [...prev, event]);
+                if (event.type === "import_complete") {
+                  setRunning(false);
+                }
+              } catch {
+                // ignore
               }
-            } catch {
-              // ignore
             }
           }
         }
-      }
-      setRunning(false);
-    });
+        setRunning(false);
+      })
+      .catch((err) => {
+        setEvents((prev) => [
+          ...prev,
+          { type: "import_complete", error: `Network error: ${err.message}` },
+        ]);
+        setRunning(false);
+      });
   }, []);
 
   const latest = events[events.length - 1];

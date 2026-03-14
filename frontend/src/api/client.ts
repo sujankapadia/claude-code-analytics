@@ -170,8 +170,21 @@ export const fetchAnalysisTypes = () =>
 export const fetchProviderInfo = () =>
   get<ProviderInfo>("/analysis/provider-info");
 
-export const fetchProviderModels = (params: { base_url: string; api_key?: string }) =>
-  get<ProviderModel[]>("/analysis/models", params);
+export async function fetchProviderModels(params: {
+  base_url: string;
+  api_key?: string;
+}): Promise<ProviderModel[]> {
+  const res = await fetch(`${BASE}/analysis/models`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`API ${res.status}: ${body}`);
+  }
+  return res.json() as Promise<ProviderModel[]>;
+}
 
 export async function runAnalysis(params: {
   session_id: string;

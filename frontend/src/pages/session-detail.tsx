@@ -24,7 +24,11 @@ export default function SessionDetailPage() {
     return match ? parseInt(match[1], 10) : undefined;
   })();
 
-  const { data: session } = useQuery({
+  const {
+    data: session,
+    isPending: sessionLoading,
+    error: sessionError,
+  } = useQuery({
     queryKey: ["session", id],
     queryFn: () => fetchSession(id!),
     enabled: !!id,
@@ -66,7 +70,15 @@ export default function SessionDetailPage() {
     enabled: !!id,
   });
 
-  if (!session) {
+  if (sessionError) {
+    return (
+      <div className="p-4 text-destructive">
+        Failed to load session: {(sessionError as Error).message}
+      </div>
+    );
+  }
+
+  if (sessionLoading || !session) {
     return <div className="p-4 text-muted-foreground">Loading session...</div>;
   }
 

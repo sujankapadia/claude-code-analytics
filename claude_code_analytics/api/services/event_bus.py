@@ -17,7 +17,7 @@ class EventBus:
 
     async def subscribe(self) -> asyncio.Queue:
         """Create a new subscription queue."""
-        queue: asyncio.Queue = asyncio.Queue()
+        queue: asyncio.Queue = asyncio.Queue(maxsize=100)
         async with self._lock:
             self._subscribers.append(queue)
         return queue
