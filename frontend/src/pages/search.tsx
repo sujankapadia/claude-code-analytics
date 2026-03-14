@@ -313,38 +313,48 @@ export default function SearchPage() {
                   {results.map((r, i) => {
                     const idx = resultIdx++;
                     return (
-                      <Link
+                      <div
                         key={i}
-                        ref={(el) => {
-                          resultRefs.current[idx] = el;
-                        }}
-                        to={`/sessions/${sessionId}#msg-${r.message_index}`}
                         className={cn(
-                          "block px-4 py-2 text-sm transition-colors hover:bg-muted/50",
+                          "flex items-start gap-2 px-4 py-2 text-sm transition-colors hover:bg-muted/50",
                           focusedResult === idx && "bg-muted/50 ring-2 ring-inset ring-ring/30"
                         )}
                       >
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span className="rounded bg-muted px-1.5 py-0.5">
-                            {r.result_type}
-                          </span>
-                          <span>{r.detail}</span>
-                          <span>
-                            {new Date(r.timestamp).toLocaleString()}
-                          </span>
-                        </div>
-                        <p className="mt-1 line-clamp-2 text-muted-foreground">
-                          {r.snippet ? (
-                            <span
-                              dangerouslySetInnerHTML={{
-                                __html: r.snippet,
-                              }}
-                            />
-                          ) : (
-                            (r.matched_content ?? "").slice(0, 200)
-                          )}
-                        </p>
-                      </Link>
+                        <Link
+                          ref={(el) => {
+                            resultRefs.current[idx] = el;
+                          }}
+                          to={`/sessions/${sessionId}#msg-${r.message_index}`}
+                          className="min-w-0 flex-1"
+                        >
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="rounded bg-muted px-1.5 py-0.5">
+                              {r.result_type}
+                            </span>
+                            <span>{r.detail}</span>
+                            <span>
+                              {new Date(r.timestamp).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="mt-1 line-clamp-2 text-muted-foreground">
+                            {r.snippet ? (
+                              <span
+                                dangerouslySetInnerHTML={{
+                                  __html: r.snippet,
+                                }}
+                              />
+                            ) : (
+                              (r.matched_content ?? "").slice(0, 200)
+                            )}
+                          </p>
+                        </Link>
+                        <Link
+                          to={`/analysis?session_id=${sessionId}&message_index=${r.message_index}`}
+                          className="mt-1 shrink-0 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          Analyze
+                        </Link>
+                      </div>
                     );
                   })}
                 </div>

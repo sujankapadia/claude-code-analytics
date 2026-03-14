@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import {
   fetchSessions,
   fetchProjects,
@@ -31,6 +32,8 @@ import {
 import { cn } from "@/lib/utils";
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 
+type ScopeMode = "entire" | "time_range" | "search_hit";
+
 const STORAGE_KEY = "claude-analytics:provider-config";
 
 function loadProviderConfig(): ProviderConfig | null {
@@ -58,9 +61,10 @@ function defaultConfigFromInfo(info: ProviderInfo): ProviderConfig {
 }
 
 export default function AnalysisPage() {
+  const [searchParams] = useSearchParams();
   const [projectId, setProjectId] = useState<string>("all");
   const [sessionSearch, setSessionSearch] = useState("");
-  const [sessionId, setSessionId] = useState<string>("");
+  const [sessionId, setSessionId] = useState<string>(() => searchParams.get("session_id") ?? "");
   const [analysisType, setAnalysisType] = useState<string>("decisions");
   const [customPrompt, setCustomPrompt] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -70,6 +74,18 @@ export default function AnalysisPage() {
     () => loadProviderConfig() ?? { preset: "", base_url: "", api_key: "", model: "" },
   );
   const [configInitialized, setConfigInitialized] = useState(false);
+
+  // Scope state
+  const [scopeMode, setScopeMode] = useState<ScopeMode>(() =>
+    searchParams.get("message_index") ? "search_hit" : "entire",
+  );
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [messageIndex] = useState<number | null>(() => {
+    const idx = searchParams.get("message_index");
+    return idx ? parseInt(idx, 10) : null;
+  });
+  const [contextWindow, setContextWindow] = useState(20);
 
   const { data: providerInfo } = useQuery({
     queryKey: ["analysis", "provider-info"],
@@ -151,6 +167,18 @@ export default function AnalysisPage() {
     () => sessions?.find((s) => s.session_id === sessionId),
     [sessions, sessionId],
   );
+
+  // Default time range inputs when session changes
+  useEffect(() => {
+    if (selectedSession) {
+      if (selectedSession.start_time) {
+        setStartTime(toDatetimeLocal(selectedSession.start_time));
+      }
+      if (selectedSession.end_time) {
+        setEndTime(toDatetimeLocal(selectedSession.end_time));
+      }
+    }
+  }, [selectedSession]);
 
   const canRun = sessionId && analysisType && (analysisType !== "custom" || customPrompt.trim());
 
@@ -239,6 +267,79 @@ export default function AnalysisPage() {
                 />
               </div>
             )}
+
+            {/* Scope */}
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">Scope</label>
+              <div className="flex gap-1">
+                {([
+                  ["entire", "Entire Session"],
+                  ["time_range", "Time Range"],
+                  ["search_hit", "Around Search Hit"],
+                ] as const).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setScopeMode(mode)}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                      scopeMode === mode
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {scopeMode === "time_range" && (
+                <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground">Start</label>
+                    <Input
+                      type="datetime-local"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground">End</label>
+                    <Input
+                      type="datetime-local"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {scopeMode === "search_hit" && (
+                <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground">Message Index</label>
+                    <p className="text-xs font-mono">
+                      {messageIndex != null ? `#${messageIndex}` : "Navigate from Search to set"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground">
+                      Context Window: {contextWindow} messages
+                    </label>
+                    <input
+                      type="range"
+                      min={1}
+                      max={50}
+                      value={contextWindow}
+                      onChange={(e) => setContextWindow(parseInt(e.target.value, 10))}
+                      className="w-full accent-primary"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Model Settings (collapsible) */}
             <div className="space-y-2">
@@ -351,6 +452,10 @@ export default function AnalysisPage() {
                   model: providerConfig.model || undefined,
                   base_url: providerConfig.base_url || undefined,
                   api_key: providerConfig.api_key || undefined,
+                  start_time: scopeMode === "time_range" && startTime ? new Date(startTime).toISOString() : undefined,
+                  end_time: scopeMode === "time_range" && endTime ? new Date(endTime).toISOString() : undefined,
+                  message_index: scopeMode === "search_hit" && messageIndex != null ? messageIndex : undefined,
+                  context_window: scopeMode === "search_hit" ? contextWindow : undefined,
                 })
               }
               disabled={!canRun || analysisMutation.isPending}
@@ -720,4 +825,11 @@ function formatDuration(seconds: number): string {
   if (mins < 60) return `${mins}m`;
   const hrs = Math.floor(mins / 60);
   return `${hrs}h ${mins % 60}m`;
+}
+
+/** Convert an ISO timestamp to a value suitable for datetime-local inputs. */
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

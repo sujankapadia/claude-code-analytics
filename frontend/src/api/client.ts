@@ -178,6 +178,8 @@ export async function runAnalysis(params: {
   analysis_type: string;
   custom_prompt?: string;
   model?: string;
+  start_time?: string;
+  end_time?: string;
   message_index?: number;
   context_window?: number;
   base_url?: string;
