@@ -1,11 +1,13 @@
 # Exported conversation transcripts
 claude-code-conversations/
+*.db
 
 # Environment variables
 .env
 
 # Playwright MCP test artifacts
 .playwright-mcp/
+*.png
 
 # Python
 __pycache__/
