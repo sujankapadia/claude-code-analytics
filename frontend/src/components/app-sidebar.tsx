@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, useLocation } from "react-router-dom";
 import {
+  Activity,
   BarChart3,
+  Bookmark,
   BookOpen,
   BrainCircuit,
   FolderOpen,
@@ -26,7 +28,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: Home },
+  { to: "/active", label: "Active", icon: Activity },
   { to: "/sessions", label: "Sessions", icon: MessageSquare },
+  { to: "/bookmarks", label: "Bookmarks", icon: Bookmark },
   { to: "/search", label: "Search", icon: Search },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/analysis", label: "Analysis", icon: BrainCircuit },

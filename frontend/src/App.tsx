@@ -7,6 +7,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { useEventSource } from "@/hooks/use-event-source";
 import { Separator } from "@/components/ui/separator";
 
+import ActivePage from "@/pages/active";
 import DashboardPage from "@/pages/dashboard";
 import SessionsPage from "@/pages/sessions";
 import SessionDetailPage from "@/pages/session-detail";
@@ -14,6 +15,7 @@ import SearchPage from "@/pages/search";
 import AnalyticsPage from "@/pages/analytics";
 import AnalysisPage from "@/pages/analysis";
 import ExamplesPage from "@/pages/examples";
+import BookmarksPage from "@/pages/bookmarks";
 import ImportPage from "@/pages/import";
 
 function AppShell() {
@@ -35,11 +37,13 @@ function AppShell() {
         <div className="p-6">
           <Routes>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/active" element={<ActivePage />} />
             <Route path="/sessions" element={<SessionsPage />} />
             <Route path="/sessions/:id" element={<SessionDetailPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/analysis" element={<AnalysisPage />} />
+            <Route path="/bookmarks" element={<BookmarksPage />} />
             <Route path="/examples" element={<ExamplesPage />} />
             <Route path="/import" element={<ImportPage />} />
           </Routes>

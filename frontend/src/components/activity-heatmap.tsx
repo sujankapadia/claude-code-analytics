@@ -59,7 +59,7 @@ export function ActivityHeatmap({ data, className }: ActivityHeatmapProps) {
                     backgroundColor:
                       count === 0
                         ? "hsl(var(--muted))"
-                        : `hsl(142 70% ${70 - intensity * 50}% / ${0.3 + intensity * 0.7})`,
+                        : `color-mix(in srgb, hsl(142 70% 45%) ${20 + intensity * 80}%, transparent)`,
                   }}
                   title={`${day} ${hour}:00 — ${count} messages`}
                 />
@@ -80,7 +80,7 @@ export function ActivityHeatmap({ data, className }: ActivityHeatmapProps) {
               backgroundColor:
                 level === 0
                   ? "hsl(var(--muted))"
-                  : `hsl(142 70% ${70 - level * 50}% / ${0.3 + level * 0.7})`,
+                  : `color-mix(in srgb, hsl(142 70% 45%) ${20 + level * 80}%, transparent)`,
             }}
           />
         ))}

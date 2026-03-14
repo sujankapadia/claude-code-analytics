@@ -25,6 +25,7 @@ log "========== SessionEnd Hook Triggered =========="
 
 # Read JSON input from stdin
 INPUT=$(cat)
+
 log "Raw input received (first 500 chars): ${INPUT:0:500}"
 
 # Extract the transcript path and session info
