@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { Search as SearchIcon, ChevronDown, X, Clock } from "lucide-react";
+import DOMPurify from "dompurify";
 import { fetchSearch, fetchProjects, fetchToolNames } from "@/api/client";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -342,7 +343,9 @@ export default function SearchPage() {
                             {r.snippet ? (
                               <span
                                 dangerouslySetInnerHTML={{
-                                  __html: r.snippet,
+                                  __html: DOMPurify.sanitize(r.snippet, {
+                                    ALLOWED_TAGS: ["mark"],
+                                  }),
                                 }}
                               />
                             ) : (

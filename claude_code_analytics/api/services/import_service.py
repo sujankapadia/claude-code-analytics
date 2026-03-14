@@ -315,6 +315,20 @@ async def run_import(event_bus: EventBus, db_path: Optional[str] = None) -> dict
 
     loop = asyncio.get_event_loop()
 
+    def _import_project_in_thread(project_dir: Path) -> tuple[int, int, int]:
+        """Import a project using a thread-local SQLite connection."""
+        conn = sqlite3.connect(db_path)
+        conn.execute("PRAGMA foreign_keys = ON")
+        try:
+            sessions, messages, tool_uses = import_project(project_dir, conn)
+            conn.commit()
+            return sessions, messages, tool_uses
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
     for i, project_dir in enumerate(project_dirs):
         await event_bus.publish(
             {
@@ -325,23 +339,17 @@ async def run_import(event_bus: EventBus, db_path: Optional[str] = None) -> dict
             }
         )
 
-        conn = sqlite3.connect(db_path)
-        conn.execute("PRAGMA foreign_keys = ON")
         try:
             sessions, messages, tool_uses = await loop.run_in_executor(
-                None, import_project, project_dir, conn
+                None, _import_project_in_thread, project_dir
             )
-            conn.commit()
             if sessions > 0:
                 total_projects += 1
                 total_sessions += sessions
                 total_messages += messages
                 total_tool_uses += tool_uses
         except Exception:
-            conn.rollback()
             logger.exception(f"Error importing project {project_dir.name}")
-        finally:
-            conn.close()
 
     # Rebuild FTS index after full import
     if total_messages > 0:

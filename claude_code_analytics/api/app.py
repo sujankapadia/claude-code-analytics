@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from claude_code_analytics.api.services.event_bus import EventBus
@@ -80,6 +80,12 @@ def create_app() -> FastAPI:
         # SPA catch-all: serve index.html for any non-API route
         @app.get("/{full_path:path}")
         async def spa_fallback(request: Request, full_path: str):
+            # Return 404 for unmatched API paths instead of serving the SPA
+            if full_path.startswith("api/"):
+                return JSONResponse(
+                    status_code=404,
+                    content={"detail": f"API endpoint not found: /{full_path}"},
+                )
             # Serve actual files if they exist (e.g., favicon.ico)
             file_path = frontend_dist / full_path
             if full_path and file_path.is_file():
