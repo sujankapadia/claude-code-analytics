@@ -51,17 +51,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Three new database service methods: `get_active_time_for_session()`, `get_text_volume_for_session()`, `get_aggregate_activity_metrics()`
   - Comprehensive test coverage (23 formatting tests, 9 activity metrics tests)
 
+- **Search Scope Tabs** — Scope selector (All/Messages/Tool Input/Tool Results) promoted to always-visible tabs below the search bar
+- **Conversation Role Filter** — Filter messages by role (All/User/Assistant) in the conversation viewer
+- **Analysis Scoping UI** — Scope analysis to entire session, time range, or search hit context with configurable context window
+- **Generic OpenAI-Compatible Provider** — Model selection UI supports OpenRouter, Ollama, and any OpenAI-compatible API
+
 ### Changed
 - **Conversation Viewer** — Empty user messages (tool-result acknowledgments with no text) are now hidden, reducing noise by ~30%
 - **Sessions Page** — Session list shows first user message instead of UUID; added search filter
 - **Analysis Page** — Session dropdown replaced with searchable session picker (Combobox)
+- **Entry Points** — `claude-code-analytics` now launches the FastAPI + React app (port 8000); `claude-code-api` is an alias
+- **Install Script** — Updated for React + FastAPI stack: checks Node.js 18+/npm, runs `npm install && npm run build`
+- **Uninstall Script** — Now cleans frontend build artifacts (`frontend/dist/`, `frontend/node_modules/`)
 
 ### Fixed
 - **FTS5 query escaping** — Properly escape special characters in user queries to prevent SQLite FTS5 syntax errors
 - **Subagent project association** — Fix project ID resolution for sessions imported from subagent directories
 - **Project name decoding** — Correctly decode URL-encoded project paths for display
 - **SessionEnd hook timeout** - Remove unnecessary `sleep 1` in `export-conversation.sh` that caused the hook to exceed its timeout window and get cancelled
-- **Dashboard launch path** - Fix stale Streamlit app path in `run_dashboard.sh` (`streamlit_app/app.py` → `claude_code_analytics/streamlit_app/app.py`)
+- **SPA routing** — Fix 404 on direct navigation to React routes in production (replaced StaticFiles mount with catch-all fallback)
+- **Activity heatmap timezone** — Use local time instead of UTC for day-of-week and hour calculations
+
+### Removed
+- **Streamlit dashboard** — Legacy frontend removed; React dashboard is now the only UI
+- **Streamlit dependencies** — Removed `streamlit`, `pandas`, `altair` from package dependencies
+- **`run_dashboard.sh`** — Obsolete Streamlit launcher script deleted
+- **`claude-code-streamlit`** — Entry point removed
 
 ## [0.1.0] - 2025-12-30
 

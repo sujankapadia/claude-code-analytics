@@ -35,11 +35,13 @@ The dev server proxies `/api` requests to the FastAPI backend at `localhost:8000
 | Route | Page | Description |
 |-------|------|-------------|
 | `/` | Dashboard | KPI cards, daily charts, activity heatmap, projects table |
+| `/active` | Active | Live active Claude Code sessions |
 | `/sessions` | Sessions | Split-view: filterable session list + detail preview |
 | `/sessions/:id` | Session Detail | Full conversation viewer with virtual scrolling and minimap |
-| `/search` | Search | FTS5 search with scope/project/tool filters, keyboard nav |
+| `/bookmarks` | Bookmarks | Saved conversation bookmarks |
+| `/search` | Search | FTS5 search with scope tabs, project/tool filters, keyboard nav |
 | `/analytics` | Analytics | Tool usage, MCP stats, daily trends charts |
-| `/analysis` | Analysis | LLM-powered session analysis with Gist publishing |
+| `/analysis` | Analysis | LLM-powered session analysis with scoping and Gist publishing |
 | `/examples` | Examples | Natural language prompt/session discovery (FTS + LLM) |
 | `/import` | Import | Streaming import with SSE progress |
 
