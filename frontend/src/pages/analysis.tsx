@@ -1,13 +1,15 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   fetchSessions,
   fetchProjects,
   fetchAnalysisTypes,
+  fetchProviderInfo,
+  fetchProviderModels,
   runAnalysis,
   publishAnalysis,
 } from "@/api/client";
-import type { AnalysisResult } from "@/api/types";
+import type { AnalysisResult, ProviderConfig, ProviderInfo } from "@/api/types";
 import {
   Select,
   SelectContent,
@@ -16,8 +18,44 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxList,
+  ComboboxItem,
+  ComboboxEmpty,
+} from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
+import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
+
+const STORAGE_KEY = "claude-analytics:provider-config";
+
+function loadProviderConfig(): ProviderConfig | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as ProviderConfig) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveProviderConfig(config: ProviderConfig) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+}
+
+function defaultConfigFromInfo(info: ProviderInfo): ProviderConfig {
+  // Match server provider to a preset
+  const matchedPreset = info.presets.find((p) => p.base_url === info.base_url);
+  return {
+    preset: matchedPreset?.name ?? "Custom",
+    base_url: info.base_url ?? "",
+    api_key: "",
+    model: info.default_model ?? "",
+  };
+}
 
 export default function AnalysisPage() {
   const [projectId, setProjectId] = useState<string>("all");
@@ -27,6 +65,41 @@ export default function AnalysisPage() {
   const [customPrompt, setCustomPrompt] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [publishUrl, setPublishUrl] = useState<string | null>(null);
+  const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
+  const [providerConfig, setProviderConfig] = useState<ProviderConfig>(
+    () => loadProviderConfig() ?? { preset: "", base_url: "", api_key: "", model: "" },
+  );
+  const [configInitialized, setConfigInitialized] = useState(false);
+
+  const { data: providerInfo } = useQuery({
+    queryKey: ["analysis", "provider-info"],
+    queryFn: fetchProviderInfo,
+  });
+
+  // Initialize config from server defaults when no localStorage config exists
+  useEffect(() => {
+    if (configInitialized || !providerInfo) return;
+    const saved = loadProviderConfig();
+    if (saved) {
+      setProviderConfig(saved);
+    } else {
+      const defaults = defaultConfigFromInfo(providerInfo);
+      setProviderConfig(defaults);
+      saveProviderConfig(defaults);
+    }
+    setConfigInitialized(true);
+  }, [providerInfo, configInitialized]);
+
+  const updateConfig = useCallback(
+    (patch: Partial<ProviderConfig>) => {
+      setProviderConfig((prev) => {
+        const next = { ...prev, ...patch };
+        saveProviderConfig(next);
+        return next;
+      });
+    },
+    [],
+  );
 
   const { data: projects } = useQuery({
     queryKey: ["projects"],
@@ -167,6 +240,106 @@ export default function AnalysisPage() {
               </div>
             )}
 
+            {/* Model Settings (collapsible) */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setModelSettingsOpen(!modelSettingsOpen)}
+                className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+              >
+                {modelSettingsOpen ? (
+                  <ChevronDownIcon className="size-3" />
+                ) : (
+                  <ChevronRightIcon className="size-3" />
+                )}
+                Model Settings
+              </button>
+
+              {modelSettingsOpen && (
+                <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+                  {/* Provider preset */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground">
+                      Provider
+                    </label>
+                    <Select
+                      value={providerConfig.preset}
+                      onValueChange={(v) => {
+                        if (!v) return;
+                        const preset = providerInfo?.presets.find(
+                          (p) => p.name === v,
+                        );
+                        updateConfig({
+                          preset: v,
+                          base_url: preset?.base_url ?? "",
+                          model: preset?.default_model ?? providerConfig.model,
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="h-7 text-xs">
+                        <SelectValue placeholder="Select provider..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {providerInfo?.presets.map((p) => (
+                          <SelectItem key={p.name} value={p.name}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Base URL (shown for Custom preset) */}
+                  {providerConfig.preset === "Custom" && (
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground">
+                        Base URL
+                      </label>
+                      <Input
+                        value={providerConfig.base_url}
+                        onChange={(e) =>
+                          updateConfig({ base_url: e.target.value })
+                        }
+                        placeholder="http://localhost:8080/v1"
+                        className="h-7 text-xs"
+                      />
+                    </div>
+                  )}
+
+                  {/* API Key */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground">
+                      API Key (optional)
+                    </label>
+                    <Input
+                      type="password"
+                      value={providerConfig.api_key}
+                      onChange={(e) =>
+                        updateConfig({ api_key: e.target.value })
+                      }
+                      placeholder="sk-..."
+                      className="h-7 text-xs"
+                    />
+                  </div>
+
+                  {/* Model selector */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground">
+                      Model
+                    </label>
+                    <ModelCombobox
+                      value={providerConfig.model}
+                      onChange={(v) => updateConfig({ model: v })}
+                      quickModels={providerInfo?.quick_select_models ?? []}
+                      showQuickModels={providerConfig.base_url.includes("openrouter.ai")}
+                      baseUrl={providerConfig.base_url}
+                      apiKey={providerConfig.api_key}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Run button */}
             <Button
               onClick={() =>
@@ -175,6 +348,9 @@ export default function AnalysisPage() {
                   analysis_type: analysisType,
                   custom_prompt:
                     analysisType === "custom" ? customPrompt : undefined,
+                  model: providerConfig.model || undefined,
+                  base_url: providerConfig.base_url || undefined,
+                  api_key: providerConfig.api_key || undefined,
                 })
               }
               disabled={!canRun || analysisMutation.isPending}
@@ -295,6 +471,74 @@ export default function AnalysisPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ModelCombobox({
+  value,
+  onChange,
+  quickModels,
+  showQuickModels,
+  baseUrl,
+  apiKey,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  quickModels: { label: string; value: string }[];
+  showQuickModels: boolean;
+  baseUrl: string;
+  apiKey: string;
+}) {
+  const isOpenRouter = baseUrl.includes("openrouter.ai");
+  const canFetchModels = !!baseUrl && !isOpenRouter;
+
+  const { data: remoteModels, isLoading: modelsLoading } = useQuery({
+    queryKey: ["analysis", "models", baseUrl, apiKey],
+    queryFn: () => fetchProviderModels({ base_url: baseUrl, api_key: apiKey || undefined }),
+    enabled: canFetchModels,
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  const items = useMemo(() => {
+    if (showQuickModels) {
+      return quickModels.map((m) => ({ label: m.label, value: m.value }));
+    }
+    if (remoteModels) {
+      return remoteModels.map((m) => ({ label: m.id, value: m.id }));
+    }
+    return [];
+  }, [quickModels, showQuickModels, remoteModels]);
+
+  const placeholder = modelsLoading
+    ? "Loading models..."
+    : items.length > 0
+      ? "Select or type a model..."
+      : "Type a model name...";
+
+  return (
+    <Combobox
+      value={value}
+      onValueChange={(val) => onChange(val as string)}
+    >
+      <ComboboxInput
+        placeholder={placeholder}
+        className="h-7 text-xs"
+        showClear={!!value}
+      />
+      <ComboboxContent>
+        <ComboboxList>
+          <ComboboxEmpty>
+            {modelsLoading ? "Loading..." : "Type a model ID..."}
+          </ComboboxEmpty>
+          {items.map((item) => (
+            <ComboboxItem key={item.value} value={item.value}>
+              <span className="text-xs">{item.label}</span>
+            </ComboboxItem>
+          ))}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 }
 

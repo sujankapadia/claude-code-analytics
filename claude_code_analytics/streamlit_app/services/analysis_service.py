@@ -391,6 +391,7 @@ class AnalysisService:
         end_time: Optional[datetime] = None,
         message_index: Optional[int] = None,
         context_window: int = 20,
+        provider: Optional[LLMProvider] = None,
     ) -> AnalysisResult:
         """
         Analyze a session with the specified analysis type.
@@ -470,8 +471,9 @@ class AnalysisService:
             except TemplateNotFound:
                 raise ValueError(f"Template file not found: {metadata.file}")
 
-        # Generate analysis using provider
-        llm_response = self.provider.generate(prompt, model=model)
+        # Generate analysis using the provided or default provider
+        active_provider = provider or self.provider
+        llm_response = active_provider.generate(prompt, model=model)
 
         return AnalysisResult(
             session_id=session_id,

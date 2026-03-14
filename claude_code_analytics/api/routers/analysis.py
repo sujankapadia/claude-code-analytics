@@ -10,6 +10,9 @@ from pydantic import BaseModel
 from claude_code_analytics.api.dependencies import get_analysis_service
 from claude_code_analytics.streamlit_app.models import AnalysisType
 from claude_code_analytics.streamlit_app.services.analysis_service import AnalysisService
+from claude_code_analytics.streamlit_app.services.llm_providers import (
+    OpenAICompatibleProvider,
+)
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
@@ -25,6 +28,8 @@ class AnalysisRequest(BaseModel):
     end_time: Optional[datetime] = None
     message_index: Optional[int] = None
     context_window: int = 20
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
 
 
 class PublishRequest(BaseModel):
@@ -42,6 +47,15 @@ async def run_analysis(
     svc: AnalysisService = Depends(get_analysis_service),
 ):
     """Run an LLM analysis on a session (blocking)."""
+    # Create a one-off provider if the client sent a custom base_url
+    override_provider = None
+    if req.base_url:
+        override_provider = OpenAICompatibleProvider(
+            base_url=req.base_url,
+            api_key=req.api_key,
+            default_model=req.model or "default",
+        )
+
     loop = asyncio.get_event_loop()
     try:
         result = await loop.run_in_executor(
@@ -55,6 +69,7 @@ async def run_analysis(
                 end_time=req.end_time,
                 message_index=req.message_index,
                 context_window=req.context_window,
+                provider=override_provider,
             ),
         )
         return result.model_dump()
@@ -62,6 +77,83 @@ async def run_analysis(
         raise HTTPException(status_code=400, detail=str(e)) from e
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.get("/provider-info")
+def get_provider_info(svc: AnalysisService = Depends(get_analysis_service)):
+    """Return info about the server's default LLM provider and available presets."""
+    provider = svc.provider
+    provider_type = type(provider).__name__
+
+    # Determine base_url and default_model from the active provider
+    base_url = getattr(provider, "base_url", None)
+    default_model = getattr(provider, "default_model", None)
+
+    # Quick-select models (from OpenAICompatibleProvider if available)
+    quick_select = [
+        {"label": label, "value": model_id}
+        for label, model_id in OpenAICompatibleProvider.QUICK_SELECT_MODELS
+    ]
+
+    # Provider presets
+    presets = [
+        {
+            "name": "OpenRouter",
+            "base_url": "https://openrouter.ai/api/v1",
+            "requires_key": True,
+            "default_model": "deepseek/deepseek-v3.2",
+        },
+        {
+            "name": "Ollama",
+            "base_url": "http://localhost:11434/v1",
+            "requires_key": False,
+            "default_model": "llama3.2",
+        },
+        {
+            "name": "LM Studio",
+            "base_url": "http://localhost:1234/v1",
+            "requires_key": False,
+            "default_model": "default",
+        },
+        {
+            "name": "vLLM",
+            "base_url": "http://localhost:8001/v1",
+            "requires_key": False,
+            "default_model": "default",
+        },
+        {
+            "name": "Custom",
+            "base_url": "",
+            "requires_key": False,
+            "default_model": "",
+        },
+    ]
+
+    return {
+        "provider_type": provider_type,
+        "base_url": base_url,
+        "default_model": default_model,
+        "quick_select_models": quick_select,
+        "presets": presets,
+    }
+
+
+@router.get("/models")
+async def list_provider_models(
+    base_url: str,
+    api_key: Optional[str] = None,
+):
+    """Fetch available models from an OpenAI-compatible provider (proxy to avoid CORS)."""
+    loop = asyncio.get_event_loop()
+    try:
+        raw_models = await loop.run_in_executor(
+            None,
+            lambda: OpenAICompatibleProvider.fetch_all_models(base_url=base_url, api_key=api_key),
+        )
+        # Return just id + owned_by for each model
+        return [{"id": m.get("id", ""), "owned_by": m.get("owned_by", "")} for m in raw_models]
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
 
 
 @router.get("/types")

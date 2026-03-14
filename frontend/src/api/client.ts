@@ -15,6 +15,8 @@ import type {
   Message,
   ProjectActivity,
   ProjectSummary,
+  ProviderInfo,
+  ProviderModel,
   Project,
   PublishResult,
   SearchResponse,
@@ -165,6 +167,12 @@ export async function deleteBookmark(id: number): Promise<void> {
 export const fetchAnalysisTypes = () =>
   get<Record<string, AnalysisTypeInfo>>("/analysis/types");
 
+export const fetchProviderInfo = () =>
+  get<ProviderInfo>("/analysis/provider-info");
+
+export const fetchProviderModels = (params: { base_url: string; api_key?: string }) =>
+  get<ProviderModel[]>("/analysis/models", params);
+
 export async function runAnalysis(params: {
   session_id: string;
   analysis_type: string;
@@ -172,6 +180,8 @@ export async function runAnalysis(params: {
   model?: string;
   message_index?: number;
   context_window?: number;
+  base_url?: string;
+  api_key?: string;
 }): Promise<AnalysisResult> {
   const res = await fetch(`${BASE}/analysis/run`, {
     method: "POST",

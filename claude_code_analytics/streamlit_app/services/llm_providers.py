@@ -82,10 +82,10 @@ class GeminiProvider(LLMProvider):
         )
 
 
-class OpenRouterProvider(LLMProvider):
-    """OpenRouter unified API provider."""
+class OpenAICompatibleProvider(LLMProvider):
+    """Generic OpenAI-compatible API provider (OpenRouter, Ollama, vLLM, LM Studio, etc.)."""
 
-    # Curated quick select models (13 newest premium models from 2025)
+    # Curated quick select models for OpenRouter
     QUICK_SELECT_MODELS = [
         # Budget tier
         ("Qwen3 VL 8B - $0.06 (Cheapest)", "qwen/qwen3-vl-8b-instruct"),
@@ -105,33 +105,38 @@ class OpenRouterProvider(LLMProvider):
         ("Claude Opus 4.5 - $5.00 (Premium)", "anthropic/claude-opus-4.5"),
     ]
 
-    def __init__(self, api_key: str, default_model: str = "deepseek/deepseek-v3.2"):
+    def __init__(
+        self,
+        base_url: str = "https://openrouter.ai/api/v1",
+        api_key: Optional[str] = None,
+        default_model: str = "deepseek/deepseek-v3.2",
+    ):
         """
-        Initialize OpenRouter provider.
+        Initialize OpenAI-compatible provider.
 
         Args:
-            api_key: OpenRouter API key
+            base_url: API base URL (e.g. https://openrouter.ai/api/v1, http://localhost:11434/v1)
+            api_key: API key (optional — not needed for local providers like Ollama)
             default_model: Default model to use
         """
+        self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.default_model = default_model
-        self.base_url = "https://openrouter.ai/api/v1"
 
     def generate(self, prompt: str, model: Optional[str] = None, **kwargs) -> LLMResponse:
-        """Generate text using OpenRouter API."""
+        """Generate text using OpenAI-compatible chat completions API."""
         model_name = model or self.default_model
 
-        # Verify API key is set
-        if not self.api_key:
-            raise ValueError("OpenRouter API key is not set")
+        headers: dict[str, str] = {"Content-Type": "application/json"}
 
-        # OpenRouter uses OpenAI-compatible chat completions API
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/yourusername/claude-code-utils",
-            "X-Title": "Claude Code Analytics",
-        }
+        # Add auth header if API key is provided
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        # Add OpenRouter-specific headers when targeting openrouter.ai
+        if "openrouter.ai" in self.base_url:
+            headers["HTTP-Referer"] = "https://github.com/yourusername/claude-code-utils"
+            headers["X-Title"] = "Claude Code Analytics"
 
         payload = {
             "model": model_name,
@@ -146,12 +151,9 @@ class OpenRouterProvider(LLMProvider):
             timeout=300,  # 5 minute timeout for long analysis
         )
 
-        # Better error handling
         if response.status_code != 200:
             error_detail = response.text
-            raise ValueError(
-                f"OpenRouter API error (status {response.status_code}): {error_detail}"
-            )
+            raise ValueError(f"API error (status {response.status_code}): {error_detail}")
 
         data = response.json()
 
@@ -171,16 +173,31 @@ class OpenRouterProvider(LLMProvider):
         )
 
     @staticmethod
-    def fetch_all_models() -> list[dict]:
+    def fetch_all_models(
+        base_url: str = "https://openrouter.ai/api/v1",
+        api_key: Optional[str] = None,
+    ) -> list[dict]:
         """
-        Fetch all available models from OpenRouter.
+        Fetch available models from an OpenAI-compatible endpoint.
+
+        Args:
+            base_url: API base URL
+            api_key: Optional API key for authenticated endpoints
 
         Returns:
             List of model dictionaries with metadata
         """
-        response = requests.get("https://openrouter.ai/api/v1/models", timeout=30)
+        headers: dict[str, str] = {}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        url = f"{base_url.rstrip('/')}/models"
+        response = requests.get(url, headers=headers, timeout=30)
         response.raise_for_status()
         return response.json()["data"]
+
+
+# Backwards-compatible alias
+OpenRouterProvider = OpenAICompatibleProvider
 
 
 def create_provider(
@@ -194,7 +211,8 @@ def create_provider(
     Precedence:
     1. OpenRouter if OPENROUTER_API_KEY is set
     2. Gemini if GOOGLE_API_KEY is set
-    3. Raise error if neither is set
+    3. Generic OpenAI-compatible if OPENAI_BASE_URL is set
+    4. Raise error if none is configured
 
     Args:
         openrouter_api_key: OpenRouter API key (defaults to OPENROUTER_API_KEY env var)
@@ -205,26 +223,31 @@ def create_provider(
         Configured LLM provider instance
 
     Raises:
-        ValueError: If no API key is configured
+        ValueError: If no provider is configured
     """
     openrouter_key = openrouter_api_key or os.getenv("OPENROUTER_API_KEY")
     gemini_key = gemini_api_key or os.getenv("GOOGLE_API_KEY")
+    openai_base_url = os.getenv("OPENAI_BASE_URL")
+    openai_api_key = os.getenv("OPENAI_API_KEY")
 
     if openrouter_key:
-        # Validate key format
-        if not openrouter_key.startswith("sk-or-"):
-            raise ValueError(
-                f"Invalid OpenRouter API key format. Keys should start with 'sk-or-'. "
-                f"Got: {openrouter_key[:10]}..."
-            )
-        return OpenRouterProvider(
-            api_key=openrouter_key, default_model=default_model or "deepseek/deepseek-v3.2"
+        return OpenAICompatibleProvider(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=openrouter_key,
+            default_model=default_model or "deepseek/deepseek-v3.2",
         )
     elif gemini_key:
         return GeminiProvider(
             api_key=gemini_key, default_model=default_model or "gemini-2.0-flash-exp"
         )
+    elif openai_base_url:
+        return OpenAICompatibleProvider(
+            base_url=openai_base_url,
+            api_key=openai_api_key,
+            default_model=default_model or "gpt-3.5-turbo",
+        )
     else:
         raise ValueError(
-            "No LLM API key configured. Set either OPENROUTER_API_KEY or GOOGLE_API_KEY environment variable."
+            "No LLM API key configured. Set OPENROUTER_API_KEY, GOOGLE_API_KEY, "
+            "or OPENAI_BASE_URL environment variable."
         )

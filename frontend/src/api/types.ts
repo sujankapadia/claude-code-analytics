@@ -193,6 +193,40 @@ export interface PublishResult {
   findings: unknown[];
 }
 
+// -- Provider / Model Selection --
+
+export interface QuickSelectModel {
+  label: string;
+  value: string;
+}
+
+export interface ProviderPreset {
+  name: string;
+  base_url: string;
+  requires_key: boolean;
+  default_model: string;
+}
+
+export interface ProviderInfo {
+  provider_type: string;
+  base_url: string | null;
+  default_model: string | null;
+  quick_select_models: QuickSelectModel[];
+  presets: ProviderPreset[];
+}
+
+export interface ProviderConfig {
+  preset: string;
+  base_url: string;
+  api_key: string;
+  model: string;
+}
+
+export interface ProviderModel {
+  id: string;
+  owned_by: string;
+}
+
 export interface SSEvent {
   type: string;
   [key: string]: unknown;
