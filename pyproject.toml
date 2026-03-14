@@ -11,7 +11,7 @@ license = {text = "MIT"}
 authors = [
     {name = "Sujan Kapadia"}
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 keywords = ["claude", "code", "analytics", "fastapi", "react", "ai", "llm"]
 classifiers = [
     "Development Status :: 3 - Alpha",

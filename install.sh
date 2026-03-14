@@ -30,7 +30,7 @@ fi
 
 # Check Python version (requires 3.9+)
 PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-REQUIRED_VERSION="3.9"
+REQUIRED_VERSION="3.10"
 
 # POSIX-compatible version comparison (sort -V not available on macOS BSD)
 version_gte() {
