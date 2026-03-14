@@ -4,8 +4,9 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from claude_code_analytics.api.services.event_bus import EventBus
@@ -47,8 +48,10 @@ def create_app() -> FastAPI:
 
     # Register routers
     from claude_code_analytics.api.routers import (
+        active,
         analysis,
         analytics,
+        bookmarks,
         events,
         examples,
         import_data,
@@ -65,10 +68,22 @@ def create_app() -> FastAPI:
     app.include_router(examples.router, prefix="/api")
     app.include_router(import_data.router, prefix="/api")
     app.include_router(events.router, prefix="/api")
+    app.include_router(active.router, prefix="/api")
+    app.include_router(bookmarks.router, prefix="/api")
 
     # Serve frontend static files if built
     frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
     if frontend_dist.is_dir():
-        app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+        # Serve static assets (JS, CSS, fonts, etc.)
+        app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+
+        # SPA catch-all: serve index.html for any non-API route
+        @app.get("/{full_path:path}")
+        async def spa_fallback(request: Request, full_path: str):
+            # Serve actual files if they exist (e.g., favicon.ico)
+            file_path = frontend_dist / full_path
+            if full_path and file_path.is_file():
+                return FileResponse(file_path)
+            return FileResponse(frontend_dist / "index.html")
 
     return app

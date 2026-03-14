@@ -1,9 +1,16 @@
 import { useMemo, useRef, useState, useCallback, useEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, X } from "lucide-react";
-import type { Message, ToolUse, TokenUsage } from "@/api/types";
+import type { Message, ToolUse, TokenUsage, Bookmark } from "@/api/types";
+import {
+  fetchSessionBookmarks,
+  createBookmark,
+  deleteBookmark,
+} from "@/api/client";
 import { ConversationMessage } from "./conversation-message";
 import { ConversationMinimap } from "./conversation-minimap";
+import { BookmarkDialog } from "./bookmark-dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +20,8 @@ interface ConversationViewerProps {
   tokens?: TokenUsage;
   /** Initial message index to scroll to (from URL hash). */
   initialIndex?: number;
+  /** Session ID for bookmark operations. */
+  sessionId?: string;
 }
 
 function formatTokens(n: number): string {
@@ -26,11 +35,85 @@ export function ConversationViewer({
   toolUses,
   tokens,
   initialIndex,
+  sessionId,
 }: ConversationViewerProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [currentMatch, setCurrentMatch] = useState(0);
+  const [roleFilter, setRoleFilter] = useState<"all" | "user" | "assistant">("all");
+
+  // Bookmark dialog state
+  const [bookmarkDialogOpen, setBookmarkDialogOpen] = useState(false);
+  const [bookmarkTarget, setBookmarkTarget] = useState<{
+    messageIndex: number;
+    existing?: Bookmark;
+  } | null>(null);
+
+  const queryClient = useQueryClient();
+
+  // Fetch bookmarks for this session
+  const { data: bookmarks } = useQuery({
+    queryKey: ["bookmarks", "session", sessionId],
+    queryFn: () => fetchSessionBookmarks(sessionId!),
+    enabled: !!sessionId,
+  });
+
+  // Index bookmarks by message_index
+  const bookmarksByIndex = useMemo(() => {
+    const map = new Map<number, Bookmark>();
+    if (bookmarks) {
+      for (const b of bookmarks) {
+        map.set(b.message_index, b);
+      }
+    }
+    return map;
+  }, [bookmarks]);
+
+  // Mutations
+  const createMutation = useMutation({
+    mutationFn: createBookmark,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteBookmark,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    },
+  });
+
+  const handleBookmarkToggle = useCallback(
+    (messageIndex: number, existing?: Bookmark) => {
+      setBookmarkTarget({ messageIndex, existing });
+      setBookmarkDialogOpen(true);
+    },
+    []
+  );
+
+  const handleBookmarkSave = useCallback(
+    (name: string, description: string) => {
+      if (!sessionId || !bookmarkTarget) return;
+      createMutation.mutate({
+        session_id: sessionId,
+        message_index: bookmarkTarget.messageIndex,
+        name,
+        description,
+      });
+      setBookmarkDialogOpen(false);
+      setBookmarkTarget(null);
+    },
+    [sessionId, bookmarkTarget, createMutation]
+  );
+
+  const handleBookmarkDelete = useCallback(() => {
+    if (!bookmarkTarget?.existing) return;
+    deleteMutation.mutate(bookmarkTarget.existing.bookmark_id);
+    setBookmarkDialogOpen(false);
+    setBookmarkTarget(null);
+  }, [bookmarkTarget, deleteMutation]);
 
   // Group tool uses by message_index
   const toolsByMessage = useMemo(() => {
@@ -43,16 +126,18 @@ export function ConversationViewer({
     return map;
   }, [toolUses]);
 
-  // Filter out empty user messages (tool-result acknowledgments with no text)
+  // Filter out empty user messages and apply role filter
   const visibleMessages = useMemo(() => {
     return messages.filter((msg) => {
+      // Filter out empty user messages (tool-result acknowledgments with no text)
       if (msg.role === "user" && !msg.content?.trim()) {
-        // Keep if it has associated tool uses
-        return toolsByMessage.has(msg.message_index);
+        if (!toolsByMessage.has(msg.message_index)) return false;
       }
+      // Apply role filter
+      if (roleFilter !== "all" && msg.role !== roleFilter) return false;
       return true;
     });
-  }, [messages, toolsByMessage]);
+  }, [messages, toolsByMessage, roleFilter]);
 
   // Tool count by message_index for minimap
   const toolCountByIndex = useMemo(() => {
@@ -102,12 +187,14 @@ export function ConversationViewer({
     ? [virtualItems[0].index, virtualItems[virtualItems.length - 1].index]
     : [0, 0];
 
-  // Scroll to initial index
+  // Scroll to initial message_index (convert from message_index to visible array position)
   useEffect(() => {
-    if (initialIndex != null && initialIndex >= 0 && initialIndex < visibleMessages.length) {
-      virtualizer.scrollToIndex(initialIndex, { align: "start" });
+    if (initialIndex == null) return;
+    const pos = visibleMessages.findIndex((m) => m.message_index === initialIndex);
+    if (pos >= 0) {
+      virtualizer.scrollToIndex(pos, { align: "start" });
     }
-  }, [initialIndex, visibleMessages.length, virtualizer]);
+  }, [initialIndex, visibleMessages, virtualizer]);
 
   // Jump to message from minimap
   const handleMinimapJump = useCallback(
@@ -202,9 +289,27 @@ export function ConversationViewer({
 
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-2">
-          <span className="text-sm font-medium">
-            {visibleMessages.length} messages
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium">
+              {visibleMessages.length} messages
+            </span>
+            <div className="flex gap-0.5">
+              {(["all", "user", "assistant"] as const).map((role) => (
+                <button
+                  key={role}
+                  onClick={() => setRoleFilter(role)}
+                  className={cn(
+                    "rounded px-2 py-0.5 text-xs font-medium transition-colors",
+                    roleFilter === role
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {role === "all" ? "All" : role === "user" ? "User" : "Assistant"}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             {!searchOpen && (
               <button
@@ -228,6 +333,7 @@ export function ConversationViewer({
               const msg = visibleMessages[virtualRow.index];
               const tools = toolsByMessage.get(msg.message_index) ?? [];
               const isSearchMatch = searchMatches.includes(virtualRow.index);
+              const msgBookmark = bookmarksByIndex.get(msg.message_index);
 
               return (
                 <div
@@ -246,6 +352,8 @@ export function ConversationViewer({
                     message={msg}
                     tools={tools}
                     index={virtualRow.index}
+                    bookmark={msgBookmark}
+                    onBookmarkToggle={sessionId ? handleBookmarkToggle : undefined}
                   />
                 </div>
               );
@@ -277,6 +385,15 @@ export function ConversationViewer({
           </div>
         )}
       </div>
+
+      {/* Bookmark dialog */}
+      <BookmarkDialog
+        open={bookmarkDialogOpen}
+        onOpenChange={setBookmarkDialogOpen}
+        existing={bookmarkTarget?.existing}
+        onSave={handleBookmarkSave}
+        onDelete={handleBookmarkDelete}
+      />
     </div>
   );
 }

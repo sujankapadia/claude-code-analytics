@@ -138,7 +138,7 @@ export default function SearchPage() {
     }
   }, [focusedResult]);
 
-  const hasFilters = scope !== "All" || projectId || toolName;
+  const hasFilters = projectId || toolName;
   let resultIdx = 0;
 
   return (
@@ -211,24 +211,27 @@ export default function SearchPage() {
         )}
       </div>
 
+      {/* Scope tabs */}
+      <div className="flex max-w-2xl gap-1">
+        {SCOPES.map((s) => (
+          <button
+            key={s}
+            onClick={() => setScope(s)}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              scope === s
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
       {/* Filters */}
       {filtersOpen && (
         <div className="flex max-w-2xl flex-wrap items-end gap-3 rounded-lg border bg-card p-3">
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Scope</label>
-            <select
-              value={scope}
-              onChange={(e) => setScope(e.target.value)}
-              className="rounded border bg-background px-2 py-1.5 text-sm"
-            >
-              {SCOPES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Project</label>
             <select
@@ -264,7 +267,6 @@ export default function SearchPage() {
           {hasFilters && (
             <button
               onClick={() => {
-                setScope("All");
                 setProjectId("");
                 setToolName("");
               }}
