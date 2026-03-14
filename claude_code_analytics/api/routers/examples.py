@@ -383,11 +383,12 @@ async def find_example_sessions(
             fts_hits_by_session[sid].append(r)
 
     # Cap candidates and build summaries, prioritizing sessions with more FTS hits
+    max_candidates = 20
     sorted_candidates = sorted(
         candidate_ids,
         key=lambda sid: hit_counts.get(sid, 0),
         reverse=True,
-    )[:20]  # Cap at 20 for LLM context
+    )[:max_candidates]
 
     loop = asyncio.get_event_loop()
     summaries = await loop.run_in_executor(
