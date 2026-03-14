@@ -512,18 +512,12 @@ class TestFTSSearchQueries:
         assert len(results) == 1
 
     def test_search_messages_invalid_fts_syntax(self, test_db):
-        """Test that invalid FTS syntax raises proper error."""
+        """Test that invalid FTS syntax is sanitized and doesn't raise."""
         service = DatabaseService(db_path=test_db)
-        with pytest.raises(sqlite3.OperationalError) as exc_info:
-            service.search_messages('unmatched"quote')
-        # Error message varies by SQLite version, check for either
-        error_msg = str(exc_info.value).lower()
-        assert (
-            "invalid" in error_msg
-            or "fts5" in error_msg
-            or "syntax" in error_msg
-            or "unterminated" in error_msg
-        )
+        # _sanitize_fts_query escapes unmatched quotes, so this should
+        # succeed and return empty results rather than raising
+        results = service.search_messages('unmatched"quote')
+        assert isinstance(results, list)
 
     def test_search_tool_inputs(self, test_db):
         """Test searching tool inputs."""
