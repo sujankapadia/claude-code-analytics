@@ -2,8 +2,8 @@
 
 from functools import lru_cache
 
-from claude_code_analytics.streamlit_app.services.analysis_service import AnalysisService
-from claude_code_analytics.streamlit_app.services.database_service import DatabaseService
+from claude_code_analytics.services.analysis_service import AnalysisService
+from claude_code_analytics.services.database_service import DatabaseService
 
 
 @lru_cache

@@ -8,14 +8,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
-from claude_code_analytics.streamlit_app.models import (
+from claude_code_analytics.models import (
     AnalysisResult,
     AnalysisType,
     Message,
     ToolUse,
 )
-from claude_code_analytics.streamlit_app.services.analysis_service import AnalysisService
-from claude_code_analytics.streamlit_app.services.llm_providers import (
+from claude_code_analytics.services.analysis_service import AnalysisService
+from claude_code_analytics.services.llm_providers import (
     LLMProvider,
     LLMResponse,
 )
@@ -200,13 +200,11 @@ class TestAnalysisServiceInit:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
-        with patch(
-            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-        ):
+        with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
             assert service.provider == mock_provider
             assert service.db_path == temp_db
@@ -216,15 +214,13 @@ class TestAnalysisServiceInit:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
         with (
             patch.dict("os.environ", {"OPENROUTER_API_KEY": "sk-or-test"}, clear=False),
-            patch(
-                "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-            ),
+            patch("claude_code_analytics.services.analysis_service.__file__", mock_file),
         ):
             service = AnalysisService(db_path=temp_db)
             assert service.provider is not None
@@ -234,13 +230,11 @@ class TestAnalysisServiceInit:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
-        with patch(
-            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-        ):
+        with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
             assert service.api_key == "mock-key"
 
@@ -253,15 +247,13 @@ class TestPromptLoading:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
         with (
             patch.object(AnalysisService, "_load_prompts") as mock_load,
-            patch(
-                "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-            ),
+            patch("claude_code_analytics.services.analysis_service.__file__", mock_file),
         ):
             mock_load.return_value = ({}, MagicMock())
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -459,13 +451,11 @@ class TestGetMessagesAroundIndex:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
-        with patch(
-            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-        ):
+        with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             messages, tool_uses, formatted = service.get_messages_around_index(
@@ -481,13 +471,11 @@ class TestGetMessagesAroundIndex:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
-        with patch(
-            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-        ):
+        with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             messages, tool_uses, formatted = service.get_messages_around_index(
@@ -503,13 +491,11 @@ class TestGetMessagesAroundIndex:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
-        with patch(
-            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-        ):
+        with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             with pytest.raises(ValueError) as exc_info:
@@ -524,13 +510,11 @@ class TestGetMessagesAroundIndex:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
-        with patch(
-            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-        ):
+        with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             messages, tool_uses, formatted = service.get_messages_around_index(
@@ -549,13 +533,11 @@ class TestAnalyzeSession:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
-        with patch(
-            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-        ):
+        with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             result = service.analyze_session(
@@ -578,13 +560,11 @@ class TestAnalyzeSession:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
-        with patch(
-            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-        ):
+        with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             start_time = datetime.fromisoformat("2025-01-01T10:00:00")
@@ -608,13 +588,11 @@ class TestAnalyzeSession:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
-        with patch(
-            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-        ):
+        with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             with pytest.raises(ValueError) as exc_info:
@@ -632,13 +610,11 @@ class TestAnalyzeSession:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
-        with patch(
-            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-        ):
+        with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             result = service.analyze_session(
@@ -658,13 +634,11 @@ class TestAnalyzeSession:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
-        with patch(
-            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-        ):
+        with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             start_time = datetime.fromisoformat("2025-01-02T00:00:00")
@@ -686,13 +660,11 @@ class TestAnalyzeSession:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
-        with patch(
-            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-        ):
+        with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             # Mock get_messages_around_index to return empty
@@ -716,13 +688,11 @@ class TestGetTranscriptPath:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
-        with patch(
-            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-        ):
+        with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
 
             # Mock the file existence
@@ -738,13 +708,11 @@ class TestGetTranscriptPath:
         mock_file = str(
             temp_prompts_dir
             / "claude_code_analytics"
-            / "streamlit_app"
+            / "services"
             / "services"
             / "analysis_service.py"
         )
-        with patch(
-            "claude_code_analytics.streamlit_app.services.analysis_service.__file__", mock_file
-        ):
+        with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
             path = service.get_transcript_path("nonexistent-session")
             assert path is None

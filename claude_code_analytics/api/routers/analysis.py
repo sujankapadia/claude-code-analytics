@@ -8,9 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from claude_code_analytics.api.dependencies import get_analysis_service
-from claude_code_analytics.streamlit_app.models import AnalysisType
-from claude_code_analytics.streamlit_app.services.analysis_service import AnalysisService
-from claude_code_analytics.streamlit_app.services.llm_providers import (
+from claude_code_analytics.models import AnalysisType
+from claude_code_analytics.services.analysis_service import AnalysisService
+from claude_code_analytics.services.llm_providers import (
     OpenAICompatibleProvider,
 )
 
@@ -167,7 +167,7 @@ def list_analysis_types(svc: AnalysisService = Depends(get_analysis_service)):
 async def publish_analysis(req: PublishRequest):
     """Publish analysis result to a GitHub Gist."""
     from claude_code_analytics import config
-    from claude_code_analytics.streamlit_app.services.gist_publisher import GistPublisher
+    from claude_code_analytics.services.gist_publisher import GistPublisher
 
     if not config.GITHUB_TOKEN:
         raise HTTPException(status_code=400, detail="GITHUB_TOKEN not configured")

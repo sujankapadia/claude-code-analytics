@@ -29,7 +29,7 @@ import yaml
 from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
-from claude_code_analytics.streamlit_app.services.llm_providers import (
+from claude_code_analytics.services.llm_providers import (
     create_provider,
 )
 

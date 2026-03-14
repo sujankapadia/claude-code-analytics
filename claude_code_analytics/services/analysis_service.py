@@ -10,15 +10,15 @@ from typing import Optional
 import yaml
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
-from claude_code_analytics.streamlit_app.models import (
+from claude_code_analytics.models import (
     AnalysisResult,
     AnalysisType,
     AnalysisTypeMetadata,
     Message,
     ToolUse,
 )
-from claude_code_analytics.streamlit_app.services.database_service import DatabaseService
-from claude_code_analytics.streamlit_app.services.llm_providers import LLMProvider, create_provider
+from claude_code_analytics.services.database_service import DatabaseService
+from claude_code_analytics.services.llm_providers import LLMProvider, create_provider
 
 
 class AnalysisService:

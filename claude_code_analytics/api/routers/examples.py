@@ -10,8 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from claude_code_analytics.api.dependencies import get_analysis_service, get_db_service
-from claude_code_analytics.streamlit_app.services.analysis_service import AnalysisService
-from claude_code_analytics.streamlit_app.services.database_service import DatabaseService
+from claude_code_analytics.services.analysis_service import AnalysisService
+from claude_code_analytics.services.database_service import DatabaseService
 
 router = APIRouter(prefix="/examples", tags=["examples"])
 

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from claude_code_analytics.streamlit_app.services.llm_providers import (
+from claude_code_analytics.services.llm_providers import (
     GeminiProvider,
     LLMProvider,
     LLMResponse,

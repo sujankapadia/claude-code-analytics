@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from claude_code_analytics.streamlit_app.models import (
+from claude_code_analytics.models import (
     Message,
     Project,
     ProjectSummary,
@@ -16,7 +16,7 @@ from claude_code_analytics.streamlit_app.models import (
     ToolUsageSummary,
     ToolUse,
 )
-from claude_code_analytics.streamlit_app.services.database_service import DatabaseService
+from claude_code_analytics.services.database_service import DatabaseService
 
 
 @pytest.fixture

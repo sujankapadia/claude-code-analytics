@@ -2,15 +2,12 @@
 
 ## Architecture
 
-This project has two frontends:
-
-- **Streamlit dashboard** (legacy) — `claude_code_analytics/streamlit_app/` — launched via `claude-code-analytics` CLI
-- **React frontend** (new) — `frontend/` — Vite + React + TypeScript + TanStack Query, served at `localhost:5173`
-
-Both share a common backend:
-
+- **React frontend** — `frontend/` — Vite + React + TypeScript + TanStack Query
 - **FastAPI API** — `claude_code_analytics/api/` — REST endpoints under `/api`, SSE for real-time events, file watcher for auto-import
-- **Database layer** — `claude_code_analytics/streamlit_app/services/database_service.py` — shared by both frontends via the API's dependency injection
+- **Services** — `claude_code_analytics/services/` — business logic (database, analysis, LLM providers, gist publishing)
+- **Models** — `claude_code_analytics/models/` — Pydantic data models
+
+In production, `claude-code-analytics` serves both the API and the built React app on port 8000.
 
 ## Development Workflow
 

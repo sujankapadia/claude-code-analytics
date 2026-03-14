@@ -726,12 +726,15 @@ claude-code-analytics/
 │   │       ├── event_bus.py            # Async fan-out for SSE
 │   │       ├── file_watcher.py         # watchfiles-based auto-import
 │   │       └── import_service.py       # Incremental import with FTS updates
-│   ├── streamlit_app/                  # Shared services (legacy naming)
-│   │   ├── services/                   # Business logic layer
-│   │   │   ├── database_service.py     # SQLite queries
-│   │   │   ├── analysis_service.py     # LLM analysis orchestration
-│   │   │   └── format_utils.py         # Duration/size formatting
-│   │   └── models/                     # Pydantic data models
+│   ├── services/                       # Business logic layer
+│   │   ├── database_service.py         # SQLite queries
+│   │   ├── analysis_service.py         # LLM analysis orchestration
+│   │   ├── llm_providers.py            # LLM provider abstraction
+│   │   ├── gist_publisher.py           # GitHub Gist publishing
+│   │   └── format_utils.py             # Duration/size formatting
+│   ├── models/                         # Pydantic data models
+│   │   ├── database_models.py          # Project, Session, Message, ToolUse
+│   │   └── analysis_models.py          # AnalysisType, AnalysisResult
 │   ├── prompts/                        # Analysis prompt templates (Jinja2)
 │   └── scripts/                        # CLI scripts (import, search, analyze)
 ├── frontend/                           # React frontend

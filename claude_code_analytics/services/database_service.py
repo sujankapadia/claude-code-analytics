@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 # Add parent directory to path for imports
 from claude_code_analytics import config
-from claude_code_analytics.streamlit_app.models import (
+from claude_code_analytics.models import (
     Message,
     Project,
     ProjectSummary,
@@ -1749,8 +1749,8 @@ class DatabaseService:
         cursor.execute(
             """
             SELECT
-                CAST(strftime('%w', timestamp) AS INTEGER) as day_of_week,
-                CAST(strftime('%H', timestamp) AS INTEGER) as hour,
+                CAST(strftime('%w', datetime(timestamp, 'localtime')) AS INTEGER) as day_of_week,
+                CAST(strftime('%H', datetime(timestamp, 'localtime')) AS INTEGER) as hour,
                 COUNT(*) as message_count,
                 COUNT(DISTINCT session_id) as session_count
             FROM messages
