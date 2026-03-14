@@ -82,6 +82,7 @@ class ProjectSummary(BaseModel):
     total_tool_uses: int
     total_input_tokens: int = 0
     total_output_tokens: int = 0
+    total_cache_read_tokens: int = 0
 
     class Config:
         from_attributes = True

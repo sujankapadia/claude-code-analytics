@@ -107,7 +107,7 @@ export default function SessionsPage() {
                 if (v === "all") {
                   setSearchParams({});
                 } else {
-                  setSearchParams({ project_id: v });
+                  setSearchParams({ project_id: v ?? "" });
                 }
                 setSelectedId(null);
               }}

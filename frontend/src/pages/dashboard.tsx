@@ -187,14 +187,14 @@ export default function DashboardPage() {
                   Tool Uses
                 </th>
                 <th className="px-4 py-2 font-medium text-right">Tokens</th>
+                <th className="px-4 py-2 font-medium text-right">Input</th>
+                <th className="px-4 py-2 font-medium text-right">Output</th>
               </tr>
             </thead>
             <tbody>
               {sortedProjects?.map((p) => {
                 const shortName =
                   p.project_name.split("/").pop() ?? p.project_name;
-                const tokens =
-                  p.total_input_tokens + p.total_output_tokens;
                 return (
                   <tr
                     key={p.project_id}
@@ -219,7 +219,13 @@ export default function DashboardPage() {
                       {formatNumber(p.total_tool_uses)}
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums">
-                      {formatNumber(tokens)}
+                      {formatNumber(p.total_input_tokens + p.total_output_tokens)}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {formatNumber(p.total_input_tokens)}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {formatNumber(p.total_output_tokens)}
                     </td>
                   </tr>
                 );

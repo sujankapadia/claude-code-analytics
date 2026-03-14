@@ -2,16 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  BarChart3,
-  BrainCircuit,
-  FileText,
+  Bookmark,
   FolderOpen,
-  Home,
-  Import,
   MessageSquare,
   Search,
 } from "lucide-react";
-import { fetchProjects, fetchSessions, fetchSearch } from "@/api/client";
+import { fetchProjects, fetchSessions, fetchBookmarks } from "@/api/client";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +21,7 @@ interface CommandItem {
   sublabel?: string;
   icon: React.ReactNode;
   action: () => void;
+  group: "project" | "session" | "bookmark";
   score?: number;
 }
 
@@ -77,10 +74,15 @@ function fuzzyFilter(items: CommandItem[], query: string): CommandItem[] {
   return scored.map((s) => s.item);
 }
 
+const GROUP_LABELS: Record<string, string> = {
+  project: "Projects",
+  bookmark: "Bookmarks",
+  session: "Sessions",
+};
+
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -98,22 +100,10 @@ export function CommandPalette() {
     enabled: open,
   });
 
-  // Debounce query for FTS search (250ms)
-  useEffect(() => {
-    if (query.trim().length < 2) {
-      setDebouncedQuery("");
-      return;
-    }
-    const timer = setTimeout(() => setDebouncedQuery(query.trim()), 250);
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  // FTS backend search
-  const { data: searchResults } = useQuery({
-    queryKey: ["command-palette-search", debouncedQuery],
-    queryFn: () => fetchSearch({ q: debouncedQuery, per_page: 5 }),
-    enabled: open && debouncedQuery.length >= 2,
-    staleTime: 10_000,
+  const { data: bookmarks } = useQuery({
+    queryKey: ["bookmarks"],
+    queryFn: () => fetchBookmarks(),
+    enabled: open,
   });
 
   // Cmd+K to open
@@ -132,7 +122,6 @@ export function CommandPalette() {
   useEffect(() => {
     if (open) {
       setQuery("");
-      setDebouncedQuery("");
       setSelectedIdx(0);
       setTimeout(() => inputRef.current?.focus(), 0);
     }
@@ -147,51 +136,22 @@ export function CommandPalette() {
   );
 
   const items = useMemo<CommandItem[]>(() => {
-    const pages: CommandItem[] = [
-      {
-        id: "page-dashboard",
-        label: "Dashboard",
-        icon: <Home className="size-4" />,
-        action: () => go("/"),
-      },
-      {
-        id: "page-sessions",
-        label: "Sessions",
-        icon: <MessageSquare className="size-4" />,
-        action: () => go("/sessions"),
-      },
-      {
-        id: "page-search",
-        label: "Search",
-        icon: <Search className="size-4" />,
-        action: () => go("/search"),
-      },
-      {
-        id: "page-analytics",
-        label: "Analytics",
-        icon: <BarChart3 className="size-4" />,
-        action: () => go("/analytics"),
-      },
-      {
-        id: "page-analysis",
-        label: "Analysis",
-        icon: <BrainCircuit className="size-4" />,
-        action: () => go("/analysis"),
-      },
-      {
-        id: "page-import",
-        label: "Import",
-        icon: <Import className="size-4" />,
-        action: () => go("/import"),
-      },
-    ];
-
     const projectItems: CommandItem[] = (projects ?? []).map((p) => ({
       id: `project-${p.project_id}`,
       label: p.project_name.split("/").pop() ?? p.project_name,
       sublabel: `${p.total_sessions} sessions · ${p.total_messages} msgs`,
       icon: <FolderOpen className="size-4" />,
+      group: "project" as const,
       action: () => go(`/sessions?project_id=${p.project_id}`),
+    }));
+
+    const bookmarkItems: CommandItem[] = (bookmarks ?? []).map((b) => ({
+      id: `bookmark-${b.bookmark_id}`,
+      label: b.name,
+      sublabel: b.description || (b.project_name ? `${b.project_name.split("/").pop()}` : undefined),
+      icon: <Bookmark className="size-4" />,
+      group: "bookmark" as const,
+      action: () => go(`/sessions/${b.session_id}#msg-${b.message_index}`),
     }));
 
     const sessionItems: CommandItem[] = (sessions ?? []).slice(0, 20).map((s) => ({
@@ -199,42 +159,14 @@ export function CommandPalette() {
       label: s.session_id.slice(0, 8),
       sublabel: `${s.project_name.split("/").pop()} · ${s.message_count} msgs`,
       icon: <MessageSquare className="size-4" />,
+      group: "session" as const,
       action: () => go(`/sessions/${s.session_id}`),
     }));
 
-    return [...pages, ...projectItems, ...sessionItems];
-  }, [projects, sessions, go]);
+    return [...projectItems, ...bookmarkItems, ...sessionItems];
+  }, [projects, sessions, bookmarks, go]);
 
-  // FTS results as CommandItems
-  const ftsItems = useMemo<CommandItem[]>(() => {
-    if (!searchResults) return [];
-    const results: CommandItem[] = [];
-    for (const [sessionId, hits] of Object.entries(searchResults.results_by_session)) {
-      for (const hit of hits.slice(0, 2)) {
-        const snippet = hit.snippet
-          ? hit.snippet.slice(0, 80) + (hit.snippet.length > 80 ? "..." : "")
-          : hit.matched_content.slice(0, 80);
-        results.push({
-          id: `fts-${sessionId}-${hit.message_index}`,
-          label: snippet,
-          sublabel: `${hit.project_name.split("/").pop()} · ${hit.result_type}`,
-          icon: <FileText className="size-4" />,
-          action: () => go(`/sessions/${sessionId}#msg-${hit.message_index}`),
-        });
-      }
-      if (results.length >= 5) break;
-    }
-    return results;
-  }, [searchResults, go]);
-
-  const filtered = useMemo(() => {
-    const localResults = fuzzyFilter(items, query);
-    if (ftsItems.length === 0) return localResults;
-    // Combine: local results first, then FTS results (deduplicated)
-    const ftsIds = new Set(ftsItems.map((f) => f.id));
-    const combined = localResults.filter((r) => !ftsIds.has(r.id));
-    return [...combined, ...ftsItems];
-  }, [items, ftsItems, query]);
+  const filtered = useMemo(() => fuzzyFilter(items, query), [items, query]);
 
   // Clamp selection
   useEffect(() => {
@@ -243,7 +175,7 @@ export function CommandPalette() {
 
   // Scroll selected into view
   useEffect(() => {
-    const el = listRef.current?.children[selectedIdx] as HTMLElement | undefined;
+    const el = listRef.current?.querySelector(`[data-idx="${selectedIdx}"]`) as HTMLElement | undefined;
     el?.scrollIntoView({ block: "nearest" });
   }, [selectedIdx]);
 
@@ -260,9 +192,6 @@ export function CommandPalette() {
     }
   };
 
-  const hasFts = ftsItems.length > 0;
-  const localCount = filtered.length - ftsItems.length;
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-lg gap-0 overflow-hidden p-0">
@@ -277,7 +206,7 @@ export function CommandPalette() {
               setSelectedIdx(0);
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Type a command or search..."
+            placeholder="Search projects, bookmarks, sessions..."
             className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
           />
           <kbd className="ml-2 shrink-0 rounded border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
@@ -291,13 +220,13 @@ export function CommandPalette() {
             </p>
           )}
           {filtered.map((item, i) => {
-            // Show separator before FTS results
-            const isFtsStart = hasFts && i === localCount;
+            const prevGroup = i > 0 ? filtered[i - 1].group : null;
+            const showHeader = item.group !== prevGroup;
             return (
-              <div key={item.id}>
-                {isFtsStart && (
+              <div key={item.id} data-idx={i}>
+                {showHeader && (
                   <div className="px-3 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Content matches
+                    {GROUP_LABELS[item.group]}
                   </div>
                 )}
                 <button

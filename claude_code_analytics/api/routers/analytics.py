@@ -49,3 +49,33 @@ def get_activity_metrics(
 ):
     """Get aggregate activity and text volume metrics."""
     return db.get_aggregate_activity_metrics(project_id=project_id, idle_cap_seconds=idle_cap)
+
+
+@router.get("/activity/by-project")
+def get_activity_by_project(
+    idle_cap: int = 300,
+    db: DatabaseService = Depends(get_db_service),
+):
+    """Get activity metrics broken down by project."""
+    projects = db.get_project_summaries()
+    results = []
+    for p in projects:
+        metrics = db.get_aggregate_activity_metrics(
+            project_id=p.project_id, idle_cap_seconds=idle_cap
+        )
+        if metrics["session_count"] == 0:
+            continue
+        results.append(
+            {
+                "project_id": p.project_id,
+                "project_name": p.project_name,
+                "active_time_seconds": metrics["total_active_time_seconds"],
+                "wall_time_seconds": metrics["total_wall_time_seconds"],
+                "idle_ratio": metrics["overall_idle_ratio"],
+                "user_text_chars": metrics["total_user_text_chars"],
+                "assistant_text_chars": metrics["total_assistant_text_chars"],
+                "tool_output_chars": metrics["total_tool_output_chars"],
+                "session_count": metrics["session_count"],
+            }
+        )
+    return results

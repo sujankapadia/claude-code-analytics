@@ -126,14 +126,16 @@ SELECT
     COALESCE(SUM(s.message_count), 0) as total_messages,
     COALESCE(SUM(s.tool_use_count), 0) as total_tool_uses,
     COALESCE(SUM(m.total_input_tokens), 0) as total_input_tokens,
-    COALESCE(SUM(m.total_output_tokens), 0) as total_output_tokens
+    COALESCE(SUM(m.total_output_tokens), 0) as total_output_tokens,
+    COALESCE(SUM(m.total_cache_read_tokens), 0) as total_cache_read_tokens
 FROM
     projects p
     LEFT JOIN sessions s ON p.project_id = s.project_id
     LEFT JOIN (
         SELECT session_id,
                SUM(COALESCE(input_tokens, 0)) as total_input_tokens,
-               SUM(COALESCE(output_tokens, 0)) as total_output_tokens
+               SUM(COALESCE(output_tokens, 0)) as total_output_tokens,
+               SUM(COALESCE(cache_read_input_tokens, 0)) as total_cache_read_tokens
         FROM messages
         WHERE role = 'assistant'
         GROUP BY session_id

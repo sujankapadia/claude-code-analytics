@@ -97,7 +97,7 @@ export default function AnalysisPage() {
               <Select
                 value={projectId}
                 onValueChange={(v) => {
-                  setProjectId(v);
+                  setProjectId(v ?? "");
                   setSessionId("");
                 }}
               >
@@ -132,7 +132,7 @@ export default function AnalysisPage() {
               <label className="text-xs text-muted-foreground">
                 Analysis Type
               </label>
-              <Select value={analysisType} onValueChange={setAnalysisType}>
+              <Select value={analysisType} onValueChange={(v) => setAnalysisType(v ?? "")}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>

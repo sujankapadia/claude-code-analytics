@@ -7,15 +7,12 @@ import {
   fetchSessionTokens,
   fetchSessionActivity,
   fetchSessionTextVolume,
+  fetchSessionTokenTimeline,
 } from "@/api/client";
 import { ConversationViewer } from "@/components/conversation/conversation-viewer";
+import { TokenTimelineChart } from "@/components/charts/token-timeline-chart";
 import { Skeleton } from "@/components/ui/skeleton";
-
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return n.toString();
-}
+import { formatNumber } from "@/lib/format";
 
 export default function SessionDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -60,6 +57,12 @@ export default function SessionDetailPage() {
   const { data: textVolume } = useQuery({
     queryKey: ["session", id, "text-volume"],
     queryFn: () => fetchSessionTextVolume(id!),
+    enabled: !!id,
+  });
+
+  const { data: tokenTimeline } = useQuery({
+    queryKey: ["session", id, "token-timeline"],
+    queryFn: () => fetchSessionTokenTimeline(id!),
     enabled: !!id,
   });
 
@@ -114,6 +117,11 @@ export default function SessionDetailPage() {
         )}
       </div>
 
+      {/* Token timeline chart */}
+      {tokenTimeline && tokenTimeline.length > 1 && (
+        <TokenTimelineChart data={tokenTimeline} />
+      )}
+
       {/* Conversation Viewer */}
       {isLoading ? (
         <div className="space-y-3">
@@ -126,6 +134,7 @@ export default function SessionDetailPage() {
           toolUses={toolUses}
           tokens={tokens}
           initialIndex={initialIndex}
+          sessionId={id}
         />
       ) : null}
     </div>

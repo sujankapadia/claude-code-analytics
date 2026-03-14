@@ -1,5 +1,5 @@
-import { User, Bot } from "lucide-react";
-import type { Message, ToolUse } from "@/api/types";
+import { User, Bot, Bookmark, BookmarkCheck } from "lucide-react";
+import type { Message, ToolUse, Bookmark as BookmarkType } from "@/api/types";
 import { ToolCallCard } from "./tool-call-card";
 import { cn } from "@/lib/utils";
 
@@ -21,12 +21,18 @@ interface ConversationMessageProps {
   tools: ToolUse[];
   /** Index used for deep linking / scroll-to */
   index: number;
+  /** Existing bookmark for this message, if any */
+  bookmark?: BookmarkType;
+  /** Called when user wants to add/remove a bookmark */
+  onBookmarkToggle?: (messageIndex: number, existing?: BookmarkType) => void;
 }
 
 export function ConversationMessage({
   message,
   tools,
   index,
+  bookmark,
+  onBookmarkToggle,
 }: ConversationMessageProps) {
   const isUser = message.role === "user";
   const tokens =
@@ -58,11 +64,40 @@ export function ConversationMessage({
         <span className="text-xs text-muted-foreground">
           {formatTime(message.timestamp)}
         </span>
-        {tokens > 0 && (
-          <span className="ml-auto text-xs text-muted-foreground">
-            {formatTokens(tokens)} tokens
+
+        {/* Bookmark indicator */}
+        {bookmark && (
+          <span className="text-xs text-amber-500 font-medium truncate max-w-[200px]" title={bookmark.name}>
+            {bookmark.name}
           </span>
         )}
+
+        <span className="ml-auto flex items-center gap-2">
+          {/* Bookmark button — visible on hover or when bookmarked */}
+          {onBookmarkToggle && (
+            <button
+              onClick={() => onBookmarkToggle(message.message_index, bookmark)}
+              className={cn(
+                "transition-opacity",
+                bookmark
+                  ? "text-amber-500 opacity-100"
+                  : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-amber-500"
+              )}
+              title={bookmark ? "Edit bookmark" : "Bookmark this message"}
+            >
+              {bookmark ? (
+                <BookmarkCheck className="size-4" />
+              ) : (
+                <Bookmark className="size-4" />
+              )}
+            </button>
+          )}
+          {tokens > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {formatTokens(tokens)} tokens
+            </span>
+          )}
+        </span>
       </div>
 
       {/* Content */}

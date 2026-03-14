@@ -50,7 +50,7 @@ export function ConversationMinimap({
     >
       {/* Message density bars */}
       <div className="flex h-full flex-col">
-        {messages.map((msg, i) => {
+        {messages.map((msg) => {
           const toolCount = toolCountByIndex.get(msg.message_index) ?? 0;
           const isUser = msg.role === "user";
           // Height based on content length (clamped)

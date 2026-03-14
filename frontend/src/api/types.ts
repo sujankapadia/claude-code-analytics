@@ -10,6 +10,7 @@ export interface ProjectSummary {
   total_tool_uses: number;
   total_input_tokens: number;
   total_output_tokens: number;
+  total_cache_read_tokens: number;
 }
 
 export interface Project {
@@ -123,6 +124,18 @@ export interface McpStats {
   by_server: Array<{ mcp_server: string; total_uses: number; session_count: number }>;
 }
 
+export interface ProjectActivity {
+  project_id: string;
+  project_name: string;
+  active_time_seconds: number;
+  wall_time_seconds: number;
+  idle_ratio: number;
+  user_text_chars: number;
+  assistant_text_chars: number;
+  tool_output_chars: number;
+  session_count: number;
+}
+
 export interface AggregateActivity {
   total_active_time_seconds: number;
   total_wall_time_seconds: number;
@@ -183,6 +196,47 @@ export interface PublishResult {
 export interface SSEvent {
   type: string;
   [key: string]: unknown;
+}
+
+// -- Active Sessions --
+
+export interface ActiveSessionInfo {
+  pid: number;
+  tty: string;
+  project_name: string;
+  project_dir: string;
+  started_at: string;
+  duration_minutes: number;
+  status: "running";
+  recent_messages: string[];
+}
+
+export interface RecentSessionInfo {
+  session_id: string;
+  project_name: string;
+  ended_at: string;
+  ended_minutes_ago: number;
+  message_count: number;
+  first_user_message: string | null;
+}
+
+export interface ActiveSessionsResponse {
+  active: ActiveSessionInfo[];
+  recent: RecentSessionInfo[];
+}
+
+// -- Bookmarks --
+
+export interface Bookmark {
+  bookmark_id: number;
+  session_id: string;
+  message_index: number;
+  name: string;
+  description: string;
+  created_at: string;
+  project_name?: string;
+  message_snippet?: string | null;
+  message_role?: string | null;
 }
 
 // -- Examples --

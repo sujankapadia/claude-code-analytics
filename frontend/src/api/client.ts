@@ -1,16 +1,19 @@
 /** Typed API client for the FastAPI backend. */
 
 import type {
+  ActiveSessionsResponse,
   AggregateActivity,
   ActivityMetrics,
   AnalysisResult,
   AnalysisTypeInfo,
+  Bookmark,
   DailyStats,
   FindPromptsResponse,
   FindSessionsResponse,
   HeatmapCell,
   McpStats,
   Message,
+  ProjectActivity,
   ProjectSummary,
   Project,
   PublishResult,
@@ -98,6 +101,64 @@ export const fetchHeatmap = (days?: number) =>
 
 export const fetchActivityMetrics = (params?: { project_id?: string; idle_cap?: number }) =>
   get<AggregateActivity>("/analytics/activity", params);
+
+export const fetchActivityByProject = () =>
+  get<ProjectActivity[]>("/analytics/activity/by-project");
+
+// -- Active Sessions --
+
+export const fetchActiveSessions = (params?: { include_recent?: boolean; recent_minutes?: number }) =>
+  get<ActiveSessionsResponse>("/active-sessions", params as Record<string, string | number | undefined>);
+
+// -- Bookmarks --
+
+export const fetchBookmarks = (params?: { project_id?: string }) =>
+  get<Bookmark[]>("/bookmarks", params);
+
+export const fetchSessionBookmarks = (sessionId: string) =>
+  get<Bookmark[]>(`/bookmarks/by-session/${sessionId}`);
+
+export async function createBookmark(params: {
+  session_id: string;
+  message_index: number;
+  name: string;
+  description?: string;
+}): Promise<Bookmark> {
+  const res = await fetch(`${BASE}/bookmarks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`API ${res.status}: ${body}`);
+  }
+  return res.json() as Promise<Bookmark>;
+}
+
+export async function updateBookmark(
+  id: number,
+  params: { name?: string; description?: string },
+): Promise<Bookmark> {
+  const res = await fetch(`${BASE}/bookmarks/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`API ${res.status}: ${body}`);
+  }
+  return res.json() as Promise<Bookmark>;
+}
+
+export async function deleteBookmark(id: number): Promise<void> {
+  const res = await fetch(`${BASE}/bookmarks/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`API ${res.status}: ${body}`);
+  }
+}
 
 // -- Analysis --
 

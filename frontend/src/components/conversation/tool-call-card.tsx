@@ -146,14 +146,14 @@ export function ToolCallCard({ tool }: { tool: ToolUse }) {
         {tool.is_error && (
           <AlertTriangle className="size-3.5 text-red-500" />
         )}
-        {parsed && tool.tool_name === "Bash" && parsed.description && (
+        {parsed && tool.tool_name === "Bash" && typeof parsed.description === "string" && (
           <span className="truncate text-xs text-muted-foreground">
-            {parsed.description as string}
+            {parsed.description}
           </span>
         )}
-        {parsed && (tool.tool_name === "Read" || tool.tool_name === "Write" || tool.tool_name === "Edit") && parsed.file_path && (
+        {parsed && (tool.tool_name === "Read" || tool.tool_name === "Write" || tool.tool_name === "Edit") && typeof parsed.file_path === "string" && (
           <span className="truncate text-xs text-muted-foreground font-mono">
-            {(parsed.file_path as string).split("/").slice(-2).join("/")}
+            {parsed.file_path.split("/").slice(-2).join("/")}
           </span>
         )}
       </button>
