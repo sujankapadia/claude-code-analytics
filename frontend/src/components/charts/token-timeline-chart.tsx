@@ -17,16 +17,22 @@ export function TokenTimelineChart({
 }) {
   const [c1, c2, c3] = getChartColors();
 
-  const chartData = data.map((p, i) => ({
-    index: i,
-    timestamp: new Date(p.timestamp).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    cumulative: p.cumulative_tokens,
-    input: p.input_tokens,
-    output: p.output_tokens,
-  }));
+  let cumInput = 0;
+  let cumOutput = 0;
+  const chartData = data.map((p, i) => {
+    cumInput += p.input_tokens;
+    cumOutput += p.output_tokens;
+    return {
+      index: i,
+      timestamp: new Date(p.timestamp).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      cumulative: p.cumulative_tokens,
+      input: cumInput,
+      output: cumOutput,
+    };
+  });
 
   return (
     <div className="rounded-lg border bg-card p-4">
