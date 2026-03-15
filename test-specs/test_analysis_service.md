@@ -10,3 +10,10 @@ Refactor: update all references from `claude_code_analytics.streamlit_app.*` to 
 - Path construction in fixtures: `/ "streamlit_app"` -> `/ "services"`
 
 No behavior changes — pure import path refactor.
+
+## Changes (prompts path fix)
+Fix mock `__file__` paths after prompts directory resolution changed from
+`parent.parent.parent / "prompts"` to `parent.parent / "prompts"`.
+Remove extra `/ "services"` from mock file paths so `parent.parent` resolves
+to the temp `claude_code_analytics/` directory where `prompts/` lives.
+Also update fixture comment to reflect current directory structure.

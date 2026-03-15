@@ -68,9 +68,9 @@ class AnalysisService:
         Returns:
             Tuple of (metadata dict, jinja2 environment)
         """
-        # Get prompts directory (relative to project root)
-        project_root = Path(__file__).parent.parent.parent
-        prompts_dir = project_root / "prompts"
+        # Get prompts directory (relative to package root)
+        package_root = Path(__file__).parent.parent
+        prompts_dir = package_root / "prompts"
 
         # Load metadata
         metadata_file = prompts_dir / "metadata.yaml"
@@ -441,16 +441,16 @@ class AnalysisService:
             if not transcript.strip():
                 raise ValueError("No messages found in the specified time range")
         else:
-            # Use existing behavior: read from transcript file
-            transcript_path = self.get_transcript_path(session_id)
-            if not transcript_path:
+            # Entire session: read all messages from database
+            messages = self.db_service.get_messages_for_session(session_id)
+            tool_uses = self.db_service.get_tool_uses_for_session(session_id)
+
+            transcript = self.format_messages_simple(messages, tool_uses)
+
+            if not transcript.strip():
                 raise FileNotFoundError(
                     f"Could not find or generate transcript for session {session_id}"
                 )
-
-            # Read transcript
-            with open(transcript_path, encoding="utf-8") as f:
-                transcript = f.read()
 
         # Build prompt based on analysis type
         if analysis_type == AnalysisType.CUSTOM:

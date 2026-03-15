@@ -56,10 +56,9 @@ def temp_prompts_dir():
     # Create the directory structure expected by analysis_service.py:
     # temp_dir/
     #   claude_code_analytics/
-    #     streamlit_app/
-    #       services/
-    #         analysis_service.py (mocked location)
-    #     prompts/  (this is what we need - at project_root / "prompts")
+    #     services/
+    #       analysis_service.py (mocked __file__ location)
+    #     prompts/  (resolved via Path(__file__).parent.parent / "prompts")
     project_root = Path(temp_dir) / "claude_code_analytics"
     prompts_path = project_root / "prompts"
     prompts_path.mkdir(parents=True)
@@ -198,11 +197,7 @@ class TestAnalysisServiceInit:
         # temp_prompts_dir is the project root, so __file__ should be at:
         # temp_prompts_dir/claude_code_analytics/streamlit_app/services/analysis_service.py
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -212,11 +207,7 @@ class TestAnalysisServiceInit:
     def test_init_without_provider_with_env_var(self, temp_db, temp_prompts_dir):
         """Test initialization creates provider from environment."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with (
             patch.dict("os.environ", {"OPENROUTER_API_KEY": "sk-or-test"}, clear=False),
@@ -228,11 +219,7 @@ class TestAnalysisServiceInit:
     def test_api_key_property(self, mock_provider, temp_db, temp_prompts_dir):
         """Test api_key property for backwards compatibility."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -245,11 +232,7 @@ class TestPromptLoading:
     def test_load_prompts(self, mock_provider, temp_db, temp_prompts_dir):
         """Test loading prompts from metadata and templates."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with (
             patch.object(AnalysisService, "_load_prompts") as mock_load,
@@ -449,11 +432,7 @@ class TestGetMessagesAroundIndex:
     def test_get_messages_around_index_basic(self, mock_provider, temp_db, temp_prompts_dir):
         """Test getting messages around a specific index."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -469,11 +448,7 @@ class TestGetMessagesAroundIndex:
     def test_get_messages_around_index_at_start(self, mock_provider, temp_db, temp_prompts_dir):
         """Test getting messages around index at start of session."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -489,11 +464,7 @@ class TestGetMessagesAroundIndex:
     def test_get_messages_around_index_nonexistent(self, mock_provider, temp_db, temp_prompts_dir):
         """Test getting messages around nonexistent index raises error."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -508,11 +479,7 @@ class TestGetMessagesAroundIndex:
     ):
         """Test getting messages for empty session returns empty results."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -531,11 +498,7 @@ class TestAnalyzeSession:
     def test_analyze_session_with_search_hit_mode(self, mock_provider, temp_db, temp_prompts_dir):
         """Test analyzing session with search hit context mode."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -558,11 +521,7 @@ class TestAnalyzeSession:
     def test_analyze_session_with_time_filter_mode(self, mock_provider, temp_db, temp_prompts_dir):
         """Test analyzing session with time filter mode."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -586,11 +545,7 @@ class TestAnalyzeSession:
     ):
         """Test that CUSTOM analysis type requires custom_prompt."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -608,11 +563,7 @@ class TestAnalyzeSession:
     def test_analyze_session_with_custom_model(self, mock_provider, temp_db, temp_prompts_dir):
         """Test analyzing session with custom model."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -632,11 +583,7 @@ class TestAnalyzeSession:
     ):
         """Test analyzing session with time filter that excludes all messages."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -658,11 +605,7 @@ class TestAnalyzeSession:
     def test_analyze_session_search_hit_no_messages(self, mock_provider, temp_db, temp_prompts_dir):
         """Test analyzing session with message_index that has no messages around it."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -686,11 +629,7 @@ class TestGetTranscriptPath:
     def test_get_transcript_path_existing(self, mock_provider, temp_db, temp_prompts_dir):
         """Test getting transcript path when file exists."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
@@ -706,11 +645,7 @@ class TestGetTranscriptPath:
     ):
         """Test getting transcript path for nonexistent session returns None."""
         mock_file = str(
-            temp_prompts_dir
-            / "claude_code_analytics"
-            / "services"
-            / "services"
-            / "analysis_service.py"
+            temp_prompts_dir / "claude_code_analytics" / "services" / "analysis_service.py"
         )
         with patch("claude_code_analytics.services.analysis_service.__file__", mock_file):
             service = AnalysisService(provider=mock_provider, db_path=temp_db)
