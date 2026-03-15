@@ -3,8 +3,11 @@
 import asyncio
 import contextlib
 import json
+import logging
 import re
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -446,9 +449,10 @@ user_messages:
             lambda: analysis.provider.generate(prompt),
         )
     except Exception as e:
+        logger.exception("LLM provider error during example session ranking")
         raise HTTPException(
             status_code=502,
-            detail=f"LLM provider error: {e}",
+            detail="LLM provider error: unable to rank examples",
         ) from e
 
     # Step 5: Parse LLM response
@@ -684,6 +688,13 @@ async def find_example_prompts(
     # Cap at 30 candidates for LLM context
     candidates = candidates[:30]
 
+    if not candidates:
+        return FindPromptsResponse(
+            query=req.query,
+            prompts=[],
+            candidate_count=0,
+        )
+
     # Step 4: Format candidates for LLM — include full prompt text
     candidates_text = ""
     for i, c in enumerate(candidates, 1):
@@ -715,9 +726,10 @@ message_index: {c["message_index"]}
             lambda: analysis.provider.generate(prompt),
         )
     except Exception as e:
+        logger.exception("LLM provider error during example prompt ranking")
         raise HTTPException(
             status_code=502,
-            detail=f"LLM provider error: {e}",
+            detail="LLM provider error: unable to rank prompts",
         ) from e
 
     # Step 6: Parse LLM response

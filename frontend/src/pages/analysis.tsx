@@ -83,11 +83,22 @@ export default function AnalysisPage() {
   );
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  const [messageIndex] = useState<number | null>(() => {
+  const [messageIndex, setMessageIndex] = useState<number | null>(() => {
     const idx = searchParams.get("message_index");
     return idx ? parseInt(idx, 10) : null;
   });
   const [contextWindow, setContextWindow] = useState(20);
+
+  // Reset search-hit scope when session changes
+  useEffect(() => {
+    if (sessionId) {
+      setMessageIndex(null);
+      if (scopeMode === "search_hit") {
+        setScopeMode("entire");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   const { data: providerInfo } = useQuery({
     queryKey: ["analysis", "provider-info"],
@@ -604,7 +615,7 @@ function ModelCombobox({
   const canFetchModels = !!baseUrl && !isOpenRouter;
 
   const { data: remoteModels, isLoading: modelsLoading } = useQuery({
-    queryKey: ["analysis", "models", baseUrl, apiKey],
+    queryKey: ["analysis", "models", baseUrl],
     queryFn: () => fetchProviderModels({ base_url: baseUrl, api_key: apiKey || undefined }),
     enabled: canFetchModels,
     staleTime: 60_000,

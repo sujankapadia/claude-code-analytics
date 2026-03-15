@@ -30,7 +30,6 @@ interface ConversationMessageProps {
 export function ConversationMessage({
   message,
   tools,
-  index,
   bookmark,
   onBookmarkToggle,
 }: ConversationMessageProps) {
@@ -40,7 +39,7 @@ export function ConversationMessage({
 
   return (
     <div
-      id={`msg-${index}`}
+      id={`msg-${message.message_index}`}
       className={cn(
         "group px-4 py-3",
         isUser ? "bg-background" : "bg-muted/30"

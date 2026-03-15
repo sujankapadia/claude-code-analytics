@@ -109,13 +109,8 @@ fi
 # ── Install Python package ───────────────────────────────────────────
 
 echo "📦 Installing Python package and dependencies..."
-if command -v pip3 &> /dev/null; then
-    pip3 install -e "$SCRIPT_DIR"
-    echo -e "${GREEN}✓ Installed claude-code-analytics package${NC}"
-else
-    echo -e "${RED}Error: pip3 is required but not installed.${NC}"
-    exit 1
-fi
+python3 -m pip install -e "$SCRIPT_DIR"
+echo -e "${GREEN}✓ Installed claude-code-analytics package${NC}"
 
 # ── Build React frontend ─────────────────────────────────────────────
 

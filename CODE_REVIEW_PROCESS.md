@@ -29,7 +29,7 @@ When evaluating, consider:
 ### If fixing:
 
 1. Make the code change
-2. Add or update tests (see [Testing Guidance](#testing-guidance) below)
+2. Add or update tests (see [Testing Guidance](#4-testing-guidance) below)
 3. Run tests to verify nothing breaks
 4. Commit with `Fixes #N` in the commit message (auto-closes the issue on merge)
 5. Reply on the PR review comment confirming the fix with the commit SHA

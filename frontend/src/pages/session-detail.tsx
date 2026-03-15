@@ -34,13 +34,13 @@ export default function SessionDetailPage() {
     enabled: !!id,
   });
 
-  const { data: messages, isPending: msgsLoading } = useQuery({
+  const { data: messages, isPending: msgsLoading, error: msgsError } = useQuery({
     queryKey: ["session", id, "messages"],
     queryFn: () => fetchSessionMessages(id!),
     enabled: !!id,
   });
 
-  const { data: toolUses, isPending: toolsLoading } = useQuery({
+  const { data: toolUses, isPending: toolsLoading, error: toolsError } = useQuery({
     queryKey: ["session", id, "tool-uses"],
     queryFn: () => fetchSessionToolUses(id!),
     enabled: !!id,
@@ -83,9 +83,16 @@ export default function SessionDetailPage() {
   }
 
   const isLoading = msgsLoading || toolsLoading;
+  const dataError = msgsError || toolsError;
 
   return (
     <div className="space-y-4">
+      {dataError && (
+        <p className="text-sm text-destructive">
+          Failed to load conversation data: {(dataError as Error).message}
+        </p>
+      )}
+
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link to="/sessions" className="hover:underline">

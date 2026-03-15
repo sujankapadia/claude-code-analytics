@@ -27,6 +27,9 @@ class FileWatcher:
 
     async def start(self) -> None:
         """Run catch-up import for missed files, then start watching."""
+        if self._task is not None and not self._task.done():
+            logger.warning("File watcher already running, skipping duplicate start")
+            return
         await self._catchup_import()
         self._task = asyncio.create_task(self._watch())
 
