@@ -25,7 +25,8 @@ log "========== SessionEnd Hook Triggered =========="
 
 # Read JSON input from stdin
 INPUT=$(cat)
-log "Raw input received (first 500 chars): ${INPUT:0:500}"
+
+log "Input received (${#INPUT} chars)"
 
 # Extract the transcript path and session info
 TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path')

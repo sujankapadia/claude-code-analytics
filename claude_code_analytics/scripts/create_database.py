@@ -116,7 +116,8 @@ CREATE INDEX IF NOT EXISTS idx_tool_uses_is_error ON tool_uses(is_error);
 -- ============================================================================
 
 -- Project summary view - aggregated statistics per project
-CREATE VIEW IF NOT EXISTS project_summary AS
+DROP VIEW IF EXISTS project_summary;
+CREATE VIEW project_summary AS
 SELECT
     p.project_id,
     p.project_name,
@@ -126,14 +127,16 @@ SELECT
     COALESCE(SUM(s.message_count), 0) as total_messages,
     COALESCE(SUM(s.tool_use_count), 0) as total_tool_uses,
     COALESCE(SUM(m.total_input_tokens), 0) as total_input_tokens,
-    COALESCE(SUM(m.total_output_tokens), 0) as total_output_tokens
+    COALESCE(SUM(m.total_output_tokens), 0) as total_output_tokens,
+    COALESCE(SUM(m.total_cache_read_tokens), 0) as total_cache_read_tokens
 FROM
     projects p
     LEFT JOIN sessions s ON p.project_id = s.project_id
     LEFT JOIN (
         SELECT session_id,
                SUM(COALESCE(input_tokens, 0)) as total_input_tokens,
-               SUM(COALESCE(output_tokens, 0)) as total_output_tokens
+               SUM(COALESCE(output_tokens, 0)) as total_output_tokens,
+               SUM(COALESCE(cache_read_input_tokens, 0)) as total_cache_read_tokens
         FROM messages
         WHERE role = 'assistant'
         GROUP BY session_id
@@ -142,7 +145,8 @@ GROUP BY
     p.project_id, p.project_name;
 
 -- Session summary view - detailed statistics per session
-CREATE VIEW IF NOT EXISTS session_summary AS
+DROP VIEW IF EXISTS session_summary;
+CREATE VIEW session_summary AS
 SELECT
     s.session_id,
     s.project_id,
@@ -153,7 +157,11 @@ SELECT
     s.message_count,
     s.tool_use_count,
     COUNT(DISTINCT CASE WHEN m.role = 'user' THEN m.message_id END) as user_message_count,
-    COUNT(DISTINCT CASE WHEN m.role = 'assistant' THEN m.message_id END) as assistant_message_count
+    COUNT(DISTINCT CASE WHEN m.role = 'assistant' THEN m.message_id END) as assistant_message_count,
+    (SELECT SUBSTR(m2.content, 1, 200)
+     FROM messages m2
+     WHERE m2.session_id = s.session_id AND m2.role = 'user'
+     ORDER BY m2.message_index ASC LIMIT 1) as first_user_message
 FROM
     sessions s
     INNER JOIN projects p ON s.project_id = p.project_id
@@ -162,7 +170,8 @@ GROUP BY
     s.session_id;
 
 -- Tool usage summary - statistics by tool name
-CREATE VIEW IF NOT EXISTS tool_usage_summary AS
+DROP VIEW IF EXISTS tool_usage_summary;
+CREATE VIEW tool_usage_summary AS
 SELECT
     tool_name,
     COUNT(*) as total_uses,

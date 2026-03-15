@@ -11,6 +11,9 @@ NC='\033[0m' # No Color
 echo "🗑️  Uninstalling claude-code-analytics..."
 echo ""
 
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 # Target directories
 CLAUDE_DIR="$HOME/.claude"
 SCRIPTS_DIR="$CLAUDE_DIR/scripts"
@@ -78,6 +81,7 @@ echo ""
 if [ "$REMOVE_PACKAGE" = true ]; then
     echo "  ✓ Python package (claude-code-analytics)"
     echo "  ✓ CLI commands (claude-code-analytics, claude-code-import, etc.)"
+    echo "  ✓ Frontend build artifacts (frontend/dist/, frontend/node_modules/)"
 fi
 if [ "$REMOVE_HOOKS" = true ]; then
     echo "  ✓ Hook scripts from ~/.claude/scripts/"
@@ -122,6 +126,17 @@ if [ "$REMOVE_PACKAGE" = true ]; then
             brew uninstall claude-code-analytics
             echo -e "${GREEN}✓ Uninstalled Homebrew package${NC}"
         fi
+    fi
+
+    # Clean frontend build artifacts
+    FRONTEND_DIR="$SCRIPT_DIR/frontend"
+    if [ -d "$FRONTEND_DIR/dist" ]; then
+        rm -rf "$FRONTEND_DIR/dist"
+        echo -e "${GREEN}✓ Removed frontend build (frontend/dist/)${NC}"
+    fi
+    if [ -d "$FRONTEND_DIR/node_modules" ]; then
+        rm -rf "$FRONTEND_DIR/node_modules"
+        echo -e "${GREEN}✓ Removed frontend dependencies (frontend/node_modules/)${NC}"
     fi
 fi
 

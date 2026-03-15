@@ -1,11 +1,22 @@
 # Exported conversation transcripts
 claude-code-conversations/
+*.db
 
 # Environment variables
 .env
 
 # Playwright MCP test artifacts
 .playwright-mcp/
+*.png
+
+# Claude Code local state
+.claude/
+
+# Generated reports
+reports/
+
+# Test coverage
+.coverage
 
 # Python
 __pycache__/

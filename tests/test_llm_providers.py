@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from claude_code_analytics.streamlit_app.services.llm_providers import (
+from claude_code_analytics.services.llm_providers import (
     GeminiProvider,
     LLMProvider,
     LLMResponse,
@@ -206,16 +206,22 @@ class TestOpenRouterProvider:
         with pytest.raises(ValueError) as exc_info:
             provider.generate("Test prompt")
 
-        assert "OpenRouter API error" in str(exc_info.value)
+        assert "API error" in str(exc_info.value)
         assert "401" in str(exc_info.value)
 
-    def test_openrouter_provider_generate_no_api_key(self):
-        """Test OpenRouterProvider.generate() raises error when API key is missing."""
+    @patch("requests.post")
+    def test_openrouter_provider_generate_no_api_key(self, mock_post):
+        """Test OpenRouterProvider.generate() with empty API key gets auth error."""
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.text = "Unauthorized"
+        mock_post.return_value = mock_response
+
         provider = OpenRouterProvider(api_key="")
         with pytest.raises(ValueError) as exc_info:
             provider.generate("Test prompt")
 
-        assert "API key is not set" in str(exc_info.value)
+        assert "401" in str(exc_info.value)
 
     @patch("requests.post")
     def test_openrouter_provider_generate_with_temperature(self, mock_post):
@@ -251,7 +257,9 @@ class TestOpenRouterProvider:
         assert len(models) == 2
         assert models[0]["id"] == "model1"
         assert models[1]["id"] == "model2"
-        mock_get.assert_called_once_with("https://openrouter.ai/api/v1/models", timeout=30)
+        mock_get.assert_called_once_with(
+            "https://openrouter.ai/api/v1/models", headers={}, timeout=30
+        )
 
     @patch("requests.get")
     def test_openrouter_fetch_all_models_error(self, mock_get):
@@ -324,14 +332,12 @@ class TestCreateProvider:
             provider = create_provider(default_model="custom-model")
             assert provider.default_model == "custom-model"
 
-    def test_create_provider_invalid_openrouter_key_format(self):
-        """Test create_provider raises error for invalid OpenRouter key format."""
+    def test_create_provider_any_openrouter_key_format(self):
+        """Test create_provider accepts any non-empty key (no format validation)."""
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError) as exc_info:
-                create_provider(openrouter_api_key="invalid-key")
-
-            assert "Invalid OpenRouter API key format" in str(exc_info.value)
-            assert "sk-or-" in str(exc_info.value)
+            provider = create_provider(openrouter_api_key="any-key-format")
+            assert isinstance(provider, OpenRouterProvider)
+            assert provider.api_key == "any-key-format"
 
     def test_create_provider_valid_openrouter_key_format(self):
         """Test create_provider accepts valid OpenRouter key format."""

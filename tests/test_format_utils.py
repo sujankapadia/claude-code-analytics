@@ -1,6 +1,6 @@
 """Tests for format_utils module."""
 
-from claude_code_analytics.streamlit_app.services.format_utils import (
+from claude_code_analytics.services.format_utils import (
     format_char_count,
     format_duration,
     format_percentage,

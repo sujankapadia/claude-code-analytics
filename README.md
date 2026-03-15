@@ -5,15 +5,17 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A analysis tool for [Claude Code](https://claude.com/claude-code) that automatically captures, archives, and analyzes your AI development conversations. Features an interactive dashboard, full-text search, and AI-powered insights across all your sessions.
+An analysis tool for [Claude Code](https://claude.com/claude-code) that automatically captures, archives, and analyzes your AI development conversations. Features a React dashboard with real-time updates, full-text search, AI-powered insights, and natural language prompt discovery across all your sessions.
 
 ## What It Does
 
 Claude Code Analytics transforms your AI development workflow into actionable insights:
 - **Automatically captures** every conversation when you exit Claude Code
-- **Stores and indexes** conversations in a searchable SQLite database
-- **Provides an interactive dashboard** to explore patterns, tool usage, and decisions
-- **Enables AI-powered analysis** of your development sessions using 300+ LLM models
+- **Real-time import** — a file watcher detects new sessions and imports them instantly, with SSE push to the UI
+- **Stores and indexes** conversations in a searchable SQLite database with FTS5
+- **React dashboard** — modern SPA with virtual scrolling, command palette (Cmd+K), and dark mode
+- **Find Examples** — ask "How do I use Playwright to test a component?" and get shareable prompts from your history
+- **AI-powered analysis** of your development sessions using 300+ LLM models
 
 ## Prerequisites
 
@@ -21,7 +23,10 @@ Before installing, you need:
 
 - **[Claude Code](https://claude.com/claude-code)** - The AI coding assistant (this tool captures its conversations)
 - **Python 3.9+** - Check with `python3 --version`
-- **jq** - JSON processor for installation script
+- **Node.js 18+** and **npm** - Check with `node -v` and `npm -v`
+  - macOS: `brew install node`
+  - Linux: See [nodejs.org](https://nodejs.org)
+- **jq** - JSON processor for installation script (optional but recommended)
   - macOS: `brew install jq`
   - Linux: `apt-get install jq` or `yum install jq`
 
@@ -51,6 +56,7 @@ cd claude-code-analytics
 
 The installer automatically:
 - Installs the Python package and all dependencies
+- Builds the React frontend (`npm install && npm run build`)
 - Sets up hooks to capture conversations
 - Creates the CLI commands
 - Configures Claude Code settings
@@ -63,13 +69,13 @@ claude-code-import
 
 This creates the database, imports all existing conversations, and builds the search index.
 
-### 3. Launch Dashboard
+### 3. Launch the App
 
 ```bash
 claude-code-analytics
 ```
 
-The dashboard opens at `http://localhost:8501`. Start exploring your conversations!
+Open `http://localhost:8000` in your browser. The API server auto-imports new sessions via a file watcher and pushes updates to the UI in real time.
 
 ### 4. (Optional) Configure AI Analysis
 
@@ -104,35 +110,29 @@ That's it! New conversations will be automatically captured when you exit Claude
 
 ## Key Features
 
-### 📊 Interactive Dashboard
+### ⚛️ React Dashboard
 
-The Streamlit-based dashboard is your primary interface for exploring conversations:
+A modern single-page application with real-time updates:
 
-- **Session Browser** - View, filter, and navigate all your Claude Code sessions with pagination support, session-level activity metrics (active time, text volume), and project-level aggregate totals
-- **Conversation Viewer** - Terminal-style interface that faithfully recreates your sessions:
-  - Inline tool calls and results
-  - Role-based filtering (user/assistant)
-  - Content search within sessions
-  - Token usage display
-  - Deep linking to specific messages from search results
-- **Analytics Dashboard** - Visual insights into your development patterns:
-  - Messages and token usage over time
-  - Tool usage distribution and error rates
-  - Project statistics (sessions, messages, tool uses, activity timeline)
-  - Daily activity trends
-  - Activity & volume metrics (active time, text volume ratios, per-project breakdown)
-- **Full-Text Search** - FTS5-powered search across all messages, tool inputs, and tool results:
-  - Scope filtering (messages, tool inputs/results)
-  - Project and date range filters
-  - Highlighted search results with context
-  - Direct navigation to matching messages
-  - MCP tool usage analysis
-- **AI-Powered Analysis** - Run sophisticated analysis on any session:
-  - Technical decisions extraction
-  - Error pattern analysis
-  - AI agent usage patterns
-  - Custom analysis with your own prompts
-  - 300+ model selection via OpenRouter or Gemini
+- **Dashboard** — KPI cards, daily activity charts, activity heatmap (day × hour), projects table
+- **Sessions** — Split-view with searchable session list (first user message preview) and detail pane
+- **Conversation Viewer** — Virtual scrolling for 1000+ message sessions, collapsible tool cards, minimap navigation, in-conversation search (Cmd+F), role filtering (All/User/Assistant), token usage bar
+- **Search** — FTS5 search with scope tabs (All/Messages/Tool Input/Tool Results), project/tool filters, search history, keyboard navigation
+- **Analytics** — Tool usage distribution, MCP server stats, daily trend charts
+- **Analysis** — LLM-powered session analysis with scoping (entire session, time range, or search hit context), searchable session picker, Gist publishing
+- **Find Examples** — Natural language discovery of prompts and sessions (FTS + LLM ranking)
+- **Command Palette** — Cmd+K for quick navigation across pages, projects, sessions, and content search
+- **Real-time updates** — File watcher auto-imports new sessions, SSE pushes updates to the UI
+
+### 🔎 Find Examples
+
+Answer "How do I use Playwright to test a component?" by searching your conversation history:
+
+- **Prompts mode** — Finds specific user messages you can copy and share as templates
+- **Sessions mode** — Finds sessions where a technique or workflow was demonstrated
+- FTS keyword extraction + tool name pattern detection narrows to ~20-30 candidates
+- LLM ranks for relevance (~3-8k tokens per query, minimal cost)
+- Copy button for instant sharing, deep links to source conversations
 
 ### 🔍 Search & Discovery
 
@@ -179,52 +179,21 @@ The Streamlit-based dashboard is your primary interface for exploring conversati
 - **Project insights** - Compare activity levels across different projects
 - **Activity metrics** - Active time per session (idle gaps capped at 5 min), text volume ratios (user vs assistant including tool text), per-project breakdowns
 
-## Quick Start
+## Development
 
-### 1. Install
+### Running in Development Mode
 
-```bash
-git clone https://github.com/yourusername/claude-code-analytics.git
-cd claude-code-analytics
-./install.sh
-```
-
-The installer sets up hooks, creates directories, and configures Claude Code to automatically export conversations.
-
-### 2. Create Database
+For frontend development with hot-reload:
 
 ```bash
-# Create database schema
-python3 scripts/create_database.py
+# Terminal 1: Start the API server with auto-reload
+claude-code-api --reload
 
-# Import existing conversations
-python3 scripts/import_conversations.py
-
-# Create search index
-python3 scripts/create_fts_index.py
+# Terminal 2: Start the React dev server (proxies /api to port 8000)
+cd frontend && npm run dev
 ```
 
-### 3. Launch Dashboard
-
-```bash
-./run_dashboard.sh
-```
-
-The dashboard opens at `http://localhost:8501`. Start exploring your conversations!
-
-### 4. (Optional) Configure AI Analysis
-
-To use AI-powered analysis features:
-
-```bash
-# Option 1: OpenRouter (300+ models)
-export OPENROUTER_API_KEY="sk-or-your-key-here"
-
-# Option 2: Google Gemini (direct)
-export GOOGLE_API_KEY="your-api-key-here"
-```
-
-Get API keys from [OpenRouter](https://openrouter.ai/keys) or [Google AI Studio](https://aistudio.google.com/app/apikey).
+The dev server runs at `http://localhost:5173` with hot module replacement.
 
 ## Configuration
 
@@ -373,7 +342,7 @@ You can override configuration file settings using environment variables:
 ```bash
 # Temporary override for this session
 export OPENROUTER_MODEL="anthropic/claude-sonnet-4.5"
-./run_dashboard.sh
+claude-code-analytics
 
 # Permanent override in shell profile (~/.bashrc, ~/.zshrc)
 echo 'export OPENROUTER_API_KEY="sk-or-your-key"' >> ~/.zshrc
@@ -383,70 +352,50 @@ echo 'export OPENROUTER_API_KEY="sk-or-your-key"' >> ~/.zshrc
 
 For a complete list of all configuration variables with documentation, see [`.env.example`](.env.example) in the repository.
 
-## Using the Dashboard
+## Using the App
 
-### Browse Sessions
+### Sessions
 
-The **Browse Sessions** page shows all your conversations:
-- Filter by project, date range, or minimum message count
-- Sort by date or activity level
-- Pagination for large conversation histories
-- Click any session to view full conversation
-- Session activity metrics: active time, message counts, text volume ratios
-- Project-level totals: aggregate active time, average per session, total text volume
+The **Sessions** page shows all your conversations in a split-view layout:
+- Searchable session list with first user message preview
+- Detail pane with stats cards (messages, tokens, duration)
+- Filter by project
+- Click to view the full conversation
 
-### Search Conversations
+### Conversation Viewer
 
-The **Search** page provides powerful full-text search:
-- Search across messages, tool inputs, or tool results
-- Filter by project, date range, or specific tools
-- View MCP tool usage statistics
-- Click search results to jump directly to matching messages in context
+The conversation viewer handles sessions with 1000+ messages:
+- Virtual scrolling for performance
+- Collapsible tool cards with syntax highlighting
+- Minimap navigation for quick jumping
+- In-conversation search (Cmd+F)
+- Role filter (All / User / Assistant)
+- Token usage bar
 
-### View Analytics
+### Search
 
-The **Analytics Dashboard** provides visual insights:
-- **Tool Usage** - Distribution of top 10 tools, error rates, and session usage
-- **Daily Activity** - Messages, tokens, and sessions over time (configurable time range)
-- **Token Usage** - Input vs output tokens with stacked area chart
-- **Project Statistics** - Sessions, messages, tool uses, and activity timeline per project (sorted by message volume)
-- **Activity & Volume Metrics** - Total active time, average per session, text volume (user vs assistant with ratios), per-project breakdown table and bar chart
+FTS5-powered search across all messages and tool content:
+- Scope tabs: All, Messages, Tool Input, Tool Results
+- Project and tool name filters
+- Search history with keyboard navigation
+- Click results to jump directly to the matching message in context
+- "Analyze" button to run scoped analysis on any search hit
 
-### Run AI Analysis
+### Analytics
 
-The **AI Analysis** page lets you analyze sessions with LLMs:
-1. Select a session from the dropdown
-2. Choose analysis type or write custom prompt
-3. Select model (browse 300+ options or pick from curated list)
-4. Adjust temperature (default: 0.1 for deterministic analysis)
-5. Run analysis and optionally export to markdown
+Visual insights into your development patterns:
+- Tool usage distribution, error rates, session usage
+- Daily activity trends (messages, tokens, sessions)
+- MCP server stats
+- Project statistics
+### AI Analysis
 
-### Publish to GitHub Gists
-
-After running an analysis, you can publish your results as a GitHub Gist with automatic security scanning:
-
-1. **Configure GitHub Token** - Add `GITHUB_TOKEN` to `~/.config/claude-code-analytics/.env`
-2. **Run Analysis** - Complete an analysis on any session
-3. **Configure Gist Options**:
-   - Choose visibility (Secret/unlisted or Public)
-   - Optionally include raw session transcript
-   - Customize gist description
-4. **Scan & Publish** - Click "Scan & Publish to Gist" button
-5. **Review Results**:
-   - ✅ **Safe**: Gist is published with URL and scan summary
-   - ❌ **Blocked**: Security findings prevent publication (review and remove sensitive data)
-
-**Security Scanning**:
-- **Gitleaks** - Detects 350+ secret patterns (API keys, tokens, credentials)
-- **Regex Patterns** - Catches PII (emails, phone numbers, SSNs, credit cards)
-- **Severity Levels**:
-  - CRITICAL/HIGH → Blocks publication
-  - MEDIUM/LOW → Informational warnings only
-
-The gist includes:
-- Analysis result with full metadata and traceability
-- Optional session transcript
-- Auto-generated README with tool attribution
+Analyze sessions with 300+ LLM models:
+1. Select a session from the searchable picker
+2. Choose scope: entire session, time range, or search hit context
+3. Choose analysis type or write a custom prompt
+4. Select model and run analysis
+5. Optionally publish to GitHub Gist (with automatic security scanning)
 
 ## Advanced Usage
 
@@ -544,25 +493,30 @@ Claude Code Session
        ↓
 SessionEnd Hook (export-conversation.sh)
        ↓
-~/claude-conversations/
-  ├── project-name/
-  │   ├── session-YYYYMMDD-HHMMSS.jsonl  (raw data)
-  │   └── session-YYYYMMDD-HHMMSS.txt    (readable format)
-       ↓
-Import Script (import_conversations.py)
-       ↓
+~/.claude/projects/{encoded-path}/
+  └── session-uuid.jsonl
+       ↓                          ↓
+File Watcher (auto)         Import Script (manual)
+       ↓                          ↓
 SQLite Database (conversations.db)
   ├── projects
   ├── sessions
   ├── messages
   ├── tool_uses
-  └── fts_messages (full-text search index)
+  └── fts_messages / fts_tool_uses (FTS5)
        ↓
-Streamlit Dashboard
-  ├── Browse & filter sessions
-  ├── Search conversations
-  ├── View analytics
-  └── Run AI analysis
+FastAPI + React (port 8000)
+  ├── REST API (/api/*)
+  ├── SSE Events (/api/events)
+  └── React SPA (static files)
+       ↓
+  ├── Dashboard
+  ├── Sessions
+  ├── Search
+  ├── Analytics
+  ├── Analysis
+  ├── Find Examples
+  └── Import
 ```
 
 ### Hook System
@@ -705,13 +659,14 @@ Add to `~/.claude/settings.json`:
 
 If you have existing hooks, merge the `SessionEnd` entry into your existing `hooks` object.
 
-#### 4. Install Python package and dependencies
+#### 4. Install Python package and build frontend
 
 ```bash
 # From the repository directory
 pip install -e .
 
-# This installs the package and all dependencies, and creates the CLI commands
+# Build the React frontend
+cd frontend && npm install && npm run build && cd ..
 ```
 
 ### Troubleshooting
@@ -744,53 +699,57 @@ If database import fails:
 - Ensure Python 3.9+ is installed
 - Run with verbose output: `claude-code-import -v`
 
-#### Dashboard not launching
+#### App not launching
 
-- Install dependencies: `pip install streamlit pandas altair`
-- Check port 8501 is available
-- Try alternate port: `streamlit run streamlit_app/app.py --server.port=8502`
+- Ensure the frontend is built: `cd frontend && npm install && npm run build`
+- Check port 8000 is available: `lsof -ti:8000`
+- Try alternate port: `claude-code-api --port 8001`
 
 ## Project Structure
 
 ```
 claude-code-analytics/
-├── hooks/
-│   └── export-conversation.sh       # SessionEnd hook for auto-export
-├── scripts/
-│   ├── pretty-print-transcript.py   # Convert JSONL to readable text
-│   ├── create_database.py           # Create SQLite database schema
-│   ├── import_conversations.py      # Import conversations to database
-│   ├── create_fts_index.py          # Create full-text search index
-│   ├── search_fts.py                # CLI search tool
-│   └── analyze_session.py           # CLI analysis tool
-├── streamlit_app/
-│   ├── app.py                       # Dashboard entry point
-│   ├── models/                      # Pydantic data models
-│   │   └── __init__.py
-│   ├── services/                    # Business logic layer
-│   │   ├── database_service.py
-│   │   └── format_utils.py
-│   └── pages/                       # Dashboard pages
-│       ├── browser.py               # Session browser
-│       ├── conversation.py          # Conversation viewer
-│       ├── search.py                # Full-text search
-│       ├── analytics.py             # Analytics dashboard
-│       └── ai_analysis.py           # AI-powered analysis
-├── prompts/                         # Analysis prompt templates
-│   ├── metadata.yaml                # Analysis type definitions
-│   ├── decisions.md                 # Technical decisions prompt
-│   ├── errors.md                    # Error patterns prompt
-│   └── agent_usage.md               # AI agent usage analysis
-├── docs/                            # Documentation
-│   ├── index.html                   # Landing page (GitHub Pages)
-│   └── technical/                   # Technical documentation
-│       ├── agent-knowledge-retention.md
-│       ├── deep-linking-implementation.md
-│       ├── mcp-server-analytics.md
-│       └── search-feature-requirements.md
-├── install.sh                       # Automated installer
-├── run_dashboard.sh                 # Dashboard launcher
-└── README.md                        # This file
+├── claude_code_analytics/
+│   ├── api/                            # FastAPI backend
+│   │   ├── app.py                      # App factory, CORS, lifespan
+│   │   ├── dependencies.py             # DI for database & analysis services
+│   │   ├── routers/                    # API endpoints
+│   │   │   ├── projects.py             # GET /projects
+│   │   │   ├── sessions.py             # GET /sessions, messages, tokens, etc.
+│   │   │   ├── search.py               # GET /search (FTS5)
+│   │   │   ├── analytics.py            # GET /analytics (daily, tools, heatmap)
+│   │   │   ├── analysis.py             # POST /analysis/run, /analysis/publish
+│   │   │   ├── examples.py             # POST /examples/prompts, /examples/sessions
+│   │   │   ├── import_data.py          # POST /import (SSE progress)
+│   │   │   └── events.py               # GET /events (SSE stream)
+│   │   └── services/                   # Background services
+│   │       ├── event_bus.py            # Async fan-out for SSE
+│   │       ├── file_watcher.py         # watchfiles-based auto-import
+│   │       └── import_service.py       # Incremental import with FTS updates
+│   ├── services/                       # Business logic layer
+│   │   ├── database_service.py         # SQLite queries
+│   │   ├── analysis_service.py         # LLM analysis orchestration
+│   │   ├── llm_providers.py            # LLM provider abstraction
+│   │   ├── gist_publisher.py           # GitHub Gist publishing
+│   │   └── format_utils.py             # Duration/size formatting
+│   ├── models/                         # Pydantic data models
+│   │   ├── database_models.py          # Project, Session, Message, ToolUse
+│   │   └── analysis_models.py          # AnalysisType, AnalysisResult
+│   ├── prompts/                        # Analysis prompt templates (Jinja2)
+│   └── scripts/                        # CLI scripts (import, search, analyze)
+├── frontend/                           # React frontend
+│   ├── src/
+│   │   ├── api/                        # Typed API client + response types
+│   │   ├── components/                 # UI components (sidebar, conversation viewer, etc.)
+│   │   ├── hooks/                      # SSE hook for real-time updates
+│   │   └── pages/                      # Route pages (dashboard, sessions, search, etc.)
+│   └── package.json
+├── hooks/                              # Claude Code SessionEnd hook
+│   └── export-conversation.sh
+├── docs/                               # Documentation + proposals
+├── install.sh                          # Automated installer
+├── uninstall.sh                        # Clean removal script
+└── README.md
 ```
 
 ## Documentation
@@ -886,13 +845,11 @@ logger.warning("Interrupted by user")
 
 ## Future Roadmap
 
+- **Copyable excerpts** - Select message ranges and copy as formatted markdown for sharing
+- **Session tags** - Auto-tag sessions by workflow type for browsable discovery
 - **Vector embeddings** - Semantic search across conversations
 - **Cost tracking** - Monitor LLM API costs per analysis
-- **Model comparison** - A/B test analysis quality across models
 - **Export formats** - HTML, PDF conversation exports
-- **Real-time analysis** - Analyze conversations as they happen
-- **Cloud sync** - Optional backup to cloud storage
-- **Presidio integration** - Advanced PII detection with entity recognition
 
 ## Contributing
 
