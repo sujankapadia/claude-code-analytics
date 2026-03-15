@@ -366,7 +366,7 @@ class AnalysisService:
 
         # Run pretty-print script
         pretty_print_script = (
-            Path(__file__).parent.parent.parent / "scripts" / "pretty-print-transcript.py"
+            Path(__file__).parent.parent.parent / "hooks" / "pretty-print-transcript.py"
         )
 
         try:
