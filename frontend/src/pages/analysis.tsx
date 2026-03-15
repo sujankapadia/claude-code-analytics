@@ -89,14 +89,16 @@ export default function AnalysisPage() {
   });
   const [contextWindow, setContextWindow] = useState(20);
 
-  // Reset search-hit scope when session changes
+  // Reset search-hit scope when session changes (skip initial mount)
+  const initialSessionRef = useRef(sessionId);
   useEffect(() => {
-    if (sessionId) {
+    if (sessionId && sessionId !== initialSessionRef.current) {
       setMessageIndex(null);
       if (scopeMode === "search_hit") {
         setScopeMode("entire");
       }
     }
+    initialSessionRef.current = sessionId;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
