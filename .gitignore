@@ -9,6 +9,15 @@ claude-code-conversations/
 .playwright-mcp/
 *.png
 
+# Claude Code local state
+.claude/
+
+# Generated reports
+reports/
+
+# Test coverage
+.coverage
+
 # Python
 __pycache__/
 *.py[cod]
