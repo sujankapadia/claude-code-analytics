@@ -3,6 +3,7 @@
 Provides incremental import with inline FTS updates (no full rebuild needed).
 """
 
+import contextlib
 import json
 import logging
 import sqlite3
@@ -269,6 +270,34 @@ def import_single_session(
                         )
                     except sqlite3.OperationalError:
                         break
+
+        # Backfill tool results for previously-imported tool uses
+        if is_incremental and tool_results:
+            for tool_id, result_data in tool_results.items():
+                if tool_id not in tool_uses:
+                    result_content = extract_tool_result_content(result_data.get("content", ""))
+                    cursor.execute(
+                        "UPDATE tool_uses SET tool_result = ?, is_error = ? "
+                        "WHERE tool_use_id = ? AND (tool_result IS NULL OR tool_result = '')",
+                        (
+                            result_content,
+                            result_data.get("is_error", False),
+                            tool_id,
+                        ),
+                    )
+                    # Update FTS entry too
+                    if cursor.rowcount > 0:
+                        cursor.execute(
+                            "SELECT rowid FROM tool_uses WHERE tool_use_id = ?",
+                            (tool_id,),
+                        )
+                        rowid_row = cursor.fetchone()
+                        if rowid_row:
+                            with contextlib.suppress(sqlite3.OperationalError):
+                                cursor.execute(
+                                    "UPDATE fts_tool_uses SET tool_result = ? WHERE rowid = ?",
+                                    (result_content, rowid_row[0]),
+                                )
 
         conn.commit()
         return (len(new_messages), len(tool_uses))

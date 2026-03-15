@@ -1,6 +1,7 @@
-"""Tests for import service SQLite thread safety (Fixes #13)."""
+"""Tests for import service SQLite thread safety and incremental imports."""
 
 import asyncio
+import json
 import sqlite3
 import threading
 from pathlib import Path
@@ -123,3 +124,93 @@ class TestImportServiceThreadSafety:
         finally:
             config_mod.CLAUDE_CODE_PROJECTS_DIR = original_projects_dir
             config_mod.DATABASE_PATH = original_db_path
+
+
+class TestToolResultBackfill:
+    """Verify incremental imports backfill tool_result for existing tool_uses."""
+
+    def test_incremental_import_backfills_tool_result(self, db_with_schema, tmp_path):
+        """When tool_use is imported without tool_result, next import backfills it."""
+        project_dir = tmp_path / "test-project"
+        project_dir.mkdir()
+        session_file = project_dir / "test-session-backfill.jsonl"
+
+        # Phase 1: Write session with tool_use but no tool_result yet
+        phase1_entries = [
+            {
+                "ts": "2024-01-01T00:00:00Z",
+                "message": {
+                    "role": "user",
+                    "content": "Run a command",
+                    "usage": {},
+                },
+            },
+            {
+                "ts": "2024-01-01T00:00:01Z",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_backfill_test_001",
+                            "name": "Bash",
+                            "input": {"command": "echo hello"},
+                        }
+                    ],
+                    "usage": {"input_tokens": 10, "output_tokens": 5},
+                },
+            },
+        ]
+        session_file.write_text("\n".join(json.dumps(e) for e in phase1_entries))
+
+        # Import phase 1
+        result1 = import_single_session(session_file, db_path=db_with_schema)
+        assert result1 is not None
+        messages1, tool_uses1 = result1
+        assert messages1 == 2
+        assert tool_uses1 == 1
+
+        # Verify tool_result is NULL
+        conn = sqlite3.connect(db_with_schema)
+        row = conn.execute(
+            "SELECT tool_result, is_error FROM tool_uses WHERE tool_use_id = ?",
+            ("toolu_backfill_test_001",),
+        ).fetchone()
+        assert row is not None
+        assert not row[0]  # tool_result should be NULL or empty
+        conn.close()
+
+        # Phase 2: Append a user message with the tool_result
+        phase2_entries = phase1_entries + [
+            {
+                "ts": "2024-01-01T00:00:02Z",
+                "message": {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "toolu_backfill_test_001",
+                            "content": "hello",
+                            "is_error": False,
+                        }
+                    ],
+                    "usage": {},
+                },
+            },
+        ]
+        session_file.write_text("\n".join(json.dumps(e) for e in phase2_entries))
+
+        # Import phase 2 (incremental)
+        result2 = import_single_session(session_file, db_path=db_with_schema)
+        assert result2 is not None
+
+        # Verify tool_result is now backfilled
+        conn = sqlite3.connect(db_with_schema)
+        row = conn.execute(
+            "SELECT tool_result, is_error FROM tool_uses WHERE tool_use_id = ?",
+            ("toolu_backfill_test_001",),
+        ).fetchone()
+        assert row is not None
+        assert row[0] == "hello"  # tool_result should be backfilled
+        assert row[1] == 0  # is_error should be False
+        conn.close()
