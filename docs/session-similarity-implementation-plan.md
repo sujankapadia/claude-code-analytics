@@ -138,7 +138,10 @@ def _fts_session_search(db: DatabaseService, query: str) -> dict[str, FTSSession
 Calls:
 - `db.search_messages(query, limit=200)` — weight 1.0
 - `db.search_tool_inputs(query, limit=200)` — weight 1.5
-- `db.search_tool_results(query, limit=200)` — weight 0.5
+
+Tool results are excluded — they're too noisy (large file dumps, verbose command output) and the
+prototype showed they inflate hit counts without improving ranking quality. Messages and tool inputs
+are sufficient to identify relevant sessions.
 
 Returns dict keyed by session_id with hit counts, weighted score, and sample snippets per session.
 
@@ -393,12 +396,11 @@ Each iteration delivers a working, testable increment. We don't move to the next
 - The endpoint is wired up and returning data
 
 **Assumptions:**
-- Existing `search_messages()`, `search_tool_inputs()`, `search_tool_results()` return enough data for session aggregation
-- The weighting (1.0 / 1.5 / 0.5) produces reasonable ranking (**validate** — may need tuning)
+- Existing `search_messages()` and `search_tool_inputs()` return enough data for session aggregation
+- The weighting (messages 1.0 / tool inputs 1.5) produces reasonable ranking (**validate** — may need tuning)
 
 **Failure modes:**
 - FTS queries that return too many results (>1000 hits) could be slow to aggregate → mitigate with `limit=200` per scope
-- Sessions with only tool_result matches (noisy) dominate rankings → the 0.5 weight should prevent this, but verify
 
 ### Iteration 2: ChromaDB Embedding (backend, new dep)
 
@@ -517,7 +519,7 @@ Each iteration delivers a working, testable increment. We don't move to the next
 
 | Assumption | Status | How to Validate |
 |-----------|--------|----------------|
-| FTS weighting (1.0 / 1.5 / 0.5) produces good ranking | Validated in prototype | Compare top 5 results for test queries |
+| FTS weighting (messages 1.0 / tool inputs 1.5) produces good ranking | Validated in prototype | Compare top 5 results for test queries |
 | all-MiniLM-L6-v2 handles natural language queries well | Validated in prototype | Test with production data |
 | all-MiniLM-L6-v2 struggles with bare keywords | Validated in prototype | Query expansion compensates |
 | 3,500 messages embed in ~70s | Validated (in-memory) | Verify with PersistentClient |
