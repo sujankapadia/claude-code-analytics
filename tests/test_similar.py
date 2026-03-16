@@ -53,12 +53,13 @@ def mock_db():
 @pytest.fixture
 def client(mock_db):
     """Test client with mocked dependencies."""
-    from claude_code_analytics.api.dependencies import get_db_service
+    from claude_code_analytics.api.dependencies import get_db_service, get_embedding_service
     from claude_code_analytics.api.routers.similar import router
 
     app = FastAPI()
     app.include_router(router, prefix="/api")
     app.dependency_overrides[get_db_service] = lambda: mock_db
+    app.dependency_overrides[get_embedding_service] = lambda: None  # FTS-only for these tests
 
     yield TestClient(app)
 

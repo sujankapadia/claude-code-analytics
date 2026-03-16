@@ -12,7 +12,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from claude_code_analytics.api.dependencies import get_db_service
+from claude_code_analytics.api.dependencies import get_db_service, get_embedding_service
 from claude_code_analytics.services.database_service import DatabaseService
 
 logger = logging.getLogger(__name__)
@@ -153,17 +153,59 @@ def _rrf_fusion(
     return sorted(scores.items(), key=lambda x: -x[1])
 
 
+def _semantic_session_search(embedding_service, query: str) -> dict[str, dict[str, Any]]:
+    """Run semantic search and aggregate by session.
+
+    Returns dict keyed by session_id with:
+        best: highest similarity score
+        hits: total hit count
+        matches: list of {source, message_index, text, similarity}
+    """
+    if embedding_service is None:
+        return {}
+
+    try:
+        hits = embedding_service.search(query, n_results=30)
+    except Exception:
+        logger.debug("Semantic search failed for query: %s", query)
+        return {}
+
+    sessions: dict[str, dict[str, Any]] = {}
+    for hit in hits:
+        sid = hit["session_id"]
+        if sid not in sessions:
+            sessions[sid] = {
+                "best": 0,
+                "hits": 0,
+                "matches": [],
+            }
+        sessions[sid]["hits"] += 1
+        if hit["similarity"] > sessions[sid]["best"]:
+            sessions[sid]["best"] = hit["similarity"]
+        sessions[sid]["matches"].append(
+            {
+                "source": "semantic",
+                "message_index": hit["message_index"],
+                "text": hit["text"][:200],
+                "similarity": round(hit["similarity"], 3),
+            }
+        )
+
+    return sessions
+
+
 @router.get("/search/sessions", response_model=SimilarResponse)
 def find_similar_sessions(
     q: str,
     limit: int = 10,
     exclude_session: Optional[str] = None,
     db: DatabaseService = Depends(get_db_service),
+    embedding_service=Depends(get_embedding_service),
 ):
     """Find sessions similar to a query using hybrid search.
 
-    Combines FTS keyword search with session-level aggregation.
-    Future iterations add semantic search and query expansion.
+    Combines FTS keyword search with semantic search via ChromaDB embeddings.
+    Falls back to FTS-only if embeddings are unavailable.
     """
     if len(q.strip()) < 2:
         raise HTTPException(status_code=400, detail="Query must be at least 2 characters")
@@ -171,26 +213,34 @@ def find_similar_sessions(
     # Step 1: FTS session search
     fts_results = _fts_session_search(db, q)
 
-    # Step 2: RRF fusion (FTS only for now)
-    ranked = _rrf_fusion(fts_results)
+    # Step 2: Semantic search (if available)
+    semantic_results = _semantic_session_search(embedding_service, q)
 
-    # Step 3: Exclude specified session
+    # Step 3: RRF fusion
+    ranked = _rrf_fusion(fts_results, semantic_results if semantic_results else None)
+
+    # Step 4: Exclude specified session
     if exclude_session:
         ranked = [(sid, score) for sid, score in ranked if sid != exclude_session]
 
-    # Step 4: Enrich top N with session metadata
+    # Step 5: Enrich top N with session metadata
     all_summaries = db.get_session_summaries()
     summary_map = {s.session_id: s for s in all_summaries}
 
     results = []
     for sid, rrf_score in ranked[:limit]:
         fts_data = fts_results.get(sid, {})
+        sem_data = semantic_results.get(sid, {})
         summary = summary_map.get(sid)
 
-        # Dedupe and limit matches
+        # Merge FTS and semantic matches, dedupe by message_index
+        all_matches = fts_data.get("matches", []) + sem_data.get("matches", [])
+        # Sort semantic matches first (richer info), then FTS
+        all_matches.sort(key=lambda m: (m.get("similarity") or 0), reverse=True)
+
         seen_indices: set[int] = set()
         matches = []
-        for m in fts_data.get("matches", []):
+        for m in all_matches:
             idx = m["message_index"]
             if idx not in seen_indices and len(matches) < _MAX_MATCHES_PER_SESSION:
                 seen_indices.add(idx)
@@ -199,6 +249,7 @@ def find_similar_sessions(
                         source=m["source"],
                         message_index=idx,
                         text=m["text"],
+                        similarity=m.get("similarity"),
                     )
                 )
 
@@ -209,6 +260,7 @@ def find_similar_sessions(
                 or (summary.project_name if summary else ""),
                 score=round(rrf_score, 6),
                 fts_hits=fts_data.get("hits", 0),
+                semantic_best=round(sem_data["best"], 3) if sem_data.get("best") else None,
                 start_time=str(summary.start_time) if summary and summary.start_time else None,
                 end_time=str(summary.end_time) if summary and summary.end_time else None,
                 message_count=summary.message_count if summary else 0,

@@ -38,6 +38,11 @@ DATABASE_PATH = _expanduser(
     os.getenv("DATABASE_PATH", str(CLAUDE_CONVERSATIONS_DIR / "conversations.db"))
 )
 
+# Similarity search — ChromaDB persistent storage
+CHROMA_DATA_DIR = _expanduser(
+    os.getenv("CHROMA_DATA_DIR", str(CLAUDE_CONVERSATIONS_DIR / "chroma"))
+)
+
 # Claude Code directories (hardcoded by Claude Code - cannot be changed)
 CLAUDE_CODE_CONFIG_DIR = Path.home() / ".claude"
 CLAUDE_CODE_PROJECTS_DIR = CLAUDE_CODE_CONFIG_DIR / "projects"

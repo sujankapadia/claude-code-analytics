@@ -39,4 +39,5 @@ Test: `tests/test_similar.py`
 - F6 constructs hit dict directly rather than using helper, since snippet field needs separate override
 - Removed unused imports (asynccontextmanager, patch) after switching to dependency_overrides
 - R3 uses dict() instead of dict comprehension per ruff C416
+- Endpoint fixture overrides both get_db_service and get_embedding_service (None for FTS-only tests)
 - Endpoint path changed from /sessions/similar to /search/sessions to avoid route conflict
