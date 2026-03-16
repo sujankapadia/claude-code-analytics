@@ -168,19 +168,19 @@ GET /api/sessions/similar?q=deploying+to+production&limit=10&exclude_session=<id
 
 ## Frontend Integration
 
-### Phase 1: Standalone Page
+### Approach: Sessions Tab on Existing Search Page
 
-New page at `/similar` with a search input. "Describe what you're about to do" → see past sessions where you did similar work.
+Rather than a separate page, session similarity search lives as a new **Sessions** tab on the existing Search page alongside **All | Messages | Tool Inputs | Tool Results**.
 
-Each result card shows:
-- Project name and session date
-- Score with source indicators (FTS, semantic, which expansions matched)
-- 1-2 best matching messages with context
-- Link to open the session
+Same search input, same mental model ("I want to find something"). The tab changes what comes back — individual messages vs. ranked sessions.
 
-### Phase 2: Session Detail Panel
+Results render as session cards showing:
+- Project name, session date, message/tool count
+- Up to 5 matching messages with deep links to `#msg-{index}`
+- Which query expansions matched
+- Score breakdown (FTS vs semantic)
 
-"Related Sessions" section on the session detail page. Uses the session's user messages to auto-generate a query and find related sessions from other projects.
+**Progressive loading**: FTS results appear instantly (~200ms), then semantic + expansion results merge in (~2s) for a seamless experience.
 
 ## Implementation Plan
 
