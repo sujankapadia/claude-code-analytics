@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
+import DOMPurify from "dompurify";
 import {
   fetchSessions,
   fetchProjects,
@@ -85,7 +86,9 @@ export default function AnalysisPage() {
   const [endTime, setEndTime] = useState("");
   const [messageIndex, setMessageIndex] = useState<number | null>(() => {
     const idx = searchParams.get("message_index");
-    return idx ? parseInt(idx, 10) : null;
+    if (!idx) return null;
+    const parsed = parseInt(idx, 10);
+    return Number.isNaN(parsed) ? null : parsed;
   });
   const [contextWindow, setContextWindow] = useState(20);
 
@@ -829,7 +832,7 @@ function MarkdownContent({ text }: { text: string }) {
     return result;
   }, [text]);
 
-  return <div dangerouslySetInnerHTML={{ __html: html }} />;
+  return <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }} />;
 }
 
 function formatNumber(n: number): string {

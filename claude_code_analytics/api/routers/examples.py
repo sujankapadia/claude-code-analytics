@@ -189,10 +189,11 @@ def _detect_tool_patterns(terms: list[str]) -> list[str]:
 def _build_candidate_summaries(
     db: DatabaseService,
     session_ids: list[str],
+    project_id: str | None = None,
 ) -> list[dict]:
     """Build compact summaries for candidate sessions."""
     summaries = []
-    all_sessions = db.get_session_summaries()
+    all_sessions = db.get_session_summaries(project_id=project_id)
     session_map = {s.session_id: s for s in all_sessions}
 
     for sid in session_ids:
@@ -392,7 +393,7 @@ async def find_example_sessions(
     loop = asyncio.get_event_loop()
     summaries = await loop.run_in_executor(
         None,
-        lambda: _build_candidate_summaries(db, sorted_candidates),
+        lambda: _build_candidate_summaries(db, sorted_candidates, req.project_id),
     )
 
     if not summaries:
@@ -649,7 +650,7 @@ async def find_example_prompts(
         )
 
     # Step 3: Fetch full message content and project names for FTS hits
-    all_sessions = db.get_session_summaries()
+    all_sessions = db.get_session_summaries(project_id=req.project_id)
     session_map = {s.session_id: s for s in all_sessions}
 
     candidates = []

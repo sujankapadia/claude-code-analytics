@@ -64,6 +64,13 @@ if ! command -v npm &> /dev/null; then
 fi
 echo -e "${GREEN}✓ npm $(npm -v) detected${NC}"
 
+if ! python3 -m pip --version &> /dev/null; then
+    echo -e "${RED}Error: pip is not available for python3.${NC}"
+    echo -e "${YELLOW}Install with: python3 -m ensurepip --upgrade${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ pip $(python3 -m pip --version | awk '{print $2}') detected${NC}"
+
 if ! command -v jq &> /dev/null; then
     echo -e "${YELLOW}Warning: jq is not installed. Will use manual JSON editing.${NC}"
     echo -e "${YELLOW}For better JSON handling, install jq: brew install jq${NC}"
