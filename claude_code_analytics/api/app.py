@@ -58,6 +58,7 @@ def create_app() -> FastAPI:
         projects,
         search,
         sessions,
+        similar,
     )
 
     app.include_router(projects.router, prefix="/api")
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(events.router, prefix="/api")
     app.include_router(active.router, prefix="/api")
     app.include_router(bookmarks.router, prefix="/api")
+    app.include_router(similar.router, prefix="/api")
 
     # Serve frontend static files if built
     frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"

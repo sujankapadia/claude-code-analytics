@@ -165,7 +165,7 @@ Sessions appearing in both lists rank higher than either alone.
 **`claude_code_analytics/api/routers/similar.py`**
 
 ```
-GET /api/sessions/similar?q=deploying+to+production&limit=10&exclude_session=abc123
+GET /api/search/sessions?q=deploying+to+production&limit=10&exclude_session=abc123
 ```
 
 Flow:
