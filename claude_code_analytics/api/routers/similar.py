@@ -1,7 +1,7 @@
 """Session similarity search endpoint.
 
-Finds sessions related to a query by aggregating FTS results at the session level.
-Future iterations add semantic search (ChromaDB) and query expansion (LLM).
+Hybrid search: FTS keyword search + ChromaDB semantic embeddings + LLM query expansion,
+fused via Reciprocal Rank Fusion (RRF).
 """
 
 import logging
@@ -12,6 +12,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from claude_code_analytics import config
 from claude_code_analytics.api.dependencies import get_db_service, get_embedding_service
 from claude_code_analytics.services.database_service import DatabaseService
 
@@ -153,23 +154,19 @@ def _rrf_fusion(
     return sorted(scores.items(), key=lambda x: -x[1])
 
 
-def _semantic_session_search(embedding_service, query: str) -> dict[str, dict[str, Any]]:
-    """Run semantic search and aggregate by session.
+def _semantic_session_search_from_hits(
+    hits: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Aggregate semantic search hits by session.
+
+    Args:
+        hits: List of hit dicts from EmbeddingService.search or search_expanded.
 
     Returns dict keyed by session_id with:
         best: highest similarity score
         hits: total hit count
-        matches: list of {source, message_index, text, similarity}
+        matches: list of {source, message_index, text, similarity, matched_via}
     """
-    if embedding_service is None:
-        return {}
-
-    try:
-        hits = embedding_service.search(query, n_results=30)
-    except Exception:
-        logger.debug("Semantic search failed for query: %s", query)
-        return {}
-
     sessions: dict[str, dict[str, Any]] = {}
     for hit in hits:
         sid = hit["session_id"]
@@ -188,10 +185,48 @@ def _semantic_session_search(embedding_service, query: str) -> dict[str, dict[st
                 "message_index": hit["message_index"],
                 "text": hit["text"][:200],
                 "similarity": round(hit["similarity"], 3),
+                "matched_via": hit.get("matched_via"),
             }
         )
 
     return sessions
+
+
+def _expand_query(query: str) -> list[str]:
+    """Expand a query into alternative phrasings using a local LLM.
+
+    Uses the configured expansion provider (EXPANSION_BASE_URL, EXPANSION_MODEL).
+    Returns empty list on any failure — search proceeds without expansion.
+    """
+    if not config.EXPANSION_BASE_URL:
+        return []
+
+    try:
+        from claude_code_analytics.services.llm_providers import OpenAICompatibleProvider
+
+        provider = OpenAICompatibleProvider(
+            base_url=config.EXPANSION_BASE_URL,
+            api_key=config.EXPANSION_API_KEY or None,
+            default_model=config.EXPANSION_MODEL,
+        )
+
+        prompt = (
+            f"List 6 alternative phrases a software developer might use "
+            f'when discussing "{query}". Comma-separated only, no explanation.'
+        )
+
+        response = provider.generate(prompt)
+        text = response.text.strip()
+
+        # Strip thinking tags if present (some models use <think>...</think>)
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+        expansions = [t.strip() for t in text.split(",") if t.strip()]
+        logger.debug("Query expansion for '%s': %s", query, expansions)
+        return expansions[:8]  # Cap at 8 to limit search queries
+    except Exception:
+        logger.debug("Query expansion failed for '%s'", query, exc_info=True)
+        return []
 
 
 @router.get("/search/sessions", response_model=SimilarResponse)
@@ -204,8 +239,8 @@ def find_similar_sessions(
 ):
     """Find sessions similar to a query using hybrid search.
 
-    Combines FTS keyword search with semantic search via ChromaDB embeddings.
-    Falls back to FTS-only if embeddings are unavailable.
+    Combines FTS keyword search, semantic embeddings, and LLM query expansion.
+    Degrades gracefully: works with any combination of available layers.
     """
     if len(q.strip()) < 2:
         raise HTTPException(status_code=400, detail="Query must be at least 2 characters")
@@ -213,10 +248,22 @@ def find_similar_sessions(
     # Step 1: FTS session search
     fts_results = _fts_session_search(db, q)
 
-    # Step 2: Semantic search (if available)
-    semantic_results = _semantic_session_search(embedding_service, q)
+    # Step 2: Query expansion (if provider available)
+    expansions = _expand_query(q)
 
-    # Step 3: RRF fusion
+    # Step 3: Semantic search with expansions (if embeddings available)
+    if embedding_service and embedding_service.collection_count() > 0:
+        if expansions:
+            hits = embedding_service.search_expanded(q, expansions)
+        else:
+            hits = embedding_service.search(q)
+
+        # Aggregate hits by session
+        semantic_results = _semantic_session_search_from_hits(hits)
+    else:
+        semantic_results = {}
+
+    # Step 4: RRF fusion
     ranked = _rrf_fusion(fts_results, semantic_results if semantic_results else None)
 
     # Step 4: Exclude specified session
@@ -250,6 +297,7 @@ def find_similar_sessions(
                         message_index=idx,
                         text=m["text"],
                         similarity=m.get("similarity"),
+                        matched_via=m.get("matched_via"),
                     )
                 )
 
@@ -271,6 +319,7 @@ def find_similar_sessions(
 
     return SimilarResponse(
         query=q,
+        expansions=expansions,
         results=results,
         total_sessions=len(ranked),
     )

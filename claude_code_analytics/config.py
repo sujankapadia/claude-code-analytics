@@ -43,6 +43,11 @@ CHROMA_DATA_DIR = _expanduser(
     os.getenv("CHROMA_DATA_DIR", str(CLAUDE_CONVERSATIONS_DIR / "chroma"))
 )
 
+# Query expansion provider (any OpenAI-compatible endpoint)
+EXPANSION_BASE_URL = os.getenv("EXPANSION_BASE_URL", "http://localhost:11434/v1")
+EXPANSION_MODEL = os.getenv("EXPANSION_MODEL", "qwen3:8b")
+EXPANSION_API_KEY = os.getenv("EXPANSION_API_KEY", "")
+
 # Claude Code directories (hardcoded by Claude Code - cannot be changed)
 CLAUDE_CODE_CONFIG_DIR = Path.home() / ".claude"
 CLAUDE_CODE_PROJECTS_DIR = CLAUDE_CODE_CONFIG_DIR / "projects"
