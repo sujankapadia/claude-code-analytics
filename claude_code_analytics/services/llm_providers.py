@@ -200,6 +200,70 @@ class OpenAICompatibleProvider(LLMProvider):
         return response.json()["data"]
 
 
+class OllamaProvider(LLMProvider):
+    """Ollama provider using the native /api/chat endpoint.
+
+    Supports Ollama-specific features not available via the /v1 compatibility layer:
+    - think parameter to disable chain-of-thought reasoning
+    - keep_alive to control model unload timeout
+    """
+
+    def __init__(
+        self,
+        base_url: str = "http://localhost:11434",
+        default_model: str = "qwen3:8b",
+        keep_alive: str = "30m",
+    ):
+        """
+        Initialize Ollama provider.
+
+        Args:
+            base_url: Ollama server URL (without /v1 or /api suffix)
+            default_model: Default model to use
+            keep_alive: How long to keep the model loaded after a request (e.g., "30m", "-1" for forever)
+        """
+        self.base_url = base_url.rstrip("/").replace("/v1", "")
+        self.default_model = default_model
+        self.keep_alive = keep_alive
+
+    def generate(self, prompt: str, model: Optional[str] = None, **kwargs) -> LLMResponse:
+        """Generate text using Ollama native API."""
+        model_name = model or self.default_model
+        think = kwargs.get("think", False)
+
+        payload: dict[str, Any] = {
+            "model": model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "think": think,
+            "keep_alive": self.keep_alive,
+        }
+
+        timeout = kwargs.get("timeout", 30)
+        response = requests.post(
+            f"{self.base_url}/api/chat",
+            json=payload,
+            timeout=timeout,
+        )
+
+        if response.status_code != 200:
+            raise ValueError(f"Ollama error (status {response.status_code}): {response.text}")
+
+        data = response.json()
+        text = data.get("message", {}).get("content", "")
+
+        # Extract token counts from Ollama response
+        input_tokens = data.get("prompt_eval_count")
+        output_tokens = data.get("eval_count")
+
+        return LLMResponse(
+            text=text,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            model_name=model_name,
+        )
+
+
 # Backwards-compatible alias
 OpenRouterProvider = OpenAICompatibleProvider
 
