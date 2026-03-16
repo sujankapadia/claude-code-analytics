@@ -166,6 +166,44 @@ class FileWatcher:
         except Exception:
             logger.exception("File watcher error")
 
+    def _embed_session(self, session_id: str) -> None:
+        """Embed messages for a session into ChromaDB. Skips silently on failure."""
+        try:
+            from claude_code_analytics.api.dependencies import get_embedding_service
+            from claude_code_analytics.services.database_service import DatabaseService
+
+            embedding_service = get_embedding_service()
+            if embedding_service is None:
+                return
+
+            db = DatabaseService()
+            messages = db.get_messages_for_session(session_id)
+            if not messages:
+                return
+
+            # Get project name from first message's session
+            summaries = db.get_session_summaries()
+            project_name = ""
+            for s in summaries:
+                if s.session_id == session_id:
+                    project_name = s.project_name
+                    break
+
+            msg_dicts = [
+                {
+                    "role": m.role,
+                    "content": m.content,
+                    "message_index": m.message_index,
+                }
+                for m in messages
+            ]
+
+            count = embedding_service.embed_session(session_id, msg_dicts, project_name)
+            if count > 0:
+                logger.debug("Embedded %d messages for session %s", count, session_id)
+        except Exception:
+            logger.debug("Failed to embed session %s", session_id, exc_info=True)
+
     async def _import_session(self, path: Path) -> None:
         """Import a single session file in a thread executor."""
         from claude_code_analytics.api.services.import_service import import_single_session
@@ -174,6 +212,8 @@ class FileWatcher:
         try:
             result = await loop.run_in_executor(None, import_single_session, path)
             if result:
+                # Embed messages for similarity search
+                await loop.run_in_executor(None, self._embed_session, path.stem)
                 await self.event_bus.publish(
                     {
                         "type": "session_imported",
