@@ -6,6 +6,7 @@ import type { Message, ToolUse, TokenUsage, Bookmark } from "@/api/types";
 import {
   fetchSessionBookmarks,
   createBookmark,
+  updateBookmark,
   deleteBookmark,
 } from "@/api/client";
 import { ConversationMessage } from "./conversation-message";
@@ -78,6 +79,14 @@ export function ConversationViewer({
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, params }: { id: number; params: { name?: string; description?: string } }) =>
+      updateBookmark(id, params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: deleteBookmark,
     onSuccess: () => {
@@ -96,16 +105,23 @@ export function ConversationViewer({
   const handleBookmarkSave = useCallback(
     (name: string, description: string) => {
       if (!sessionId || !bookmarkTarget) return;
-      createMutation.mutate({
-        session_id: sessionId,
-        message_index: bookmarkTarget.messageIndex,
-        name,
-        description,
-      });
+      if (bookmarkTarget.existing) {
+        updateMutation.mutate({
+          id: bookmarkTarget.existing.bookmark_id,
+          params: { name, description },
+        });
+      } else {
+        createMutation.mutate({
+          session_id: sessionId,
+          message_index: bookmarkTarget.messageIndex,
+          name,
+          description,
+        });
+      }
       setBookmarkDialogOpen(false);
       setBookmarkTarget(null);
     },
-    [sessionId, bookmarkTarget, createMutation]
+    [sessionId, bookmarkTarget, createMutation, updateMutation]
   );
 
   const handleBookmarkDelete = useCallback(() => {

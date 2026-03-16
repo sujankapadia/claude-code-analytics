@@ -52,10 +52,11 @@ export function BookmarkDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">
+            <label htmlFor="bookmark-name" className="text-xs text-muted-foreground mb-1 block">
               Name
             </label>
             <Input
+              id="bookmark-name"
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -63,10 +64,11 @@ export function BookmarkDialog({
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">
+            <label htmlFor="bookmark-description" className="text-xs text-muted-foreground mb-1 block">
               Description (optional)
             </label>
             <Textarea
+              id="bookmark-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Why this message is worth saving..."
