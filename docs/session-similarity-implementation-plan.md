@@ -369,3 +369,171 @@ Each message line is a link to `/sessions/{id}#msg-{index}`. The icon indicates 
 | Frontend: Sessions tab | 3 modified | Medium — new tab, card component, progressive loading |
 
 Total: ~2 new backend files, ~5 modified backend files, ~3 modified frontend files.
+
+## Iterative Build Plan
+
+Each iteration delivers a working, testable increment. We don't move to the next iteration until the current one is verified.
+
+### Iteration 1: FTS Session Search (backend only, no new deps)
+
+**Build:**
+- Step 4: `_fts_session_search()` — wraps existing DatabaseService methods
+- Step 5: `_rrf_fusion()` — pure function (only FTS input for now, semantic input empty)
+- Step 6: API endpoint `GET /api/sessions/similar?q=...` — FTS-only mode
+- Steps 7-8: DI + router registration
+
+**Test:**
+- Unit tests for `_fts_session_search` and `_rrf_fusion`
+- `curl` the endpoint, verify session-level results come back
+- Compare results against prototype FTS output
+
+**What this proves:**
+- The API shape works
+- FTS session aggregation produces useful results
+- The endpoint is wired up and returning data
+
+**Assumptions:**
+- Existing `search_messages()`, `search_tool_inputs()`, `search_tool_results()` return enough data for session aggregation
+- The weighting (1.0 / 1.5 / 0.5) produces reasonable ranking (**validate** — may need tuning)
+
+**Failure modes:**
+- FTS queries that return too many results (>1000 hits) could be slow to aggregate → mitigate with `limit=200` per scope
+- Sessions with only tool_result matches (noisy) dominate rankings → the 0.5 weight should prevent this, but verify
+
+### Iteration 2: ChromaDB Embedding (backend, new dep)
+
+**Build:**
+- Step 1: Add `chromadb` dependency, `CHROMA_DATA_DIR` config
+- Step 2: `EmbeddingService` — persist, embed, search, build_index
+- Step 10: On-demand initial index build
+- Wire semantic results into the `/similar` endpoint alongside FTS
+- RRF fusion now merges both lists
+
+**Test:**
+- Unit tests for EmbeddingService with in-memory ChromaDB
+- Run `build_index()`, verify message count matches expectations
+- `curl` the endpoint, compare hybrid results vs FTS-only — are they better?
+- Test the "pagination" query specifically — does semantic find sessions FTS missed?
+
+**What this proves:**
+- ChromaDB persistent storage works across restarts
+- Message-level embeddings produce useful similarity scores
+- Hybrid fusion improves results over FTS alone
+
+**Assumptions:**
+- ChromaDB's default embedding model (all-MiniLM-L6-v2) is sufficient (**validated** in prototype, but verify in production context)
+- 3,500 messages embed in ~70s (**validated**, but verify with persistent client vs in-memory)
+- ChromaDB PersistentClient runs in-process without issues (**verify** — prototype used ephemeral Client)
+
+**Failure modes:**
+- ChromaDB import adds ~50MB to install size → acceptable for the value, but document in install notes
+- First search triggers 70s index build → return FTS-only results immediately with "indexing" status
+- ChromaDB file corruption on crash → catch errors, fall back to FTS-only, log warning to rebuild
+- PersistentClient startup time → measure; if slow, lazy-initialize on first search rather than app startup
+
+### Iteration 3: Query Expansion (backend, requires LLM provider)
+
+**Build:**
+- Step 1 (continued): Add `EXPANSION_BASE_URL`, `EXPANSION_MODEL`, `EXPANSION_API_KEY` config
+- Step 3: `_expand_query()` function using OpenAICompatibleProvider
+- Wire expansions into semantic search (search original + expanded queries)
+- Update API response to include `expansions` field
+
+**Test:**
+- Unit test with mocked provider response
+- Manual test: verify expansion works with Ollama locally
+- Manual test: verify expansion works with OpenRouter
+- Test graceful degradation — kill Ollama, verify endpoint still returns FTS + semantic results
+- Compare "pagination" results with and without expansion — does it find "infinite scroll" sessions?
+
+**What this proves:**
+- Provider-agnostic expansion works with different backends
+- Graceful degradation when provider is unavailable
+- Query expansion measurably improves recall
+
+**Assumptions:**
+- The simple prompt ("List 6 alternative phrases...") works across different models (**validated** with qwen3:8b, **verify** with at least one other model)
+- Expansion adds ~1-2s latency (**validated**, but verify with OpenRouter which has network overhead)
+- 6 expansions is the right number — too few misses synonyms, too many adds noise (**verify** — try 4 and 8 to compare)
+
+**Failure modes:**
+- LLM returns malformed response (not comma-separated) → parse defensively, return empty list on failure
+- LLM returns irrelevant expansions → doesn't break anything, just adds noise to semantic search; low similarity scores filter it out
+- Expansion provider has high latency (>5s) → timeout at 10s, fall back to no expansion
+- Expansion costs money per search (if using paid API) → document this; recommend local model for expansion
+
+### Iteration 4: File Watcher Integration (backend)
+
+**Build:**
+- Step 9: After session import, embed new messages in ChromaDB
+
+**Test:**
+- Start the app, create a new Claude Code session, end it
+- Verify the file watcher imports the session AND embeds the messages
+- Search for content from the new session — verify it appears in results
+
+**What this proves:**
+- New sessions are automatically searchable without manual re-indexing
+
+**Assumptions:**
+- Embedding a single session's messages is fast enough to not delay the import pipeline (**verify** — should be <1s for typical sessions)
+- The EmbeddingService singleton is accessible from the file watcher context
+
+**Failure modes:**
+- Import succeeds but embedding fails → log error, don't block import; messages will be embedded on next `build_index`
+- Race condition: search runs while embed is in progress → ChromaDB handles concurrent read/write, but verify
+
+### Iteration 5: Frontend — Sessions Tab
+
+**Build:**
+- Add `fetchSimilarSessions()` to API client
+- Add `SimilarSessionResult` type
+- Add Sessions tab to Search page scope tabs
+- Session card component with matching messages and deep links
+- Progressive loading: FTS results first, semantic enriches
+
+**Test (Playwright):**
+- Navigate to Search, click Sessions tab
+- Enter "pagination" — verify session cards appear
+- Verify matching messages show with deep links
+- Click a message link — verify it navigates to the correct session and scrolls to the message
+- Verify expansion indicator shows
+- Verify FTS results appear before semantic results (progressive loading)
+- Test with expansion provider offline — verify FTS-only results still render
+
+**What this proves:**
+- End-to-end flow works from search input to deep-linked message
+- Progressive loading provides good UX despite 2s expansion latency
+
+**Assumptions:**
+- The existing search page layout accommodates session cards without a redesign
+- 5 matching messages per card is the right density — not too cluttered (**verify** visually)
+
+**Failure modes:**
+- Session cards take too much vertical space → add expand/collapse per card
+- Deep links don't scroll correctly for virtualized message lists → already tested and working from earlier work
+
+## Assumptions Summary
+
+| Assumption | Status | How to Validate |
+|-----------|--------|----------------|
+| FTS weighting (1.0 / 1.5 / 0.5) produces good ranking | Validated in prototype | Compare top 5 results for test queries |
+| all-MiniLM-L6-v2 handles natural language queries well | Validated in prototype | Test with production data |
+| all-MiniLM-L6-v2 struggles with bare keywords | Validated in prototype | Query expansion compensates |
+| 3,500 messages embed in ~70s | Validated (in-memory) | Verify with PersistentClient |
+| ChromaDB PersistentClient works in-process | Not yet validated | Test in Iteration 2 |
+| Simple expansion prompt works across models | Validated with qwen3:8b | Test with 1-2 other models |
+| Expansion adds ~1-2s latency with Ollama | Validated | Verify with remote providers |
+| 6 expansions is the right count | Reasonable default | Compare 4/6/8 in Iteration 3 |
+| Embedding doesn't slow down file watcher imports | Likely true (<1s per session) | Measure in Iteration 4 |
+
+## Risk Register
+
+| Risk | Impact | Likelihood | Mitigation |
+|------|--------|-----------|------------|
+| ChromaDB adds 50MB to install | Low | Certain | Document; optional dependency if needed |
+| First search is slow (70s index build) | Medium | Certain | Return FTS-only immediately, build in background |
+| Expansion provider unavailable | Medium | Likely (local Ollama may not be running) | Graceful degradation to FTS + semantic |
+| ChromaDB data corruption | High | Unlikely | Catch errors, rebuild from DB messages |
+| Embedding model quality insufficient | Medium | Unlikely (validated) | Swap model via ChromaDB config |
+| Expansion adds cost for paid providers | Low | Depends on config | Default to local Ollama; document cost implications |
