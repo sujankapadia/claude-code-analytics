@@ -3,7 +3,7 @@
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 import google.generativeai as genai
 import requests
@@ -138,11 +138,15 @@ class OpenAICompatibleProvider(LLMProvider):
             headers["HTTP-Referer"] = "https://github.com/yourusername/claude-code-utils"
             headers["X-Title"] = "Claude Code Analytics"
 
-        payload = {
+        payload: dict[str, Any] = {
             "model": model_name,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": kwargs.get("temperature", 0.1),
         }
+
+        # Allow callers to pass extra fields (e.g., think=False for Ollama)
+        if "extra_body" in kwargs:
+            payload.update(kwargs["extra_body"])
 
         response = requests.post(
             f"{self.base_url}/chat/completions",

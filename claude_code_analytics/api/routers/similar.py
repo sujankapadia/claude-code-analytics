@@ -193,37 +193,60 @@ def _semantic_session_search_from_hits(
 
 
 def _expand_query(query: str) -> list[str]:
-    """Expand a query into alternative phrasings using a local LLM.
+    """Expand a query into alternative phrasings using a configured LLM.
 
     Uses the configured expansion provider (EXPANSION_BASE_URL, EXPANSION_MODEL).
+    For Ollama, uses the native /api/chat endpoint with think=false for speed.
+    For other providers, uses the OpenAI-compatible endpoint.
     Returns empty list on any failure — search proceeds without expansion.
     """
     if not config.EXPANSION_BASE_URL:
         return []
 
+    prompt = (
+        f"List 6 alternative phrases a software developer might use "
+        f'when discussing "{query}". Comma-separated only, no explanation.'
+    )
+
     try:
-        from claude_code_analytics.services.llm_providers import OpenAICompatibleProvider
+        base = config.EXPANSION_BASE_URL.rstrip("/")
+        is_ollama = "11434" in base or "ollama" in base.lower()
 
-        provider = OpenAICompatibleProvider(
-            base_url=config.EXPANSION_BASE_URL,
-            api_key=config.EXPANSION_API_KEY or None,
-            default_model=config.EXPANSION_MODEL,
-        )
+        if is_ollama:
+            # Use Ollama native API with think=false (not supported on /v1 endpoint)
+            import requests
 
-        prompt = (
-            f"List 6 alternative phrases a software developer might use "
-            f'when discussing "{query}". Comma-separated only, no explanation.'
-        )
+            ollama_base = base.replace("/v1", "")
+            resp = requests.post(
+                f"{ollama_base}/api/chat",
+                json={
+                    "model": config.EXPANSION_MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                    "think": False,
+                },
+                timeout=15,
+            )
+            resp.raise_for_status()
+            text = resp.json().get("message", {}).get("content", "").strip()
+        else:
+            # Use OpenAI-compatible endpoint for other providers
+            from claude_code_analytics.services.llm_providers import OpenAICompatibleProvider
 
-        response = provider.generate(prompt)
-        text = response.text.strip()
+            provider = OpenAICompatibleProvider(
+                base_url=base,
+                api_key=config.EXPANSION_API_KEY or None,
+                default_model=config.EXPANSION_MODEL,
+            )
+            response = provider.generate(prompt)
+            text = response.text.strip()
 
-        # Strip thinking tags if present (some models use <think>...</think>)
+        # Strip thinking tags as fallback
         text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
         expansions = [t.strip() for t in text.split(",") if t.strip()]
         logger.debug("Query expansion for '%s': %s", query, expansions)
-        return expansions[:8]  # Cap at 8 to limit search queries
+        return expansions[:8]
     except Exception:
         logger.debug("Query expansion failed for '%s'", query, exc_info=True)
         return []
