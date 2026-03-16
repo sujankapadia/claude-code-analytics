@@ -20,6 +20,7 @@ import type {
   Project,
   PublishResult,
   SearchResponse,
+  SimilarResponse,
   SessionSummary,
   Session,
   TextVolume,
@@ -86,6 +87,12 @@ export const fetchSearch = (params: {
   per_page?: number;
   page?: number;
 }) => get<SearchResponse>("/search", params);
+
+export const fetchSimilarSessions = (params: {
+  q: string;
+  limit?: number;
+  exclude_session?: string;
+}) => get<SimilarResponse>("/search/sessions", params);
 
 // -- Analytics --
 

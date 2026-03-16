@@ -319,3 +319,33 @@ export interface FindSessionsResponse {
   output_tokens: number | null;
   model_name: string | null;
 }
+
+// --- Session Similarity Search ---
+
+export interface SimilarSampleMatch {
+  source: string;
+  message_index: number;
+  text: string;
+  similarity: number | null;
+  matched_via: string | null;
+}
+
+export interface SimilarSessionResult {
+  session_id: string;
+  project_name: string;
+  score: number;
+  fts_hits: number;
+  semantic_best: number | null;
+  start_time: string | null;
+  end_time: string | null;
+  message_count: number;
+  tool_use_count: number;
+  sample_matches: SimilarSampleMatch[];
+}
+
+export interface SimilarResponse {
+  query: string;
+  expansions: string[];
+  results: SimilarSessionResult[];
+  total_sessions: number;
+}

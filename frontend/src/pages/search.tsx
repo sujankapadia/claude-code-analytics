@@ -3,11 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { Search as SearchIcon, ChevronDown, X, Clock } from "lucide-react";
 import DOMPurify from "dompurify";
-import { fetchSearch, fetchProjects, fetchToolNames } from "@/api/client";
+import { fetchSearch, fetchSimilarSessions, fetchProjects, fetchToolNames } from "@/api/client";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const SCOPES = ["All", "Messages", "Tool Inputs", "Tool Results"] as const;
+const SCOPES = ["All", "Messages", "Tool Inputs", "Tool Results", "Sessions"] as const;
 const HISTORY_KEY = "search_history";
 const MAX_HISTORY = 10;
 
@@ -91,6 +91,8 @@ export default function SearchPage() {
     }
   }, [debouncedQuery]);
 
+  const isSessionsScope = scope === "Sessions";
+
   const { data, isPending, error } = useQuery({
     queryKey: ["search", debouncedQuery, scope, projectId, toolName],
     queryFn: () =>
@@ -101,7 +103,17 @@ export default function SearchPage() {
         tool_name: toolName || undefined,
         per_page: 10,
       }),
-    enabled: debouncedQuery.length >= 2,
+    enabled: debouncedQuery.length >= 2 && !isSessionsScope,
+  });
+
+  const {
+    data: similarData,
+    isPending: similarPending,
+    error: similarError,
+  } = useQuery({
+    queryKey: ["search-sessions", debouncedQuery],
+    queryFn: () => fetchSimilarSessions({ q: debouncedQuery, limit: 10 }),
+    enabled: debouncedQuery.length >= 2 && isSessionsScope,
   });
 
   // Flatten results for keyboard nav
@@ -280,15 +292,86 @@ export default function SearchPage() {
       )}
 
       {/* Status */}
-      {error && (
-        <p className="text-sm text-destructive">{(error as Error).message}</p>
+      {(isSessionsScope ? similarError : error) && (
+        <p className="text-sm text-destructive">
+          {((isSessionsScope ? similarError : error) as Error).message}
+        </p>
       )}
-      {isPending && debouncedQuery.length >= 2 && (
-        <p className="text-sm text-muted-foreground">Searching...</p>
+      {(isSessionsScope ? similarPending : isPending) &&
+        debouncedQuery.length >= 2 && (
+          <p className="text-sm text-muted-foreground">
+            {isSessionsScope ? "Searching sessions..." : "Searching..."}
+          </p>
+        )}
+
+      {/* Session similarity results */}
+      {isSessionsScope && similarData && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-muted-foreground">
+              {similarData.total_sessions} session
+              {similarData.total_sessions !== 1 ? "s" : ""} found
+            </p>
+            {similarData.expansions.length > 0 && (
+              <span className="text-xs text-muted-foreground/60">
+                Also searched: {similarData.expansions.slice(0, 4).join(", ")}
+              </span>
+            )}
+          </div>
+
+          {similarData.results.map((r) => (
+            <div key={r.session_id} className="rounded-lg border">
+              <div className="border-b bg-muted/30 px-4 py-2">
+                <Link
+                  to={`/sessions/${r.session_id}`}
+                  className="font-mono text-sm font-medium hover:underline"
+                >
+                  {r.session_id.slice(0, 8)}
+                </Link>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {r.project_name.split("/").pop()}
+                  {r.start_time && (
+                    <>
+                      {" · "}
+                      {new Date(r.start_time).toLocaleDateString()}
+                    </>
+                  )}
+                  {" · "}
+                  {r.message_count} msgs · {r.tool_use_count} tools
+                </span>
+                <span className="ml-2 text-xs text-muted-foreground/60">
+                  FTS:{r.fts_hits}
+                  {r.semantic_best != null && ` · Sem:${r.semantic_best.toFixed(2)}`}
+                </span>
+              </div>
+              <div className="divide-y">
+                {r.sample_matches.map((m, i) => (
+                  <Link
+                    key={i}
+                    to={`/sessions/${r.session_id}#msg-${m.message_index}`}
+                    className="flex items-start gap-2 px-4 py-1.5 text-sm transition-colors hover:bg-muted/50"
+                  >
+                    <span className="mt-0.5 shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">
+                      {m.source === "semantic" ? "SEM" : "FTS"}
+                    </span>
+                    <span className="min-w-0 flex-1 text-muted-foreground line-clamp-1">
+                      {m.text}
+                    </span>
+                    {m.similarity != null && (
+                      <span className="shrink-0 text-[10px] text-muted-foreground/60">
+                        {m.similarity.toFixed(2)}
+                      </span>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
-      {/* Results */}
-      {data && (
+      {/* Standard message/tool results */}
+      {!isSessionsScope && data && (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             {data.total_sessions} session
@@ -370,7 +453,7 @@ export default function SearchPage() {
       )}
 
       {/* Keyboard hint */}
-      {flatResults.length > 0 && (
+      {!isSessionsScope && flatResults.length > 0 && (
         <p className="text-xs text-muted-foreground">
           Use arrow keys to navigate results, Enter to open
         </p>
