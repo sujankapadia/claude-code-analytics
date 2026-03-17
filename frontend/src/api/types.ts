@@ -320,6 +320,18 @@ export interface FindSessionsResponse {
   model_name: string | null;
 }
 
+// --- Session Token Stats ---
+
+export interface SessionTokenStats {
+  session_id: string;
+  project_name: string;
+  start_time: string | null;
+  message_count: number;
+  tool_use_count: number;
+  input_tokens: number;
+  output_tokens: number;
+}
+
 // --- Session Similarity Search ---
 
 export interface SimilarSampleMatch {

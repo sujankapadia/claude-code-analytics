@@ -79,3 +79,38 @@ def get_activity_by_project(
             }
         )
     return results
+
+
+@router.get("/sessions/tokens")
+def get_session_token_stats(
+    limit: int = 50,
+    db: DatabaseService = Depends(get_db_service),
+):
+    """Get token usage per session, sorted by total tokens descending."""
+    conn = db._get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                s.session_id,
+                p.project_name,
+                s.start_time,
+                s.message_count,
+                s.tool_use_count,
+                COALESCE(SUM(m.input_tokens), 0) as input_tokens,
+                COALESCE(SUM(m.output_tokens), 0) as output_tokens
+            FROM sessions s
+            JOIN projects p ON s.project_id = p.project_id
+            LEFT JOIN messages m ON s.session_id = m.session_id AND m.role = 'assistant'
+            GROUP BY s.session_id
+            HAVING (COALESCE(SUM(m.input_tokens), 0) + COALESCE(SUM(m.output_tokens), 0)) > 0
+            ORDER BY (COALESCE(SUM(m.input_tokens), 0) + COALESCE(SUM(m.output_tokens), 0)) DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()

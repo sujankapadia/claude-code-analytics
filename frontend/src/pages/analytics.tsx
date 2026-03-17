@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import {
   fetchToolStats,
   fetchDailyStats,
@@ -7,6 +8,7 @@ import {
   fetchActivityMetrics,
   fetchProjects,
   fetchActivityByProject,
+  fetchSessionTokenStats,
 } from "@/api/client";
 import { ActivityHeatmap } from "@/components/activity-heatmap";
 import { TokenAreaChart } from "@/components/charts/token-area-chart";
@@ -50,6 +52,11 @@ export default function AnalyticsPage() {
   const { data: projectActivity } = useQuery({
     queryKey: ["analytics", "activity-by-project"],
     queryFn: fetchActivityByProject,
+  });
+
+  const { data: sessionTokens } = useQuery({
+    queryKey: ["analytics", "session-tokens"],
+    queryFn: () => fetchSessionTokenStats(20),
   });
 
   const maxToolUses = tools
@@ -262,6 +269,67 @@ export default function AnalyticsPage() {
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums">
                       {s.session_count}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Most expensive sessions */}
+      {sessionTokens && sessionTokens.length > 0 && (
+        <div className="rounded-lg border">
+          <div className="border-b px-4 py-3">
+            <h2 className="text-sm font-medium">Most Expensive Sessions</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="px-4 py-2 font-medium">Session</th>
+                  <th className="px-4 py-2 font-medium">Project</th>
+                  <th className="px-4 py-2 font-medium">Date</th>
+                  <th className="px-4 py-2 font-medium text-right">Input</th>
+                  <th className="px-4 py-2 font-medium text-right">Output</th>
+                  <th className="px-4 py-2 font-medium text-right">Total</th>
+                  <th className="px-4 py-2 font-medium text-right">Msgs</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessionTokens.map((s) => (
+                  <tr
+                    key={s.session_id}
+                    className="border-b last:border-0 hover:bg-muted/50"
+                  >
+                    <td className="px-4 py-2">
+                      <Link
+                        to={`/sessions/${s.session_id}`}
+                        className="font-mono text-xs hover:underline"
+                      >
+                        {s.session_id.slice(0, 8)}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {shortProjectName(s.project_name)}
+                    </td>
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {s.start_time
+                        ? new Date(s.start_time).toLocaleDateString()
+                        : "—"}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {formatNumber(s.input_tokens)}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {formatNumber(s.output_tokens)}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums font-medium">
+                      {formatNumber(s.input_tokens + s.output_tokens)}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {s.message_count}
                     </td>
                   </tr>
                 ))}

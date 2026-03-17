@@ -20,6 +20,7 @@ import type {
   Project,
   PublishResult,
   SearchResponse,
+  SessionTokenStats,
   SimilarResponse,
   SessionSummary,
   Session,
@@ -107,6 +108,9 @@ export const fetchMcpStats = () => get<McpStats>("/analytics/tools/mcp");
 
 export const fetchHeatmap = (days?: number) =>
   get<HeatmapCell[]>("/analytics/heatmap", { days });
+
+export const fetchSessionTokenStats = (limit?: number) =>
+  get<SessionTokenStats[]>("/analytics/sessions/tokens", { limit });
 
 export const fetchActivityMetrics = (params?: { project_id?: string; idle_cap?: number }) =>
   get<AggregateActivity>("/analytics/activity", params);
