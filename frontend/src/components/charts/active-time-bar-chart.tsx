@@ -47,7 +47,7 @@ export function ActiveTimeBarChart({ data }: { data: ProjectActivity[] }) {
             cursor={false}
             formatter={(value, name) => [
               formatDuration(Number(value) * 60),
-              name === "active" ? "Active" : "Idle",
+              String(name),
             ]}
           />
           <Bar
