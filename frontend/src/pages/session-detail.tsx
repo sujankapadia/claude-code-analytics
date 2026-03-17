@@ -7,10 +7,8 @@ import {
   fetchSessionTokens,
   fetchSessionActivity,
   fetchSessionTextVolume,
-  fetchSessionTokenTimeline,
 } from "@/api/client";
 import { ConversationViewer } from "@/components/conversation/conversation-viewer";
-import { TokenTimelineChart } from "@/components/charts/token-timeline-chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/format";
 
@@ -61,12 +59,6 @@ export default function SessionDetailPage() {
   const { data: textVolume } = useQuery({
     queryKey: ["session", id, "text-volume"],
     queryFn: () => fetchSessionTextVolume(id!),
-    enabled: !!id,
-  });
-
-  const { data: tokenTimeline } = useQuery({
-    queryKey: ["session", id, "token-timeline"],
-    queryFn: () => fetchSessionTokenTimeline(id!),
     enabled: !!id,
   });
 
@@ -135,11 +127,6 @@ export default function SessionDetailPage() {
           </>
         )}
       </div>
-
-      {/* Token timeline chart */}
-      {tokenTimeline && tokenTimeline.length > 1 && (
-        <TokenTimelineChart data={tokenTimeline} />
-      )}
 
       {/* Conversation Viewer */}
       {isLoading ? (

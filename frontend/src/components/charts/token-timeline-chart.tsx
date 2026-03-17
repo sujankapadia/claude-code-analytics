@@ -10,6 +10,16 @@ import {
 import type { TokenTimelinePoint } from "@/api/types";
 import { formatNumber, getChartColors } from "@/lib/format";
 
+function formatElapsed(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMins = minutes % 60;
+  return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
+}
+
 export function TokenTimelineChart({
   data,
 }: {
@@ -17,17 +27,18 @@ export function TokenTimelineChart({
 }) {
   const [c1, c2, c3] = getChartColors();
 
+  const startTime = new Date(data[0].timestamp).getTime();
+
   let cumInput = 0;
   let cumOutput = 0;
   const chartData = data.map((p, i) => {
     cumInput += p.input_tokens;
     cumOutput += p.output_tokens;
+    const elapsedMs = new Date(p.timestamp).getTime() - startTime;
     return {
       index: i,
-      timestamp: new Date(p.timestamp).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      elapsed: elapsedMs,
+      elapsedLabel: formatElapsed(elapsedMs),
       cumulative: p.cumulative_tokens,
       input: cumInput,
       output: cumOutput,
@@ -42,13 +53,15 @@ export function TokenTimelineChart({
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={chartData}>
           <XAxis
-            dataKey="timestamp"
+            dataKey="elapsed"
             tick={{ fontSize: 10 }}
             interval="preserveStartEnd"
+            tickFormatter={(ms) => formatElapsed(ms)}
           />
           <YAxis tick={{ fontSize: 10 }} tickFormatter={formatNumber} width={45} />
           <Tooltip
             formatter={(value) => formatNumber(Number(value))}
+            labelFormatter={(ms) => formatElapsed(Number(ms))}
           />
           <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
           <Line
