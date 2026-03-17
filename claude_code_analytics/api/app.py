@@ -53,7 +53,6 @@ def create_app() -> FastAPI:
         analytics,
         bookmarks,
         events,
-        examples,
         import_data,
         projects,
         search,
@@ -66,7 +65,6 @@ def create_app() -> FastAPI:
     app.include_router(search.router, prefix="/api")
     app.include_router(analytics.router, prefix="/api")
     app.include_router(analysis.router, prefix="/api")
-    app.include_router(examples.router, prefix="/api")
     app.include_router(import_data.router, prefix="/api")
     app.include_router(events.router, prefix="/api")
     app.include_router(active.router, prefix="/api")

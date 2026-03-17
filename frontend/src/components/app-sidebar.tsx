@@ -4,7 +4,6 @@ import {
   Activity,
   BarChart3,
   Bookmark,
-  BookOpen,
   BrainCircuit,
   FolderOpen,
   Home,
@@ -34,7 +33,6 @@ const navItems = [
   { to: "/search", label: "Search", icon: Search },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/analysis", label: "Analysis", icon: BrainCircuit },
-  { to: "/examples", label: "Examples", icon: BookOpen },
   { to: "/import", label: "Import", icon: Import },
 ];
 

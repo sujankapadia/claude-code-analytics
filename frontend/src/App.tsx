@@ -14,7 +14,6 @@ import SessionDetailPage from "@/pages/session-detail";
 import SearchPage from "@/pages/search";
 import AnalyticsPage from "@/pages/analytics";
 import AnalysisPage from "@/pages/analysis";
-import ExamplesPage from "@/pages/examples";
 import BookmarksPage from "@/pages/bookmarks";
 import ImportPage from "@/pages/import";
 
@@ -44,7 +43,6 @@ function AppShell() {
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/analysis" element={<AnalysisPage />} />
             <Route path="/bookmarks" element={<BookmarksPage />} />
-            <Route path="/examples" element={<ExamplesPage />} />
             <Route path="/import" element={<ImportPage />} />
           </Routes>
         </div>
