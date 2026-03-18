@@ -45,9 +45,11 @@ function formatNumber(n: number): string {
 
 function formatDateShort(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString(undefined, {
+  return new Date(iso).toLocaleString(undefined, {
     month: "short",
     day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
