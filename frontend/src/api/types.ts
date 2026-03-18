@@ -243,6 +243,7 @@ export interface ActiveSessionInfo {
   duration_minutes: number;
   status: "running";
   recent_messages: string[];
+  latest_session_id: string | null;
 }
 
 export interface RecentSessionInfo {

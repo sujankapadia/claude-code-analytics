@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Activity, Clock, Monitor, Terminal } from "lucide-react";
+import { Link } from "react-router-dom";
 import { fetchActiveSessions } from "@/api/client";
 import type { ActiveSessionInfo, RecentSessionInfo } from "@/api/types";
 
@@ -28,8 +29,8 @@ function StatusDot() {
 }
 
 function ActiveCard({ session }: { session: ActiveSessionInfo }) {
-  return (
-    <div className="rounded-lg border bg-card p-4 space-y-3">
+  const content = (
+    <div className={`rounded-lg border bg-card p-4 space-y-3${session.latest_session_id ? " hover:border-primary/50 transition-colors cursor-pointer" : ""}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <StatusDot />
@@ -63,31 +64,38 @@ function ActiveCard({ session }: { session: ActiveSessionInfo }) {
       </div>
     </div>
   );
+
+  if (session.latest_session_id) {
+    return <Link to={`/sessions/${session.latest_session_id}`} className="block no-underline text-inherit">{content}</Link>;
+  }
+  return content;
 }
 
 function RecentCard({ session }: { session: RecentSessionInfo }) {
   return (
-    <div className="rounded-lg border bg-card/50 p-4 space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="inline-block size-2.5 rounded-full bg-muted-foreground/30" />
-          <h3 className="font-medium text-sm">{session.project_name}</h3>
+    <Link to={`/sessions/${session.session_id}`} className="block no-underline text-inherit">
+      <div className="rounded-lg border bg-card/50 p-4 space-y-2 hover:border-primary/50 transition-colors cursor-pointer">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="inline-block size-2.5 rounded-full bg-muted-foreground/30" />
+            <h3 className="font-medium text-sm">{session.project_name}</h3>
+          </div>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            ended {formatTimeAgo(session.ended_minutes_ago)}
+          </span>
         </div>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          ended {formatTimeAgo(session.ended_minutes_ago)}
-        </span>
-      </div>
 
-      {session.first_user_message && (
-        <p className="text-sm text-muted-foreground line-clamp-2">
-          {session.first_user_message}
-        </p>
-      )}
+        {session.first_user_message && (
+          <p className="text-sm text-muted-foreground line-clamp-2">
+            {session.first_user_message}
+          </p>
+        )}
 
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <span>{session.message_count} messages</span>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span>{session.message_count} messages</span>
+        </div>
       </div>
-    </div>
+    </Link>
   );
 }
 

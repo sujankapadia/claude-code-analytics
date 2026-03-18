@@ -29,11 +29,36 @@ async def get_active_sessions(
     """
     active = get_active_sessions_cached()
 
+    # Fetch summaries once — used for both latest_session_id lookup and recent section
+    summaries = db.get_session_summaries()
+
+    # Build lookup: project_name (full path) -> latest *user* session_id
+    # Skip subagent sessions (prefixed with "agent-") so users land on a top-level session
+    latest_by_project: dict[str, str] = {}
+    for s in summaries:
+        if not s.project_name or not s.session_id:
+            continue
+        if s.session_id.startswith("agent-"):
+            continue
+        if not s.start_time:
+            continue
+        existing = latest_by_project.get(s.project_name)
+        if existing is None:
+            latest_by_project[s.project_name] = s.session_id
+        else:
+            # Compare start_time to keep the latest
+            existing_summary = next((x for x in summaries if x.session_id == existing), None)
+            if (
+                existing_summary
+                and existing_summary.start_time
+                and s.start_time > existing_summary.start_time
+            ):
+                latest_by_project[s.project_name] = s.session_id
+
     recent = []
     if include_recent:
         now_utc = datetime.now(timezone.utc)
         cutoff = now_utc - timedelta(minutes=recent_minutes)
-        summaries = db.get_session_summaries()
         for s in summaries:
             if not s.end_time:
                 continue
@@ -85,6 +110,7 @@ async def get_active_sessions(
                 "duration_minutes": s.duration_minutes,
                 "status": s.status,
                 "recent_messages": s.recent_messages,
+                "latest_session_id": latest_by_project.get(s.project_dir),
             }
             for s in active
         ],
