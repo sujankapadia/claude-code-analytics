@@ -1,6 +1,7 @@
 """Tests for session similarity search endpoint (similar.py)."""
 
 import sqlite3
+from datetime import datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,6 +12,7 @@ from claude_code_analytics.api.routers.similar import (
     _fts_session_search,
     _rrf_fusion,
 )
+from claude_code_analytics.models.database_models import SessionSummary
 
 # --- Fixtures ---
 
@@ -38,6 +40,28 @@ def _make_tool_hit(
         "project_name": project_name,
         "timestamp": "2024-01-01T00:00:00Z",
     }
+
+
+def _make_session_summary(
+    session_id,
+    project_id="proj-1",
+    project_name="proj",
+    start_time=None,
+    message_count=10,
+    tool_use_count=5,
+):
+    return SessionSummary(
+        session_id=session_id,
+        project_id=project_id,
+        project_name=project_name,
+        start_time=start_time,
+        end_time=None,
+        duration_seconds=100,
+        message_count=message_count,
+        tool_use_count=tool_use_count,
+        user_message_count=5,
+        assistant_message_count=5,
+    )
 
 
 @pytest.fixture
@@ -234,13 +258,17 @@ class TestSimilarEndpoint:
         assert "sess-b" in sids
 
     def test_limit_parameter(self, mock_db, client):
-        """E4: Limit caps result count."""
+        """E4: Limit caps result count and has_more is true."""
         mock_db.search_messages.return_value = [_make_message_hit(f"sess-{i}", 0) for i in range(5)]
+        mock_db.get_session_summaries.return_value = [
+            _make_session_summary(f"sess-{i}") for i in range(5)
+        ]
         response = client.get("/api/search/sessions?q=test&limit=2")
 
         data = response.json()
         assert len(data["results"]) == 2
         assert data["total_sessions"] == 5
+        assert data["has_more"] is True
 
     def test_no_matches(self, mock_db, client):
         """E5: No matches returns empty results."""
@@ -266,3 +294,97 @@ class TestSimilarEndpoint:
         matches = data["results"][0]["sample_matches"]
         indices = [m["message_index"] for m in matches]
         assert len(indices) == len(set(indices))  # no duplicates
+
+    def test_offset_pagination(self, mock_db, client):
+        """E7: offset skips results, has_more reflects remaining."""
+        mock_db.search_messages.return_value = [_make_message_hit(f"sess-{i}", 0) for i in range(5)]
+        mock_db.get_session_summaries.return_value = [
+            _make_session_summary(f"sess-{i}") for i in range(5)
+        ]
+        response = client.get("/api/search/sessions?q=test&limit=2&offset=2")
+
+        data = response.json()
+        assert len(data["results"]) == 2
+        assert data["total_sessions"] == 5
+        assert data["has_more"] is True  # 2+2 < 5
+
+    def test_offset_beyond_total(self, mock_db, client):
+        """E8: offset past end returns empty results."""
+        mock_db.search_messages.return_value = [_make_message_hit(f"sess-{i}", 0) for i in range(3)]
+        mock_db.get_session_summaries.return_value = [
+            _make_session_summary(f"sess-{i}") for i in range(3)
+        ]
+        response = client.get("/api/search/sessions?q=test&limit=2&offset=10")
+
+        data = response.json()
+        assert len(data["results"]) == 0
+        assert data["has_more"] is False
+
+    def test_sort_date_asc(self, mock_db, client):
+        """E9: sort=date_asc returns oldest sessions first."""
+        mock_db.search_messages.return_value = [
+            _make_message_hit("sess-old", 0),
+            _make_message_hit("sess-mid", 0),
+            _make_message_hit("sess-new", 0),
+        ]
+        mock_db.get_session_summaries.return_value = [
+            _make_session_summary("sess-old", start_time=datetime(2024, 1, 1)),
+            _make_session_summary("sess-mid", start_time=datetime(2024, 6, 1)),
+            _make_session_summary("sess-new", start_time=datetime(2024, 12, 1)),
+        ]
+        response = client.get("/api/search/sessions?q=test&sort=date_asc")
+
+        data = response.json()
+        sids = [r["session_id"] for r in data["results"]]
+        assert sids == ["sess-old", "sess-mid", "sess-new"]
+
+    def test_sort_date_desc(self, mock_db, client):
+        """E10: sort=date_desc returns newest sessions first."""
+        mock_db.search_messages.return_value = [
+            _make_message_hit("sess-old", 0),
+            _make_message_hit("sess-mid", 0),
+            _make_message_hit("sess-new", 0),
+        ]
+        mock_db.get_session_summaries.return_value = [
+            _make_session_summary("sess-old", start_time=datetime(2024, 1, 1)),
+            _make_session_summary("sess-mid", start_time=datetime(2024, 6, 1)),
+            _make_session_summary("sess-new", start_time=datetime(2024, 12, 1)),
+        ]
+        response = client.get("/api/search/sessions?q=test&sort=date_desc")
+
+        data = response.json()
+        sids = [r["session_id"] for r in data["results"]]
+        assert sids == ["sess-new", "sess-mid", "sess-old"]
+
+    def test_sort_relevance_default(self, mock_db, client):
+        """E11: sort=relevance preserves RRF score ordering."""
+        # sess-a has more hits (higher score) than sess-b
+        mock_db.search_messages.return_value = [
+            _make_message_hit("sess-a", 0),
+            _make_message_hit("sess-a", 1),
+            _make_message_hit("sess-b", 0),
+        ]
+        mock_db.get_session_summaries.return_value = [
+            _make_session_summary("sess-a", start_time=datetime(2024, 1, 1)),
+            _make_session_summary("sess-b", start_time=datetime(2024, 12, 1)),
+        ]
+        response = client.get("/api/search/sessions?q=test&sort=relevance")
+
+        data = response.json()
+        sids = [r["session_id"] for r in data["results"]]
+        assert sids[0] == "sess-a"  # higher score, despite older
+
+    def test_default_limit_is_20(self, mock_db, client):
+        """E12: Default limit is 20."""
+        mock_db.search_messages.return_value = [
+            _make_message_hit(f"sess-{i}", 0) for i in range(25)
+        ]
+        mock_db.get_session_summaries.return_value = [
+            _make_session_summary(f"sess-{i}") for i in range(25)
+        ]
+        response = client.get("/api/search/sessions?q=test")
+
+        data = response.json()
+        assert len(data["results"]) == 20
+        assert data["total_sessions"] == 25
+        assert data["has_more"] is True

@@ -360,4 +360,5 @@ export interface SimilarResponse {
   expansions: string[];
   results: SimilarSessionResult[];
   total_sessions: number;
+  has_more: boolean;
 }

@@ -90,6 +90,8 @@ export const fetchSearch = (params: {
 export const fetchSimilarSessions = (params: {
   q: string;
   limit?: number;
+  offset?: number;
+  sort?: string;
   exclude_session?: string;
   project_id?: string;
 }) => get<SimilarResponse>("/search/sessions", params);

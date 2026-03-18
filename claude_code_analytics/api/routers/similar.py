@@ -57,6 +57,7 @@ class SimilarResponse(BaseModel):
     expansions: list[str] = []
     results: list[SessionResult]
     total_sessions: int
+    has_more: bool = False
 
 
 def _strip_html(text: str) -> str:
@@ -250,7 +251,9 @@ def _expand_query(query: str) -> list[str]:
 @router.get("/search/sessions", response_model=SimilarResponse)
 def find_similar_sessions(
     q: str,
-    limit: int = 10,
+    limit: int = 20,
+    offset: int = 0,
+    sort: str = "relevance",
     exclude_session: Optional[str] = None,
     project_id: Optional[str] = None,
     db: DatabaseService = Depends(get_db_service),
@@ -301,8 +304,25 @@ def find_similar_sessions(
             if summary_map.get(sid) and summary_map[sid].project_id == project_id
         ]
 
+    # Sort by date if requested (default is relevance = RRF score order)
+    if sort in ("date_asc", "date_desc"):
+        ranked.sort(
+            key=lambda item: (
+                (
+                    str(summary_map[item[0]].start_time)
+                    if summary_map.get(item[0]) and summary_map[item[0]].start_time
+                    else ""
+                ),
+                -item[1],  # secondary: score descending
+            ),
+            reverse=(sort == "date_desc"),
+        )
+
+    total = len(ranked)
+    ranked = ranked[offset : offset + limit]
+
     results = []
-    for sid, rrf_score in ranked[:limit]:
+    for sid, rrf_score in ranked:
         fts_data = fts_results.get(sid, {})
         sem_data = semantic_results.get(sid, {})
         summary = summary_map.get(sid)
@@ -348,5 +368,6 @@ def find_similar_sessions(
         query=q,
         expansions=expansions,
         results=results,
-        total_sessions=len(ranked),
+        total_sessions=total,
+        has_more=offset + limit < total,
     )

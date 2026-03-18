@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { Search as SearchIcon, ChevronDown, X, Clock } from "lucide-react";
 import DOMPurify from "dompurify";
@@ -93,6 +93,9 @@ export default function SearchPage() {
 
   const isSessionsScope = scope === "Sessions";
 
+  // Session search sort
+  const [sessionSort, setSessionSort] = useState("relevance");
+
   const { data, isPending, error } = useQuery({
     queryKey: ["search", debouncedQuery, scope, projectId, toolName],
     queryFn: () =>
@@ -106,15 +109,42 @@ export default function SearchPage() {
     enabled: debouncedQuery.length >= 2 && !isSessionsScope,
   });
 
+  const SESSION_LIMIT = 20;
   const {
-    data: similarData,
+    data: similarPages,
     isPending: similarPending,
     error: similarError,
-  } = useQuery({
-    queryKey: ["search-sessions", debouncedQuery, projectId],
-    queryFn: () => fetchSimilarSessions({ q: debouncedQuery, limit: 10, project_id: projectId || undefined }),
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ["search-sessions", debouncedQuery, projectId, sessionSort],
+    queryFn: ({ pageParam = 0 }) =>
+      fetchSimilarSessions({
+        q: debouncedQuery,
+        limit: SESSION_LIMIT,
+        offset: pageParam as number,
+        sort: sessionSort,
+        project_id: projectId || undefined,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) =>
+      lastPage.has_more ? (lastPageParam as number) + SESSION_LIMIT : undefined,
     enabled: debouncedQuery.length >= 2 && isSessionsScope,
   });
+
+  // Flatten infinite query pages into a single response shape
+  const similarData = useMemo(() => {
+    if (!similarPages?.pages.length) return undefined;
+    const first = similarPages.pages[0];
+    return {
+      query: first.query,
+      expansions: first.expansions,
+      total_sessions: first.total_sessions,
+      has_more: similarPages.pages[similarPages.pages.length - 1].has_more,
+      results: similarPages.pages.flatMap((p) => p.results),
+    };
+  }, [similarPages]);
 
   // Flatten results for keyboard nav
   const flatResults = data
@@ -317,6 +347,26 @@ export default function SearchPage() {
                 Also searched: {similarData.expansions.slice(0, 4).join(", ")}
               </span>
             )}
+            <div className="ml-auto flex gap-1">
+              {([
+                ["relevance", "Relevance"],
+                ["date_asc", "Oldest"],
+                ["date_desc", "Newest"],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setSessionSort(value)}
+                  className={cn(
+                    "rounded-md px-2 py-1 text-xs font-medium transition-colors",
+                    sessionSort === value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {similarData.results.map((r) => (
@@ -367,6 +417,16 @@ export default function SearchPage() {
               </div>
             </div>
           ))}
+
+          {hasNextPage && (
+            <button
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="w-full rounded-lg border py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+            >
+              {isFetchingNextPage ? "Loading..." : "Show more"}
+            </button>
+          )}
         </div>
       )}
 
