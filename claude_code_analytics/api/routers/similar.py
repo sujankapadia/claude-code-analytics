@@ -64,7 +64,9 @@ def _strip_html(text: str) -> str:
     return re.sub(r"<[^>]+>", "", text)
 
 
-def _fts_session_search(db: DatabaseService, query: str) -> dict[str, dict[str, Any]]:
+def _fts_session_search(
+    db: DatabaseService, query: str, project_id: Optional[str] = None
+) -> dict[str, dict[str, Any]]:
     """Run FTS across messages and tool inputs, aggregate by session.
 
     Returns dict keyed by session_id with:
@@ -77,7 +79,7 @@ def _fts_session_search(db: DatabaseService, query: str) -> dict[str, dict[str, 
 
     # Search messages
     try:
-        message_hits = db.search_messages(query=query, limit=200)
+        message_hits = db.search_messages(query=query, limit=200, project_id=project_id)
         for hit in message_hits:
             sid = hit["session_id"]
             if sid not in sessions:
@@ -103,7 +105,7 @@ def _fts_session_search(db: DatabaseService, query: str) -> dict[str, dict[str, 
 
     # Search tool inputs
     try:
-        tool_hits = db.search_tool_inputs(query=query, limit=200)
+        tool_hits = db.search_tool_inputs(query=query, limit=200, project_id=project_id)
         for hit in tool_hits:
             sid = hit["session_id"]
             if sid not in sessions:
@@ -250,6 +252,7 @@ def find_similar_sessions(
     q: str,
     limit: int = 10,
     exclude_session: Optional[str] = None,
+    project_id: Optional[str] = None,
     db: DatabaseService = Depends(get_db_service),
     embedding_service=Depends(get_embedding_service),
 ):
@@ -262,7 +265,7 @@ def find_similar_sessions(
         raise HTTPException(status_code=400, detail="Query must be at least 2 characters")
 
     # Step 1: FTS session search
-    fts_results = _fts_session_search(db, q)
+    fts_results = _fts_session_search(db, q, project_id=project_id)
 
     # Step 2: Query expansion (if provider available)
     expansions = _expand_query(q)
@@ -289,6 +292,14 @@ def find_similar_sessions(
     # Step 5: Enrich top N with session metadata
     all_summaries = db.get_session_summaries()
     summary_map = {s.session_id: s for s in all_summaries}
+
+    # Filter by project_id (catches semantic-only results not filtered by FTS)
+    if project_id:
+        ranked = [
+            (sid, score)
+            for sid, score in ranked
+            if summary_map.get(sid) and summary_map[sid].project_id == project_id
+        ]
 
     results = []
     for sid, rrf_score in ranked[:limit]:

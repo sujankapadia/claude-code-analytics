@@ -91,6 +91,7 @@ export const fetchSimilarSessions = (params: {
   q: string;
   limit?: number;
   exclude_session?: string;
+  project_id?: string;
 }) => get<SimilarResponse>("/search/sessions", params);
 
 // -- Analytics --

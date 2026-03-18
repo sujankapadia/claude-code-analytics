@@ -58,6 +58,9 @@ export default function SessionsPage() {
   const projectId = searchParams.get("project_id") ?? undefined;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [hideSubagents, setHideSubagents] = useState(
+    () => localStorage.getItem("hide_subagents") !== "false"
+  );
 
   const { data: projects } = useQuery({
     queryKey: ["projects"],
@@ -71,16 +74,17 @@ export default function SessionsPage() {
 
   const filteredSessions = useMemo(() => {
     if (!sessions) return [];
-    const q = search.toLowerCase().trim();
-    if (!q) return sessions;
     return sessions.filter((s) => {
+      if (hideSubagents && s.session_id.startsWith("agent-")) return false;
+      const q = search.toLowerCase().trim();
+      if (!q) return true;
       return (
         (s.first_user_message?.toLowerCase().includes(q) ?? false) ||
         s.project_name.toLowerCase().includes(q) ||
         s.session_id.toLowerCase().includes(q)
       );
     });
-  }, [sessions, search]);
+  }, [sessions, search, hideSubagents]);
 
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -130,6 +134,21 @@ export default function SessionsPage() {
               {filteredSessions.length}
               {search && sessions ? `/${sessions.length}` : ""} sessions
             </span>
+            <button
+              onClick={() => {
+                const next = !hideSubagents;
+                setHideSubagents(next);
+                localStorage.setItem("hide_subagents", String(next));
+              }}
+              className={cn(
+                "shrink-0 rounded px-1.5 py-0.5 text-[10px]",
+                hideSubagents
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {hideSubagents ? "Subagents hidden" : "Subagents shown"}
+            </button>
           </div>
           <input
             type="text"

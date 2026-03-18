@@ -111,8 +111,8 @@ export default function SearchPage() {
     isPending: similarPending,
     error: similarError,
   } = useQuery({
-    queryKey: ["search-sessions", debouncedQuery],
-    queryFn: () => fetchSimilarSessions({ q: debouncedQuery, limit: 10 }),
+    queryKey: ["search-sessions", debouncedQuery, projectId],
+    queryFn: () => fetchSimilarSessions({ q: debouncedQuery, limit: 10, project_id: projectId || undefined }),
     enabled: debouncedQuery.length >= 2 && isSessionsScope,
   });
 
