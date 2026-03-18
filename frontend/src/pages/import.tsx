@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Database, FolderSync, Info, RefreshCw } from "lucide-react";
 
 interface ImportEvent {
   type: string;
@@ -76,23 +77,60 @@ export default function ImportPage() {
 
   const latest = events[events.length - 1];
   const complete = events.find((e) => e.type === "import_complete");
+  const hasNewData =
+    complete &&
+    !complete.error &&
+    ((complete.projects ?? 0) > 0 ||
+      (complete.sessions ?? 0) > 0 ||
+      (complete.messages ?? 0) > 0 ||
+      (complete.tool_uses ?? 0) > 0);
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Import</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Import</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Import conversation transcripts from <code className="rounded bg-muted px-1 py-0.5 text-xs">~/.claude/projects/</code> into the database.
+        </p>
+      </div>
 
-      <p className="text-sm text-muted-foreground">
-        Import conversation transcripts from ~/.claude/projects/ into the database.
-      </p>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-lg border bg-card p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <FolderSync className="size-4 text-primary" />
+            <h3 className="font-medium text-sm">Automatic file watcher</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            The API server automatically watches for new and updated session files.
+            On startup it catches up on any changes that occurred while the server was stopped,
+            then continues monitoring for new activity in real time. In most cases, your sessions
+            are already up to date.
+          </p>
+        </div>
+
+        <div className="rounded-lg border bg-card p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="size-4 text-primary" />
+            <h3 className="font-medium text-sm">Manual import</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Performs a full scan of all project directories and re-checks every session file
+            for new messages. Use this if you suspect the file watcher missed something, or
+            after restoring data from a backup. Also rebuilds the full-text search index.
+          </p>
+        </div>
+      </div>
 
       <Button onClick={startImport} disabled={running}>
-        {running ? "Importing..." : "Run Import"}
+        <Database className="size-4" />
+        {running ? "Importing..." : "Run Full Import"}
       </Button>
 
       {running && latest?.type === "import_progress" && (
         <div className="space-y-2">
           <p className="text-sm">
-            Processing project {latest.current}/{latest.total}: {latest.project}
+            Processing project {latest.current}/{latest.total}:{" "}
+            <span className="font-medium">{latest.project?.split("/").pop()}</span>
           </p>
           <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div
@@ -106,17 +144,48 @@ export default function ImportPage() {
       )}
 
       {complete && (
-        <div className="rounded-lg border bg-card p-4">
-          <h3 className="font-medium">Import Complete</h3>
+        <div className="rounded-lg border bg-card p-4 space-y-3">
           {complete.error ? (
-            <p className="mt-1 text-sm text-destructive">{complete.error}</p>
+            <>
+              <h3 className="font-medium text-destructive">Import Failed</h3>
+              <p className="text-sm text-destructive">{complete.error}</p>
+            </>
+          ) : hasNewData ? (
+            <>
+              <h3 className="font-medium">Import Complete</h3>
+              <p className="text-sm text-muted-foreground">New data was imported:</p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-md bg-muted/50 p-3 text-center">
+                  <p className="text-2xl font-semibold tabular-nums">{complete.projects}</p>
+                  <p className="text-xs text-muted-foreground">Projects</p>
+                </div>
+                <div className="rounded-md bg-muted/50 p-3 text-center">
+                  <p className="text-2xl font-semibold tabular-nums">{complete.sessions}</p>
+                  <p className="text-xs text-muted-foreground">Sessions</p>
+                </div>
+                <div className="rounded-md bg-muted/50 p-3 text-center">
+                  <p className="text-2xl font-semibold tabular-nums">{complete.messages?.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Messages</p>
+                </div>
+                <div className="rounded-md bg-muted/50 p-3 text-center">
+                  <p className="text-2xl font-semibold tabular-nums">{complete.tool_uses?.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Tool Uses</p>
+                </div>
+              </div>
+            </>
           ) : (
-            <ul className="mt-1 text-sm text-muted-foreground">
-              <li>Projects: {complete.projects}</li>
-              <li>Sessions: {complete.sessions}</li>
-              <li>Messages: {complete.messages}</li>
-              <li>Tool Uses: {complete.tool_uses}</li>
-            </ul>
+            <>
+              <div className="flex items-start gap-3">
+                <Info className="size-5 text-muted-foreground mt-0.5 shrink-0" />
+                <div>
+                  <h3 className="font-medium">Already up to date</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    All {latest?.total ?? 0} projects were scanned and no new data was found.
+                    The file watcher has already imported everything.
+                  </p>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
