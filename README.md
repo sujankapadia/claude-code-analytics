@@ -5,7 +5,7 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An analysis tool for [Claude Code](https://claude.com/claude-code) that automatically captures, archives, and analyzes your AI development conversations. Features a React dashboard with real-time updates, full-text search, AI-powered insights, and natural language prompt discovery across all your sessions.
+An analysis tool for [Claude Code](https://claude.com/claude-code) that automatically captures, archives, and analyzes your AI development conversations. Features a React dashboard with real-time updates, hybrid search (FTS + semantic embeddings), AI-powered insights, and session similarity search across all your sessions.
 
 ## What It Does
 
@@ -14,7 +14,7 @@ Claude Code Analytics transforms your AI development workflow into actionable in
 - **Real-time import** — a file watcher detects new sessions and imports them instantly, with SSE push to the UI
 - **Stores and indexes** conversations in a searchable SQLite database with FTS5
 - **React dashboard** — modern SPA with virtual scrolling, command palette (Cmd+K), and dark mode
-- **Find Examples** — ask "How do I use Playwright to test a component?" and get shareable prompts from your history
+- **Session similarity search** — hybrid FTS + semantic embeddings with sort by relevance/date and infinite scroll pagination
 - **AI-powered analysis** of your development sessions using 300+ LLM models
 
 ## Prerequisites
@@ -115,28 +115,22 @@ That's it! New conversations will be automatically captured when you exit Claude
 A modern single-page application with real-time updates:
 
 - **Dashboard** — KPI cards, daily activity charts, activity heatmap (day × hour), projects table
+- **Active Sessions** — Live view of currently running Claude Code sessions with recent activity
 - **Sessions** — Split-view with searchable session list (first user message preview) and detail pane
+- **Bookmarks** — Save and annotate specific messages across sessions for quick reference
 - **Conversation Viewer** — Virtual scrolling for 1000+ message sessions, collapsible tool cards, minimap navigation, in-conversation search (Cmd+F), role filtering (All/User/Assistant), token usage bar
-- **Search** — FTS5 search with scope tabs (All/Messages/Tool Input/Tool Results), project/tool filters, search history, keyboard navigation
-- **Analytics** — Tool usage distribution, MCP server stats, daily trend charts
+- **Search** — FTS5 search with scope tabs (All/Messages/Tool Input/Tool Results/Sessions), project/tool filters, search history, keyboard navigation
+- **Session Similarity Search** — Hybrid search (FTS + ChromaDB semantic embeddings + LLM query expansion) with Reciprocal Rank Fusion, sort by relevance/oldest/newest, infinite scroll pagination
+- **Analytics** — Tool usage distribution, MCP server stats, daily trend charts, most expensive sessions
 - **Analysis** — LLM-powered session analysis with scoping (entire session, time range, or search hit context), searchable session picker, Gist publishing
-- **Find Examples** — Natural language discovery of prompts and sessions (FTS + LLM ranking)
 - **Command Palette** — Cmd+K for quick navigation across pages, projects, sessions, and content search
 - **Real-time updates** — File watcher auto-imports new sessions, SSE pushes updates to the UI
-
-### 🔎 Find Examples
-
-Answer "How do I use Playwright to test a component?" by searching your conversation history:
-
-- **Prompts mode** — Finds specific user messages you can copy and share as templates
-- **Sessions mode** — Finds sessions where a technique or workflow was demonstrated
-- FTS keyword extraction + tool name pattern detection narrows to ~20-30 candidates
-- LLM ranks for relevance (~3-8k tokens per query, minimal cost)
-- Copy button for instant sharing, deep links to source conversations
 
 ### 🔍 Search & Discovery
 
 - **Full-text search** - Lightning-fast FTS5 search across millions of tokens
+- **Session similarity search** - Hybrid FTS + ChromaDB semantic embeddings + LLM query expansion, fused via Reciprocal Rank Fusion (RRF)
+- **Sort & paginate** - Sort session results by relevance, oldest, or newest; "Show more" infinite scroll
 - **Deep linking** - Search results link directly to specific messages in conversations
 - **Advanced filtering** - Filter by project, date range, role, tool name
 - **MCP tool tracking** - Dedicated analytics for MCP server usage
@@ -237,8 +231,10 @@ MESSAGES_PER_PAGE=100
 #### Search Configuration
 
 ```bash
-# Number of search results to show per page
+# Number of search results to show per page (FTS search)
 SEARCH_RESULTS_PER_PAGE=10
+
+# Session similarity search returns 20 results per page by default
 ```
 
 #### Display Settings
@@ -375,7 +371,8 @@ The conversation viewer handles sessions with 1000+ messages:
 ### Search
 
 FTS5-powered search across all messages and tool content:
-- Scope tabs: All, Messages, Tool Input, Tool Results
+- Scope tabs: All, Messages, Tool Input, Tool Results, Sessions
+- **Sessions tab** — hybrid similarity search (FTS + semantic embeddings + LLM query expansion) with sort by Relevance/Oldest/Newest and "Show more" pagination
 - Project and tool name filters
 - Search history with keyboard navigation
 - Click results to jump directly to the matching message in context
@@ -511,11 +508,12 @@ FastAPI + React (port 8000)
   └── React SPA (static files)
        ↓
   ├── Dashboard
+  ├── Active Sessions
   ├── Sessions
-  ├── Search
+  ├── Bookmarks
+  ├── Search (FTS + Session Similarity)
   ├── Analytics
   ├── Analysis
-  ├── Find Examples
   └── Import
 ```
 
@@ -716,10 +714,12 @@ claude-code-analytics/
 │   │   ├── routers/                    # API endpoints
 │   │   │   ├── projects.py             # GET /projects
 │   │   │   ├── sessions.py             # GET /sessions, messages, tokens, etc.
+│   │   │   ├── active.py              # GET /active-sessions
+│   │   │   ├── bookmarks.py           # CRUD /bookmarks
 │   │   │   ├── search.py               # GET /search (FTS5)
+│   │   │   ├── similar.py              # GET /search/sessions (hybrid similarity)
 │   │   │   ├── analytics.py            # GET /analytics (daily, tools, heatmap)
 │   │   │   ├── analysis.py             # POST /analysis/run, /analysis/publish
-│   │   │   ├── examples.py             # POST /examples/prompts, /examples/sessions
 │   │   │   ├── import_data.py          # POST /import (SSE progress)
 │   │   │   └── events.py               # GET /events (SSE stream)
 │   │   └── services/                   # Background services
@@ -728,6 +728,7 @@ claude-code-analytics/
 │   │       └── import_service.py       # Incremental import with FTS updates
 │   ├── services/                       # Business logic layer
 │   │   ├── database_service.py         # SQLite queries
+│   │   ├── embedding_service.py        # ChromaDB semantic embeddings
 │   │   ├── analysis_service.py         # LLM analysis orchestration
 │   │   ├── llm_providers.py            # LLM provider abstraction
 │   │   ├── gist_publisher.py           # GitHub Gist publishing
@@ -847,7 +848,6 @@ logger.warning("Interrupted by user")
 
 - **Copyable excerpts** - Select message ranges and copy as formatted markdown for sharing
 - **Session tags** - Auto-tag sessions by workflow type for browsable discovery
-- **Vector embeddings** - Semantic search across conversations
 - **Cost tracking** - Monitor LLM API costs per analysis
 - **Export formats** - HTML, PDF conversation exports
 
