@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **FastAPI Backend** - Full REST API replacing direct database access from the Streamlit frontend
-  - 22 GET and 4 POST endpoints across 8 routers (projects, sessions, search, analytics, analysis, examples, import, events)
+  - 25+ GET and 4 POST endpoints across 11 routers (projects, sessions, active, bookmarks, search, similar, analytics, analysis, import, events)
   - SSE (Server-Sent Events) endpoint for real-time updates
   - File watcher service that auto-imports new sessions from `~/.claude/projects/` using `watchfiles`
   - Startup catch-up import for sessions created while the server was offline
@@ -20,25 +20,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **React Frontend** - Modern SPA replacing the Streamlit dashboard
   - **Dashboard** — KPI cards, daily activity charts, activity heatmap (day × hour), projects table
-  - **Sessions** — Split-view with searchable session list (showing first user message) and detail preview with stats cards
+  - **Active Sessions** — Live view of currently running Claude Code sessions with recent activity
+  - **Sessions** — Split-view with searchable session list (showing first user message, start time) and detail preview with stats cards
+  - **Bookmarks** — Save and annotate specific messages across sessions for quick reference
   - **Session Detail** — Full conversation viewer with virtual scrolling (`@tanstack/react-virtual`), collapsible tool cards, minimap navigation, in-conversation search (Cmd+F), token usage bar
   - **Search** — FTS5 search with scope/project/tool filters, search history, keyboard navigation, URL sync
-  - **Analytics** — Tool usage distribution, MCP server stats, daily trend charts
+  - **Session Similarity Search** — Sessions tab with hybrid search, sort by Relevance/Oldest/Newest, infinite scroll pagination via `useInfiniteQuery`
+  - **Analytics** — Tool usage distribution, MCP server stats, daily trend charts, most expensive sessions table
   - **Analysis** — LLM-powered session analysis with model selection, searchable session picker, Gist publishing
-  - **Examples** — Natural language prompt and session discovery (see below)
   - **Import** — Streaming import with SSE progress
   - **Command Palette** — Cmd+K quick navigation with fuzzy search across pages, projects, sessions, and FTS content search
   - Real-time cache invalidation via SSE (`useEventSource` hook)
   - Dark mode with Tailwind CSS v4 and Base UI headless components
 
-- **Find Examples Feature** — Hybrid FTS + LLM search for prompt and workflow discovery
-  - `POST /api/examples/prompts` — Find specific user prompts that demonstrate a technique, shareable as templates
-  - `POST /api/examples/sessions` — Find sessions where a workflow or technique was used
-  - Natural language queries are decomposed into FTS keywords + tool name patterns
-  - FTS narrows to ~20-30 candidates, then LLM (DeepSeek v3.2 via OpenRouter) ranks for relevance
-  - Compaction/continuation messages automatically excluded from results
-  - Frontend page with Prompts/Sessions toggle, project filter, copy-to-clipboard, and deep links to conversations
-  - Minimal LLM cost: ~3-8k input tokens per query
+- **Session Similarity Search** — Hybrid search for finding related sessions across your entire history
+  - `GET /api/search/sessions` — FTS keyword search + ChromaDB semantic embeddings + LLM query expansion, fused via Reciprocal Rank Fusion (RRF)
+  - ChromaDB embedding service with automatic embedding of new messages during file watcher import
+  - LLM query expansion via Ollama or OpenAI-compatible providers (configurable)
+  - Sort by relevance, date ascending (oldest first), or date descending (newest first)
+  - Offset-based pagination with `has_more` indicator (default 20 results per page)
+  - Project filtering and subagent session hiding
+  - Sample matches per session showing FTS and semantic hit snippets with similarity scores
 
 - **Token Counts in Project Summary** - Display total input/output tokens per project on the Browse Sessions page and in the project_summary SQL view
 - **Activity & Volume Metrics** - Track active time and text volume across sessions and projects
@@ -58,11 +60,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Conversation Viewer** — Empty user messages (tool-result acknowledgments with no text) are now hidden, reducing noise by ~30%
-- **Sessions Page** — Session list shows first user message instead of UUID; added search filter
+- **Sessions Page** — Session list shows first user message and start time instead of UUID; added search filter
 - **Analysis Page** — Session dropdown replaced with searchable session picker (Combobox)
+- **Search defaults** — Session similarity search defaults to 20 results per page (up from 10)
 - **Entry Points** — `claude-code-analytics` now launches the FastAPI + React app (port 8000); `claude-code-api` is an alias
 - **Install Script** — Updated for React + FastAPI stack: checks Node.js 18+/npm, runs `npm install && npm run build`
 - **Uninstall Script** — Now cleans frontend build artifacts (`frontend/dist/`, `frontend/node_modules/`)
+- **Python version** — Minimum Python version raised from 3.9 to 3.10
 
 ### Fixed
 - **FTS5 query escaping** — Properly escape special characters in user queries to prevent SQLite FTS5 syntax errors
@@ -71,12 +75,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **SessionEnd hook timeout** - Remove unnecessary `sleep 1` in `export-conversation.sh` that caused the hook to exceed its timeout window and get cancelled
 - **SPA routing** — Fix 404 on direct navigation to React routes in production (replaced StaticFiles mount with catch-all fallback)
 - **Activity heatmap timezone** — Use local time instead of UTC for day-of-week and hour calculations
+- **Active Time chart tooltip** — Fixed tooltip showing "Idle" for both bars
+- **Bookmark edit** — Fixed edit creating a duplicate instead of updating in place
 
 ### Removed
+- **Find Examples feature** — Superseded by session similarity search with hybrid FTS + semantic embeddings
+- **Per-session token timeline chart** — Removed from session detail view
 - **Streamlit dashboard** — Legacy frontend removed; React dashboard is now the only UI
 - **Streamlit dependencies** — Removed `streamlit`, `pandas`, `altair` from package dependencies
 - **`run_dashboard.sh`** — Obsolete Streamlit launcher script deleted
 - **`claude-code-streamlit`** — Entry point removed
+- **Python 3.9 support** — Minimum version is now 3.10
 
 ## [0.1.0] - 2025-12-30
 
