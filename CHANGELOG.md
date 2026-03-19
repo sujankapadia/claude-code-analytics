@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **React Frontend** - Modern SPA replacing the Streamlit dashboard
   - **Dashboard** — KPI cards, daily activity charts, activity heatmap (day × hour), projects table
-  - **Active Sessions** — Live view of currently running Claude Code sessions with recent activity
+  - **Active Sessions** — Live view of currently running Claude Code sessions with recent activity; cards are clickable and navigate to the latest user session for the project (#60)
   - **Sessions** — Split-view with searchable session list (showing first user message, start time) and detail preview with stats cards
   - **Bookmarks** — Save and annotate specific messages across sessions for quick reference
   - **Session Detail** — Full conversation viewer with virtual scrolling (`@tanstack/react-virtual`), collapsible tool cards, minimap navigation, in-conversation search (Cmd+F), token usage bar
@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Session Similarity Search** — Sessions tab with hybrid search, sort by Relevance/Oldest/Newest, infinite scroll pagination via `useInfiniteQuery`
   - **Analytics** — Tool usage distribution, MCP server stats, daily trend charts, most expensive sessions table
   - **Analysis** — LLM-powered session analysis with model selection, searchable session picker, Gist publishing
-  - **Import** — Streaming import with SSE progress
+  - **Import** — Streaming import with SSE progress; descriptive info cards explaining automatic file watcher vs manual import, and improved results display with "already up to date" state (#61)
   - **Command Palette** — Cmd+K quick navigation with fuzzy search across pages, projects, sessions, and FTS content search
   - Real-time cache invalidation via SSE (`useEventSource` hook)
   - Dark mode with Tailwind CSS v4 and Base UI headless components
