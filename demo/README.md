@@ -29,7 +29,7 @@ Plus a TTS provider — see setup instructions below.
 
 ## TTS Providers
 
-The pipeline supports swappable TTS backends via `generate_audio_clips()`. Currently two are available:
+The pipeline supports swappable TTS backends selected via `--tts` flag. Three are available:
 
 ### Piper TTS (local, free, robotic)
 
@@ -85,12 +85,37 @@ curl -s -X POST \
   | python3 -c "import sys,json,base64; data=json.load(sys.stdin); open('demo/output/test_gcloud.wav','wb').write(base64.b64decode(data['audioContent']))"
 ```
 
+### ElevenLabs (cloud, paid, highest quality)
+
+Uses ElevenLabs' voice cloning and synthesis — the most natural-sounding option.
+
+Add credentials to `demo/.env`:
+
+```env
+ELEVENLABS_API_KEY=your-key-here
+ELEVENLABS_VOICE_ID=your-voice-id-here
+
+# Voice tuning (all optional, defaults shown)
+ELEVENLABS_STABILITY=0.4
+ELEVENLABS_SIMILARITY_BOOST=0.75
+ELEVENLABS_STYLE=0.3
+ELEVENLABS_USE_SPEAKER_BOOST=true
+```
+
+- `stability` (0.0–1.0) — lower = more expressive, higher = monotone
+- `similarity_boost` (0.0–1.0) — how closely it matches the original voice
+- `style` (0.0–1.0) — style exaggeration for more expressiveness
+- `use_speaker_boost` — enhances speaker similarity
+- Requires a paid plan for cloned voices; pre-made voices work on free tier
+- The `.env` file is gitignored
+
 ### Comparison
 
 | Provider | Quality | Cost | Latency | Offline |
 |----------|---------|------|---------|---------|
 | Piper TTS | Robotic | Free | ~1s/segment | Yes |
 | Google Cloud TTS (WaveNet) | Natural | Free tier (1M chars/mo) | ~2s/segment | No |
+| ElevenLabs | Most natural | Paid (~$5/mo starter) | ~2s/segment | No |
 
 ## Usage
 
@@ -104,7 +129,7 @@ curl -s -X POST \
 
 3. Run the pipeline:
    ```bash
-   python demo/run_demo.py
+   python demo/run_demo.py --tts elevenlabs   # or: piper, google
    ```
 
 4. Output lands in `demo/output/active-sessions-demo.mp4`.
@@ -112,7 +137,7 @@ curl -s -X POST \
 ## How it works
 
 ### Phase A: Audio generation
-For each segment, the narration text is piped to `piper --model <model.onnx> --output_file segment_N.wav`. Clip durations are measured with `ffprobe` to calculate Playwright timing.
+For each segment, narration text is sent to the selected TTS provider to generate an audio clip. Clip durations are measured with `ffprobe` to calculate Playwright timing. Non-WAV outputs (e.g. MP3 from ElevenLabs) are automatically converted to WAV before merging.
 
 ### Phase B: Browser recording
 Playwright launches Chromium with `record_video_dir` and executes each segment's action (navigate, click, scroll, or wait). After each action, it sleeps for `max(audio_duration, pause_after_ms)` so the video has enough footage to cover the narration.

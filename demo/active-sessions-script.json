@@ -6,6 +6,7 @@
       "narration": "Claude Code Analytics gives you a live view of all your running Claude Code sessions.",
       "action": "navigate",
       "url": "http://localhost:5173/active",
+      "wait_for": "a[href*='/sessions/']",
       "pause_after_ms": 1000
     },
     {
