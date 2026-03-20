@@ -1,0 +1,28 @@
+{
+  "title": "Active Sessions Demo",
+  "resolution": { "width": 1280, "height": 720 },
+  "segments": [
+    {
+      "narration": "Claude Code Analytics gives you a live view of all your running Claude Code sessions.",
+      "action": "navigate",
+      "url": "http://localhost:5173/active",
+      "pause_after_ms": 1000
+    },
+    {
+      "narration": "Each card shows the project name, how long the session has been running, and recent messages.",
+      "action": "wait",
+      "pause_after_ms": 2000
+    },
+    {
+      "narration": "Click any card to jump straight into the conversation viewer for that session.",
+      "action": "click",
+      "selector": "a[href*='/sessions/']",
+      "pause_after_ms": 1500
+    },
+    {
+      "narration": "Here you can see the full conversation with messages, tool uses, and token stats.",
+      "action": "wait",
+      "pause_after_ms": 2000
+    }
+  ]
+}
