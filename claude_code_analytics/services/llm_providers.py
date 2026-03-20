@@ -3,7 +3,7 @@
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import google.generativeai as genai
 import requests
@@ -14,16 +14,16 @@ class LLMResponse:
     """Standardized response from LLM providers."""
 
     text: str
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    model_name: Optional[str] = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    model_name: str | None = None
 
 
 class LLMProvider(ABC):
     """Abstract base class for LLM providers."""
 
     @abstractmethod
-    def generate(self, prompt: str, model: Optional[str] = None, **kwargs) -> LLMResponse:
+    def generate(self, prompt: str, model: str | None = None, **kwargs) -> LLMResponse:
         """
         Generate text from prompt.
 
@@ -53,7 +53,7 @@ class GeminiProvider(LLMProvider):
         self.default_model = default_model
         genai.configure(api_key=api_key)
 
-    def generate(self, prompt: str, model: Optional[str] = None, **kwargs) -> LLMResponse:
+    def generate(self, prompt: str, model: str | None = None, **kwargs) -> LLMResponse:
         """Generate text using Gemini API."""
         model_name = model or self.default_model
         gemini_model = genai.GenerativeModel(model_name)
@@ -108,7 +108,7 @@ class OpenAICompatibleProvider(LLMProvider):
     def __init__(
         self,
         base_url: str = "https://openrouter.ai/api/v1",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         default_model: str = "deepseek/deepseek-v3.2",
     ):
         """
@@ -123,7 +123,7 @@ class OpenAICompatibleProvider(LLMProvider):
         self.api_key = api_key
         self.default_model = default_model
 
-    def generate(self, prompt: str, model: Optional[str] = None, **kwargs) -> LLMResponse:
+    def generate(self, prompt: str, model: str | None = None, **kwargs) -> LLMResponse:
         """Generate text using OpenAI-compatible chat completions API."""
         model_name = model or self.default_model
 
@@ -179,7 +179,7 @@ class OpenAICompatibleProvider(LLMProvider):
     @staticmethod
     def fetch_all_models(
         base_url: str = "https://openrouter.ai/api/v1",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
     ) -> list[dict]:
         """
         Fetch available models from an OpenAI-compatible endpoint.
@@ -226,7 +226,7 @@ class OllamaProvider(LLMProvider):
         self.default_model = default_model
         self.keep_alive = keep_alive
 
-    def generate(self, prompt: str, model: Optional[str] = None, **kwargs) -> LLMResponse:
+    def generate(self, prompt: str, model: str | None = None, **kwargs) -> LLMResponse:
         """Generate text using Ollama native API."""
         model_name = model or self.default_model
         think = kwargs.get("think", False)
@@ -269,9 +269,9 @@ OpenRouterProvider = OpenAICompatibleProvider
 
 
 def create_provider(
-    openrouter_api_key: Optional[str] = None,
-    gemini_api_key: Optional[str] = None,
-    default_model: Optional[str] = None,
+    openrouter_api_key: str | None = None,
+    gemini_api_key: str | None = None,
+    default_model: str | None = None,
 ) -> LLMProvider:
     """
     Factory function to create appropriate LLM provider.

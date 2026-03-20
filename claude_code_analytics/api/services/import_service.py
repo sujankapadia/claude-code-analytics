@@ -8,7 +8,7 @@ import json
 import logging
 import sqlite3
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from claude_code_analytics import config
 from claude_code_analytics.api.services.event_bus import EventBus
@@ -24,9 +24,7 @@ from claude_code_analytics.scripts.import_conversations import (
 logger = logging.getLogger(__name__)
 
 
-def import_single_session(
-    session_path: Path, db_path: Optional[str] = None
-) -> Optional[tuple[int, int]]:
+def import_single_session(session_path: Path, db_path: str | None = None) -> tuple[int, int] | None:
     """Import a single session JSONL file with incremental FTS updates.
 
     Args:
@@ -310,7 +308,7 @@ def import_single_session(
         conn.close()
 
 
-async def run_import(event_bus: EventBus, db_path: Optional[str] = None) -> dict[str, Any]:
+async def run_import(event_bus: EventBus, db_path: str | None = None) -> dict[str, Any]:
     """Run a full import, publishing progress events.
 
     Args:

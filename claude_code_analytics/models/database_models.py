@@ -1,7 +1,6 @@
 """Pydantic models matching the database schema."""
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -22,8 +21,8 @@ class Session(BaseModel):
 
     session_id: str = Field(..., description="UUID from JSONL filename")
     project_id: str = Field(..., description="Foreign key to projects")
-    start_time: Optional[datetime] = Field(None, description="First message timestamp")
-    end_time: Optional[datetime] = Field(None, description="Last message timestamp")
+    start_time: datetime | None = Field(None, description="First message timestamp")
+    end_time: datetime | None = Field(None, description="Last message timestamp")
     message_count: int = Field(default=0, description="Total messages")
     tool_use_count: int = Field(default=0, description="Total tool uses")
     created_at: datetime = Field(default_factory=datetime.now)
@@ -39,16 +38,16 @@ class Message(BaseModel):
     session_id: str
     message_index: int = Field(..., description="Order within session")
     role: str = Field(..., description="user or assistant")
-    content: Optional[str] = Field(None, description="Message text")
+    content: str | None = Field(None, description="Message text")
     timestamp: datetime
 
     # Token usage (only for assistant messages)
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    cache_creation_input_tokens: Optional[int] = None
-    cache_read_input_tokens: Optional[int] = None
-    cache_ephemeral_5m_tokens: Optional[int] = None
-    cache_ephemeral_1h_tokens: Optional[int] = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cache_creation_input_tokens: int | None = None
+    cache_read_input_tokens: int | None = None
+    cache_ephemeral_5m_tokens: int | None = None
+    cache_ephemeral_1h_tokens: int | None = None
 
     class Config:
         from_attributes = True
@@ -61,8 +60,8 @@ class ToolUse(BaseModel):
     session_id: str
     message_index: int = Field(..., description="Index of message this tool use belongs to")
     tool_name: str = Field(..., description="Tool name (Bash, Write, etc.)")
-    tool_input: Optional[str] = Field(None, description="JSON string of input")
-    tool_result: Optional[str] = Field(None, description="Result text")
+    tool_input: str | None = Field(None, description="JSON string of input")
+    tool_result: str | None = Field(None, description="Result text")
     is_error: bool = Field(default=False, description="Whether result is an error")
     timestamp: datetime
 
@@ -76,8 +75,8 @@ class ProjectSummary(BaseModel):
     project_id: str
     project_name: str
     total_sessions: int
-    first_session: Optional[datetime]
-    last_session: Optional[datetime]
+    first_session: datetime | None
+    last_session: datetime | None
     total_messages: int
     total_tool_uses: int
     total_input_tokens: int = 0
@@ -94,14 +93,14 @@ class SessionSummary(BaseModel):
     session_id: str
     project_id: str
     project_name: str
-    start_time: Optional[datetime]
-    end_time: Optional[datetime]
-    duration_seconds: Optional[int]
+    start_time: datetime | None
+    end_time: datetime | None
+    duration_seconds: int | None
     message_count: int
     tool_use_count: int
     user_message_count: int
     assistant_message_count: int
-    first_user_message: Optional[str] = None
+    first_user_message: str | None = None
 
     class Config:
         from_attributes = True
@@ -115,8 +114,8 @@ class ToolUsageSummary(BaseModel):
     error_count: int
     error_rate_percent: float
     sessions_used_in: int
-    first_used: Optional[datetime]
-    last_used: Optional[datetime]
+    first_used: datetime | None
+    last_used: datetime | None
 
     class Config:
         from_attributes = True

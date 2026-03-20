@@ -5,7 +5,6 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
@@ -26,9 +25,9 @@ class AnalysisService:
 
     def __init__(
         self,
-        provider: Optional[LLMProvider] = None,
-        db_path: Optional[str] = None,
-        default_model: Optional[str] = None,
+        provider: LLMProvider | None = None,
+        db_path: str | None = None,
+        default_model: str | None = None,
     ):
         """
         Initialize analysis service.
@@ -56,7 +55,7 @@ class AnalysisService:
         self.metadata, self.jinja_env = self._load_prompts()
 
     @property
-    def api_key(self) -> Optional[str]:
+    def api_key(self) -> str | None:
         """Legacy property for backwards compatibility."""
         # Check if provider has API key
         return getattr(self.provider, "api_key", None)
@@ -311,7 +310,7 @@ class AnalysisService:
             # Fallback to character-based estimation if tiktoken not available
             return len(text) // 4
 
-    def get_transcript_path(self, session_id: str) -> Optional[str]:
+    def get_transcript_path(self, session_id: str) -> str | None:
         """
         Get the transcript path for a session, generating it if needed.
 
@@ -385,13 +384,13 @@ class AnalysisService:
         self,
         session_id: str,
         analysis_type: AnalysisType,
-        custom_prompt: Optional[str] = None,
-        model: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        message_index: Optional[int] = None,
+        custom_prompt: str | None = None,
+        model: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        message_index: int | None = None,
         context_window: int = 20,
-        provider: Optional[LLMProvider] = None,
+        provider: LLMProvider | None = None,
     ) -> AnalysisResult:
         """
         Analyze a session with the specified analysis type.

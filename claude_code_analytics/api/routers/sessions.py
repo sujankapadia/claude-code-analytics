@@ -1,7 +1,5 @@
 """Session endpoints."""
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from claude_code_analytics.api.dependencies import get_db_service
@@ -12,8 +10,8 @@ router = APIRouter(tags=["sessions"])
 
 @router.get("/sessions")
 def list_sessions(
-    project_id: Optional[str] = None,
-    limit: Optional[int] = None,
+    project_id: str | None = None,
+    limit: int | None = None,
     db: DatabaseService = Depends(get_db_service),
 ):
     """Get session summaries, optionally filtered by project."""

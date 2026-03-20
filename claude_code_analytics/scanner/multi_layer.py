@@ -1,7 +1,5 @@
 """Multi-layer scanner orchestrator combining multiple scanning methods."""
 
-from typing import Optional
-
 from .base import ScanFinding, ScanSeverity
 from .gitleaks import GitleaksScanner
 from .regex_scanner import RegexPatternScanner
@@ -18,9 +16,9 @@ class MultiLayerScanner:
         self,
         enable_gitleaks: bool = True,
         enable_regex: bool = True,
-        gitleaks_config: Optional[str] = None,
-        custom_patterns: Optional[list[dict]] = None,
-        regex_allowed_patterns: Optional[dict[str, list[str]]] = None,
+        gitleaks_config: str | None = None,
+        custom_patterns: list[dict] | None = None,
+        regex_allowed_patterns: dict[str, list[str]] | None = None,
     ):
         """
         Initialize multi-layer scanner.

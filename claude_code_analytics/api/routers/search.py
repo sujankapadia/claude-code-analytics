@@ -1,7 +1,6 @@
 """Search endpoints."""
 
 import sqlite3
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -15,10 +14,10 @@ router = APIRouter(tags=["search"])
 def search(
     q: str,
     scope: str = "All",
-    project_id: Optional[str] = None,
-    tool_name: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    project_id: str | None = None,
+    tool_name: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     per_page: int = 3,
     page: int = 0,
     db: DatabaseService = Depends(get_db_service),

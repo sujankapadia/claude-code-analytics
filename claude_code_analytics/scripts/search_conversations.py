@@ -16,7 +16,6 @@ import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import chromadb
 from sentence_transformers import SentenceTransformer
@@ -72,7 +71,7 @@ def get_message_context(
     return result
 
 
-def format_timestamp(ts: Optional[str]) -> str:
+def format_timestamp(ts: str | None) -> str:
     """Format timestamp for display."""
     if not ts:
         return "Unknown time"
@@ -168,10 +167,10 @@ def search_conversations(
     chroma_path: str,
     db_path: str,
     limit: int = 10,
-    project: Optional[str] = None,
-    role: Optional[str] = None,
-    after: Optional[str] = None,
-    before: Optional[str] = None,
+    project: str | None = None,
+    role: str | None = None,
+    after: str | None = None,
+    before: str | None = None,
     context_size: int = 2,
     show_json: bool = False,
 ):

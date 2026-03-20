@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -35,6 +34,6 @@ class AnalysisResult(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
 
     # Optional metadata
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    model_name: Optional[str] = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    model_name: str | None = None

@@ -16,7 +16,7 @@ import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from claude_code_analytics import config
 
@@ -152,7 +152,7 @@ def extract_tool_result_content(content: Any) -> str:
     return str(content)
 
 
-def normalize_timestamp(ts: Any) -> Optional[str]:
+def normalize_timestamp(ts: Any) -> str | None:
     """
     Normalize timestamp to ISO 8601 string format (UTC).
 
@@ -182,7 +182,7 @@ def normalize_timestamp(ts: Any) -> Optional[str]:
             return None
 
     # Integer timestamp - could be seconds or milliseconds
-    if isinstance(ts, (int, float)):
+    if isinstance(ts, int | float):
         try:
             # Heuristic: if > 10 billion, likely milliseconds (covers dates after 2286 as seconds)
             if ts > 10_000_000_000:

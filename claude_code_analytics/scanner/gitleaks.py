@@ -5,7 +5,6 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 from .base import ScanFinding, ScanSeverity
 
@@ -13,7 +12,7 @@ from .base import ScanFinding, ScanSeverity
 class GitleaksScanner:
     """Wrapper for gitleaks binary to detect secrets."""
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: str | None = None):
         """
         Initialize gitleaks scanner.
 

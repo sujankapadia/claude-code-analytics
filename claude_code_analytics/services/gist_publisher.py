@@ -1,7 +1,6 @@
 """GitHub Gist publishing service with security scanning."""
 
 from datetime import datetime
-from typing import Optional
 
 import requests
 
@@ -23,7 +22,7 @@ class GistPublisher:
 
     GITHUB_API_URL = "https://api.github.com/gists"
 
-    def __init__(self, github_token: str, scanner: Optional[MultiLayerScanner] = None):
+    def __init__(self, github_token: str, scanner: MultiLayerScanner | None = None):
         """
         Initialize Gist publisher.
 
@@ -45,7 +44,7 @@ class GistPublisher:
     def publish(
         self,
         analysis_content: str,
-        session_content: Optional[str] = None,
+        session_content: str | None = None,
         description: str = "Claude Code Analysis",
         is_public: bool = False,
         analysis_filename: str = "analysis.md",
