@@ -2,7 +2,7 @@
 
 import shutil
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -61,9 +61,42 @@ class TestSPAFallback:
         assert "<html" in response.text
         assert "<body>" in response.text
 
-    def test_real_api_route_resolves(self, client):
+    def test_real_api_route_resolves(self):
         """Real API routes should still resolve when the SPA catch-all is registered."""
-        response = client.get("/api/projects")
-        # Should get a real response (200 or 500 if no DB), not a 404 or index.html
-        assert response.status_code != 404
-        assert "text/html" not in response.headers.get("content-type", "")
+        import claude_code_analytics.api.app
+        from claude_code_analytics.api.dependencies import get_db_service
+
+        app_file = Path(claude_code_analytics.api.app.__file__)
+        dist_dir = app_file.parent.parent.parent / "frontend" / "dist"
+
+        created_dist = False
+        if not dist_dir.is_dir():
+            (dist_dir / "assets").mkdir(parents=True)
+            (dist_dir / "index.html").write_text("<html><body>test</body></html>")
+            created_dist = True
+
+        try:
+            with (
+                patch.object(
+                    claude_code_analytics.api.app.file_watcher, "start", new_callable=AsyncMock
+                ),
+                patch.object(
+                    claude_code_analytics.api.app.file_watcher, "stop", new_callable=AsyncMock
+                ),
+            ):
+                from claude_code_analytics.api.app import create_app
+
+                app = create_app()
+
+                # Override DB dependency with a mock that returns empty results
+                mock_db = MagicMock()
+                mock_db.get_project_summaries.return_value = []
+                app.dependency_overrides[get_db_service] = lambda: mock_db
+
+                with TestClient(app) as c:
+                    response = c.get("/api/projects")
+                    assert response.status_code == 200
+                    assert response.json() == []
+        finally:
+            if created_dist:
+                shutil.rmtree(dist_dir, ignore_errors=True)

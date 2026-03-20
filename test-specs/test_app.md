@@ -19,3 +19,4 @@ Tests for the FastAPI application factory and SPA fallback routing.
 - 2026-03-14: Fixed CI failures — create temp frontend/dist and mock DB path
 - 2026-03-20: Strengthen SPA fallback assertion to check body content; add test for real API route resolution
 - 2026-03-20: Replace noop lifespan with targeted file_watcher mocks so real lifespan logic is exercised
+- 2026-03-20: Fix test_real_api_route_resolves — use dependency override with mock DB to avoid CI sqlite errors; add MagicMock import
