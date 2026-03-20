@@ -117,8 +117,8 @@ class TestImportServiceThreadSafety:
             loop = asyncio.new_event_loop()
             try:
                 result = loop.run_until_complete(run_import(event_bus, db_path=db_with_schema))
-                # Should complete without SQLite threading errors
-                assert result["sessions"] >= 0
+                # Should complete without SQLite threading errors and import at least 1 session
+                assert result["sessions"] > 0
             finally:
                 loop.close()
         finally:

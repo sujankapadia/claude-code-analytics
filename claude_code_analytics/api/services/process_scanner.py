@@ -190,7 +190,13 @@ def _extract_recent_messages(jsonl_path: Path, count: int = 3) -> list[str]:
 
 
 def _find_latest_jsonl(project_dir: str) -> Path | None:
-    """Find the most recently modified JSONL file for a project."""
+    """Find the most recently modified JSONL file for a project.
+
+    Note: if multiple Claude Code sessions are running in the same project
+    directory, this returns the most recently modified file which may belong
+    to a different session than the caller expects. There is no reliable way
+    to correlate a PID to its specific JSONL file.
+    """
     projects_path = config.CLAUDE_CODE_PROJECTS_DIR / _dir_to_projects_path(project_dir)
     if not projects_path.exists():
         return None

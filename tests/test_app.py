@@ -54,3 +54,11 @@ class TestSPAFallback:
         response = client.get("/sessions/abc123")
         assert response.status_code == 200
         assert "<html" in response.text
+        assert "<body>" in response.text
+
+    def test_real_api_route_resolves(self, client):
+        """Real API routes should still resolve when the SPA catch-all is registered."""
+        response = client.get("/api/projects")
+        # Should get a real response (200 or 500 if no DB), not a 404 or index.html
+        assert response.status_code != 404
+        assert "text/html" not in response.headers.get("content-type", "")
