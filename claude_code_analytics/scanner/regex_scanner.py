@@ -1,7 +1,6 @@
 """Regex-based pattern scanner for sensitive data detection."""
 
 import re
-from typing import Optional
 
 from .base import ScanFinding, ScanSeverity
 
@@ -85,8 +84,8 @@ class RegexPatternScanner:
 
     def __init__(
         self,
-        custom_patterns: Optional[list[dict]] = None,
-        allowed_patterns: Optional[dict[str, list[str]]] = None,
+        custom_patterns: list[dict] | None = None,
+        allowed_patterns: dict[str, list[str]] | None = None,
         use_builtin: bool = True,
     ):
         """

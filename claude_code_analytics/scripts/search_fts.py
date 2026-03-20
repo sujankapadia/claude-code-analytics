@@ -17,7 +17,6 @@ import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 
 def get_message_context(
@@ -122,7 +121,7 @@ def get_tool_context(
     return {"previous": before, "next": after}
 
 
-def format_timestamp(ts: Optional[str]) -> str:
+def format_timestamp(ts: str | None) -> str:
     """Format timestamp for display."""
     if not ts:
         return "Unknown time"
@@ -155,8 +154,8 @@ def highlight_match(text: str, query: str, max_length: int = 200) -> str:
 def search_messages(
     conn: sqlite3.Connection,
     query: str,
-    project: Optional[str] = None,
-    role: Optional[str] = None,
+    project: str | None = None,
+    role: str | None = None,
     limit: int = 10,
 ) -> list[dict]:
     """
@@ -242,7 +241,7 @@ def search_messages(
 
 
 def search_tools(
-    conn: sqlite3.Connection, query: str, project: Optional[str] = None, limit: int = 10
+    conn: sqlite3.Connection, query: str, project: str | None = None, limit: int = 10
 ) -> list[dict]:
     """
     Search tool uses using FTS5.

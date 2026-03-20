@@ -15,7 +15,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from claude_code_analytics import config
-from claude_code_analytics.streamlit_app.services import GistPublisher
+from claude_code_analytics.services import GistPublisher
 
 # Skip all tests in this file if GITHUB_TOKEN is not set
 pytestmark = pytest.mark.skipif(

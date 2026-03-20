@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 
 class ScanSeverity(Enum):
@@ -23,8 +22,8 @@ class ScanFinding:
     rule_id: str  # Identifier for the rule
     description: str  # Human-readable description
     matched_text: str  # The matched content (may be redacted)
-    line_number: Optional[int] = None
-    file_name: Optional[str] = None
+    line_number: int | None = None
+    file_name: str | None = None
     confidence: float = 1.0  # 0.0 to 1.0 (used by Presidio)
 
     def __str__(self):

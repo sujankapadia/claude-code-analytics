@@ -23,13 +23,12 @@ import os
 import sqlite3
 import sys
 from pathlib import Path
-from typing import Optional
 
 import yaml
 from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
-from claude_code_analytics.streamlit_app.services.llm_providers import (
+from claude_code_analytics.services.llm_providers import (
     create_provider,
 )
 
@@ -62,7 +61,7 @@ def load_prompts() -> tuple[dict[str, str], Environment]:
 PROMPT_METADATA, JINJA_ENV = load_prompts()
 
 
-def get_session_transcript(session_id: str, db_path: str) -> Optional[str]:
+def get_session_transcript(session_id: str, db_path: str) -> str | None:
     """
     Get the pretty-printed transcript for a session.
 
@@ -135,8 +134,8 @@ def get_session_transcript(session_id: str, db_path: str) -> Optional[str]:
 def analyze_with_llm(
     transcript_path: str,
     analysis_type: str,
-    custom_prompt: Optional[str] = None,
-    model: Optional[str] = None,
+    custom_prompt: str | None = None,
+    model: str | None = None,
 ) -> str:
     """
     Analyze transcript using configured LLM provider.

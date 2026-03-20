@@ -1,0 +1,21 @@
+# Test Spec: test_app.py
+
+## Purpose
+Tests for the FastAPI application factory and SPA fallback routing.
+
+## Test Cases
+
+### TestSPAFallback
+- `test_api_path_returns_404` — Verifies unmatched `/api/` paths return 404 JSON instead of serving index.html (Fixes #10)
+- `test_non_api_path_serves_spa` — Verifies non-API paths serve index.html via SPA fallback, checks for expected content
+
+## Notes
+- The SPA fallback only registers when frontend/dist exists, so the fixture creates a temp dist dir
+- Tests must work in CI where no real DB exists
+
+## Changes
+- 2026-03-14: Removed unused imports (AsyncMock, patch)
+- 2026-03-14: Fixed CI failures — create temp frontend/dist and mock DB path
+- 2026-03-20: Strengthen SPA fallback assertion to check body content
+- 2026-03-20: Replace noop lifespan with targeted file_watcher mocks so real lifespan logic is exercised
+- 2026-03-20: Remove test_real_api_route_resolves — tests framework routing behavior, not our code

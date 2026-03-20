@@ -95,7 +95,7 @@ Instead, please report it privately by:
 
 **Command Execution Security:**
 - All external executables resolved via `shutil.which()` to prevent PATH injection attacks
-- Absolute paths used for subprocess calls (`gitleaks`, `streamlit`, `git`)
+- Absolute paths used for subprocess calls (`gitleaks`, `git`)
 - Validates executable existence before attempting execution
 - Cross-platform compatible (Windows, macOS, Linux)
 
