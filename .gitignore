@@ -5,8 +5,12 @@ claude-code-conversations/
 # Environment variables
 .env
 
-# Playwright MCP test artifacts
+# Playwright test artifacts
 .playwright-mcp/
+.playwright-cli/
+
+# Vite cache
+.vite/
 *.png
 
 # Claude Code local state
