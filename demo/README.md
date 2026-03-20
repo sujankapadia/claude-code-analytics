@@ -5,19 +5,19 @@ Automated narrated demo video generation — fully scripted, no screen recording
 ## Pipeline Architecture
 
 ```
-Script (JSON) → Piper TTS (WAV clips) → Playwright (browser video) → ffmpeg (final MP4)
+Script (JSON) → TTS engine (WAV clips) → Playwright (browser video) → ffmpeg (final MP4)
 ```
 
 1. A **demo script** (`active-sessions-script.json`) defines segments with narration text and browser actions
-2. **Piper TTS** generates a WAV audio clip for each segment's narration
+2. A **TTS engine** generates a WAV audio clip for each segment's narration (see [TTS Providers](#tts-providers) below)
 3. **Playwright** launches a browser with `recordVideo`, executes each action, and sleeps for the duration of the corresponding audio clip so video and narration stay in sync
 4. **ffmpeg** concatenates audio clips (with silence gaps for pauses) and merges the combined audio track with the browser video into a final MP4
 
 ## Prerequisites
 
 ```bash
-# Python dependencies
-pip install piper-tts pathvalidate playwright
+# Python dependencies (core)
+pip install playwright
 
 # Browser binary for Playwright
 playwright install chromium
@@ -25,15 +25,72 @@ playwright install chromium
 # ffmpeg (brew install ffmpeg) — provides both ffmpeg and ffprobe
 ```
 
-### Download the TTS voice model
+Plus a TTS provider — see setup instructions below.
 
-Piper requires a local ONNX model file. Download it once:
+## TTS Providers
+
+The pipeline supports swappable TTS backends via `generate_audio_clips()`. Currently two are available:
+
+### Piper TTS (local, free, robotic)
+
+Runs entirely offline. Fast and free, but the voice sounds noticeably synthetic.
 
 ```bash
+# Install
+pip install piper-tts pathvalidate
+
+# Download the voice model (~60 MB, gitignored)
 python -m piper.download_voices --download-dir demo/models en_US-lessac-medium
 ```
 
-This creates `demo/models/en_US-lessac-medium.onnx` (~60 MB). The models directory is gitignored.
+- Voice model: `en_US-lessac-medium` (also available in `high` quality)
+- Model files land in `demo/models/` (gitignored)
+- No API keys or network access required
+
+### Google Cloud TTS (cloud, free tier, natural-sounding)
+
+Uses Google's WaveNet voices — significantly more human-sounding than Piper.
+
+**Free tier:** 1 million WaveNet characters/month, 4 million standard characters/month. A typical demo script is ~300 characters, so the free tier covers thousands of renders.
+
+```bash
+# Install gcloud CLI
+brew install google-cloud-sdk
+
+# Authenticate and set project
+gcloud auth login
+gcloud config set project <YOUR_PROJECT_ID>
+
+# Enable the TTS API
+gcloud services enable texttospeech.googleapis.com
+```
+
+- Voice: `en-US-WaveNet-D` (male) — see [full voice list](https://cloud.google.com/text-to-speech/docs/voices)
+- Requires billing enabled on the GCP project (free tier still applies)
+- API call: `POST https://texttospeech.googleapis.com/v1/text:synthesize` with quota project header
+
+**Quick test:**
+```bash
+ACCESS_TOKEN=$(gcloud auth print-access-token)
+curl -s -X POST \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "x-goog-user-project: <YOUR_PROJECT_ID>" \
+  -d '{
+    "input": { "text": "Hello, this is a test of Google Cloud Text to Speech." },
+    "voice": { "languageCode": "en-US", "name": "en-US-WaveNet-D" },
+    "audioConfig": { "audioEncoding": "LINEAR16" }
+  }' \
+  "https://texttospeech.googleapis.com/v1/text:synthesize" \
+  | python3 -c "import sys,json,base64; data=json.load(sys.stdin); open('demo/output/test_gcloud.wav','wb').write(base64.b64decode(data['audioContent']))"
+```
+
+### Comparison
+
+| Provider | Quality | Cost | Latency | Offline |
+|----------|---------|------|---------|---------|
+| Piper TTS | Robotic | Free | ~1s/segment | Yes |
+| Google Cloud TTS (WaveNet) | Natural | Free tier (1M chars/mo) | ~2s/segment | No |
 
 ## Usage
 
@@ -76,6 +133,5 @@ Edit `active-sessions-script.json` to change narration or actions. Each segment 
 
 ## Known limitations
 
-- **Piper TTS voice quality** — the `en_US-lessac-medium` voice is functional but sounds robotic. A higher-quality TTS engine (e.g., a cloud API) could be swapped in by replacing `generate_audio_clips()`.
 - **Active sessions required** — the current script clicks a session card, so at least one active/recent session must exist.
 - **No cursor visualization** — Playwright's headless browser doesn't show a mouse cursor in the video.
