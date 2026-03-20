@@ -18,3 +18,4 @@ Tests for the FastAPI application factory and SPA fallback routing.
 - 2026-03-14: Removed unused imports (AsyncMock, patch)
 - 2026-03-14: Fixed CI failures — create temp frontend/dist and mock DB path
 - 2026-03-20: Strengthen SPA fallback assertion to check body content; add test for real API route resolution
+- 2026-03-20: Replace noop lifespan with targeted file_watcher mocks so real lifespan logic is exercised

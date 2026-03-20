@@ -1,17 +1,20 @@
 """Tests for FastAPI application (app.py)."""
 
 import shutil
-from contextlib import asynccontextmanager
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
 @pytest.fixture
 def client():
-    """Create a test client with a frontend/dist so the SPA fallback registers."""
+    """Create a test client with a frontend/dist so the SPA fallback registers.
+
+    Patches file_watcher.start/stop to avoid real filesystem watching and
+    catch-up imports, while keeping the real lifespan logic exercised.
+    """
     import claude_code_analytics.api.app
 
     app_file = Path(claude_code_analytics.api.app.__file__)
@@ -25,16 +28,18 @@ def client():
         created_dist = True
 
     try:
-        from claude_code_analytics.api.app import create_app
+        with (
+            patch.object(
+                claude_code_analytics.api.app.file_watcher, "start", new_callable=AsyncMock
+            ),
+            patch.object(
+                claude_code_analytics.api.app.file_watcher, "stop", new_callable=AsyncMock
+            ),
+        ):
+            from claude_code_analytics.api.app import create_app
 
-        app = create_app()
-
-        @asynccontextmanager
-        async def _noop_lifespan(a: FastAPI):
-            yield
-
-        app.router.lifespan_context = _noop_lifespan
-        yield TestClient(app)
+            app = create_app()
+            yield TestClient(app)
     finally:
         if created_dist:
             shutil.rmtree(dist_dir, ignore_errors=True)
