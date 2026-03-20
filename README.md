@@ -2,7 +2,7 @@
 
 [![Tests](https://github.com/sujankapadia/claude-code-analytics/actions/workflows/tests.yml/badge.svg)](https://github.com/sujankapadia/claude-code-analytics/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/sujankapadia/claude-code-analytics/branch/main/graph/badge.svg)](https://codecov.io/gh/sujankapadia/claude-code-analytics)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An analysis tool for [Claude Code](https://claude.com/claude-code) that automatically captures, archives, and analyzes your AI development conversations. Features a React dashboard with real-time updates, hybrid search (FTS + semantic embeddings), AI-powered insights, and session similarity search across all your sessions.
@@ -22,7 +22,7 @@ Claude Code Analytics transforms your AI development workflow into actionable in
 Before installing, you need:
 
 - **[Claude Code](https://claude.com/claude-code)** - The AI coding assistant (this tool captures its conversations)
-- **Python 3.9+** - Check with `python3 --version`
+- **Python 3.10+** - Check with `python3 --version`
 - **Node.js 18+** and **npm** - Check with `node -v` and `npm -v`
   - macOS: `brew install node`
   - Linux: See [nodejs.org](https://nodejs.org)
@@ -34,7 +34,7 @@ Before installing, you need:
 
 **Testing Status**: This is an alpha release (v0.1.0) that has been tested on:
 - **macOS 14.7** (Sonoma)
-- **Python 3.9-3.12** (CI tested on Ubuntu and macOS)
+- **Python 3.10-3.12** (CI tested on Ubuntu and macOS)
 - **Claude Code 2.1.x**
 
 **Platform Support**:
@@ -115,7 +115,7 @@ That's it! New conversations will be automatically captured when you exit Claude
 A modern single-page application with real-time updates:
 
 - **Dashboard** — KPI cards, daily activity charts, activity heatmap (day × hour), projects table
-- **Active Sessions** — Live view of currently running Claude Code sessions with recent activity
+- **Active Sessions** — Live view of currently running Claude Code sessions with recent activity; clickable cards navigate to the latest session
 - **Sessions** — Split-view with searchable session list (first user message preview) and detail pane
 - **Bookmarks** — Save and annotate specific messages across sessions for quick reference
 - **Conversation Viewer** — Virtual scrolling for 1000+ message sessions, collapsible tool cards, minimap navigation, in-conversation search (Cmd+F), role filtering (All/User/Assistant), token usage bar
@@ -245,6 +245,19 @@ SEARCH_RESULTS_PER_PAGE=10
 TOOL_RESULT_MAX_LENGTH=2000
 ```
 
+#### Similarity Search (ChromaDB + Query Expansion)
+
+```bash
+# ChromaDB persistent storage directory (for semantic embeddings)
+CHROMA_DATA_DIR=${CLAUDE_CONVERSATIONS_DIR}/chroma
+
+# Query expansion provider — any OpenAI-compatible endpoint (e.g. Ollama)
+# Used to expand search queries with related terms for better recall
+EXPANSION_BASE_URL=http://localhost:11434/v1   # Default: local Ollama
+EXPANSION_MODEL=qwen3:8b                       # Default model for expansion
+EXPANSION_API_KEY=                              # Optional: API key if required
+```
+
 #### Debug Logging
 
 ```bash
@@ -286,6 +299,10 @@ GITHUB_TOKEN=ghp_your_token_here
 
 **Required for GitHub Gist publishing**:
 - `GITHUB_TOKEN` - Personal Access Token with `gist` scope
+
+**Required for session similarity search (semantic mode)**:
+- A running [Ollama](https://ollama.ai) instance (or any OpenAI-compatible endpoint) for query expansion
+- Configure via `EXPANSION_BASE_URL`, `EXPANSION_MODEL`, `EXPANSION_API_KEY`
 
 **Optional customization**:
 - All other settings have sensible defaults
@@ -694,7 +711,7 @@ chmod 755 ~/.claude/scripts
 If database import fails:
 - Verify JSONL files exist in `~/claude-conversations/`
 - Check file permissions
-- Ensure Python 3.9+ is installed
+- Ensure Python 3.10+ is installed (`python3 --version`)
 - Run with verbose output: `claude-code-import -v`
 
 #### App not launching
@@ -823,7 +840,7 @@ All tool configurations are in `pyproject.toml`:
 - **Black**: 100 character line length
 - **Ruff**: Comprehensive rule set with modern Python practices
 - **Bandit**: Excludes test files, configured for security-critical patterns
-- **Mypy**: Python 3.9+ target with reasonable strictness
+- **Mypy**: Python 3.10 target with reasonable strictness
 
 ### Logging Standards
 
