@@ -93,9 +93,14 @@ def create_app() -> FastAPI:
                     content={"detail": f"API endpoint not found: /{full_path}"},
                 )
             # Serve actual files if they exist (e.g., favicon.ico)
-            file_path = frontend_dist / full_path
-            if full_path and file_path.is_file():
-                return FileResponse(file_path)
+            if full_path:
+                frontend_root = frontend_dist.resolve()
+                file_path = (frontend_root / full_path).resolve()
+                # Reject path traversal attempts (e.g., ../../etc/passwd)
+                if not file_path.is_relative_to(frontend_root):
+                    return JSONResponse(status_code=404, content={"detail": "Not found"})
+                if file_path.is_file():
+                    return FileResponse(file_path)
             return FileResponse(frontend_dist / "index.html")
 
     return app
