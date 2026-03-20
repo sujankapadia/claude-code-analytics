@@ -71,8 +71,14 @@ def create_app() -> FastAPI:
     app.include_router(bookmarks.router, prefix="/api")
     app.include_router(similar.router, prefix="/api")
 
-    # Serve frontend static files if built
-    frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
+    # Serve frontend static files if built.
+    # In development, the dist lives at <project-root>/frontend/dist.
+    # In a pip-installed package, a pre-build step copies it to
+    # claude_code_analytics/static/dist so it ships as package-data.
+    frontend_dist = Path(__file__).parent.parent / "static" / "dist"
+    if not frontend_dist.is_dir():
+        # Fallback: development layout (repo root)
+        frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
     if frontend_dist.is_dir():
         # Serve static assets (JS, CSS, fonts, etc.)
         app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")

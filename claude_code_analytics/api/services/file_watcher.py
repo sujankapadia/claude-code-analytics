@@ -103,9 +103,9 @@ class FileWatcher:
         for path in stale_files:
             try:
                 result = await loop.run_in_executor(None, import_single_session, path)
-                # Seed cooldown so the watcher doesn't re-import these immediately
-                self._last_import[str(path)] = now
                 if result:
+                    # Seed cooldown so the watcher doesn't re-import these immediately
+                    self._last_import[str(path)] = now
                     imported += 1
                     await self.event_bus.publish(
                         {

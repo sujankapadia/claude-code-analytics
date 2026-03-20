@@ -7,7 +7,7 @@ fused via Reciprocal Rank Fusion (RRF).
 import logging
 import re
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -35,8 +35,8 @@ class SampleMatch(BaseModel):
     source: str  # "fts_message", "fts_tool_input", or future "semantic"
     message_index: int
     text: str
-    similarity: Optional[float] = None
-    matched_via: Optional[str] = None
+    similarity: float | None = None
+    matched_via: str | None = None
 
 
 class SessionResult(BaseModel):
@@ -44,9 +44,9 @@ class SessionResult(BaseModel):
     project_name: str
     score: float
     fts_hits: int
-    semantic_best: Optional[float] = None
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
+    semantic_best: float | None = None
+    start_time: str | None = None
+    end_time: str | None = None
     message_count: int = 0
     tool_use_count: int = 0
     sample_matches: list[SampleMatch]
@@ -66,7 +66,7 @@ def _strip_html(text: str) -> str:
 
 
 def _fts_session_search(
-    db: DatabaseService, query: str, project_id: Optional[str] = None
+    db: DatabaseService, query: str, project_id: str | None = None
 ) -> dict[str, dict[str, Any]]:
     """Run FTS across messages and tool inputs, aggregate by session.
 
@@ -134,7 +134,7 @@ def _fts_session_search(
 
 def _rrf_fusion(
     fts_results: dict[str, dict[str, Any]],
-    semantic_results: Optional[dict[str, dict[str, Any]]] = None,
+    semantic_results: dict[str, dict[str, Any]] | None = None,
     k: int = _RRF_K,
 ) -> list[tuple[str, float]]:
     """Reciprocal Rank Fusion of ranked result lists.
@@ -254,8 +254,8 @@ def find_similar_sessions(
     limit: int = 20,
     offset: int = 0,
     sort: str = "relevance",
-    exclude_session: Optional[str] = None,
-    project_id: Optional[str] = None,
+    exclude_session: str | None = None,
+    project_id: str | None = None,
     db: DatabaseService = Depends(get_db_service),
     embedding_service=Depends(get_embedding_service),
 ):
@@ -270,11 +270,14 @@ def find_similar_sessions(
     # Step 1: FTS session search
     fts_results = _fts_session_search(db, q, project_id=project_id)
 
-    # Step 2: Query expansion (if provider available)
-    expansions = _expand_query(q)
+    # Step 2: Semantic search with query expansion (if embeddings available)
+    semantic_available = embedding_service and embedding_service.collection_count() > 0
 
-    # Step 3: Semantic search with expansions (if embeddings available)
-    if embedding_service and embedding_service.collection_count() > 0:
+    # Only expand query if semantic search can actually use it
+    expansions = _expand_query(q) if semantic_available else []
+
+    # Step 3: Semantic search with expansions
+    if semantic_available:
         if expansions:
             hits = embedding_service.search_expanded(q, expansions)
         else:

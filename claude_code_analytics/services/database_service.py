@@ -2,7 +2,7 @@
 
 import sqlite3
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 # Add parent directory to path for imports
 from claude_code_analytics import config
@@ -51,7 +51,7 @@ def _sanitize_fts_query(query: str) -> str:
 class DatabaseService:
     """Service for database operations."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """
         Initialize database service.
 
@@ -119,7 +119,7 @@ class DatabaseService:
         conn.close()
         return [ProjectSummary(**dict(row)) for row in rows]
 
-    def get_project(self, project_id: str) -> Optional[Project]:
+    def get_project(self, project_id: str) -> Project | None:
         """Get a single project by ID."""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -148,7 +148,7 @@ class DatabaseService:
         conn.close()
         return [Session(**dict(row)) for row in rows]
 
-    def get_session(self, session_id: str) -> Optional[Session]:
+    def get_session(self, session_id: str) -> Session | None:
         """Get a single session by ID."""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -158,7 +158,7 @@ class DatabaseService:
         return Session(**dict(row)) if row else None
 
     def get_session_summaries(
-        self, project_id: Optional[str] = None, limit: Optional[int] = None
+        self, project_id: str | None = None, limit: int | None = None
     ) -> list[SessionSummary]:
         """
         Get session summaries with detailed statistics.
@@ -214,8 +214,8 @@ class DatabaseService:
     def get_messages_in_range(
         self,
         session_id: str,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
     ) -> list[Message]:
         """
         Get messages for a session filtered by timestamp range.
@@ -363,8 +363,8 @@ class DatabaseService:
     def get_tool_uses_in_range(
         self,
         session_id: str,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
     ) -> list[ToolUse]:
         """
         Get tool uses for a session filtered by timestamp range.
@@ -414,10 +414,10 @@ class DatabaseService:
     def search_messages(
         self,
         query: str,
-        project_id: Optional[str] = None,
-        role: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        project_id: str | None = None,
+        role: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
@@ -491,10 +491,10 @@ class DatabaseService:
     def search_tool_inputs(
         self,
         query: str,
-        project_id: Optional[str] = None,
-        tool_name: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        project_id: str | None = None,
+        tool_name: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
@@ -563,10 +563,10 @@ class DatabaseService:
     def search_tool_results(
         self,
         query: str,
-        project_id: Optional[str] = None,
-        tool_name: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        project_id: str | None = None,
+        tool_name: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
@@ -636,10 +636,10 @@ class DatabaseService:
     def search_all(
         self,
         query: str,
-        project_id: Optional[str] = None,
-        tool_name: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        project_id: str | None = None,
+        tool_name: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
@@ -790,9 +790,9 @@ class DatabaseService:
         query: str,
         session_id: str,
         scope: str = "All",
-        tool_name: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        tool_name: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ) -> int:
         """
         Count total search results for a specific session.
@@ -933,10 +933,10 @@ class DatabaseService:
         self,
         query: str,
         scope: str = "All",
-        project_id: Optional[str] = None,
-        tool_name: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        project_id: str | None = None,
+        tool_name: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         sessions_per_page: int = 3,
         page: int = 0,
     ) -> dict[str, Any]:
@@ -1581,7 +1581,7 @@ class DatabaseService:
         return result
 
     def get_aggregate_activity_metrics(
-        self, project_id: Optional[str] = None, idle_cap_seconds: int = 300
+        self, project_id: str | None = None, idle_cap_seconds: int = 300
     ) -> dict[str, Any]:
         """
         Get aggregate activity and text volume metrics across sessions.
@@ -1763,3 +1763,33 @@ class DatabaseService:
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
+
+    def get_session_token_stats(self, limit: int = 50) -> list[dict]:
+        """Get token usage per session, sorted by total tokens descending."""
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT
+                    s.session_id,
+                    p.project_name,
+                    s.start_time,
+                    s.message_count,
+                    s.tool_use_count,
+                    COALESCE(SUM(m.input_tokens), 0) as input_tokens,
+                    COALESCE(SUM(m.output_tokens), 0) as output_tokens
+                FROM sessions s
+                JOIN projects p ON s.project_id = p.project_id
+                LEFT JOIN messages m ON s.session_id = m.session_id AND m.role = 'assistant'
+                GROUP BY s.session_id
+                HAVING (COALESCE(SUM(m.input_tokens), 0) + COALESCE(SUM(m.output_tokens), 0)) > 0
+                ORDER BY (COALESCE(SUM(m.input_tokens), 0) + COALESCE(SUM(m.output_tokens), 0)) DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            conn.close()

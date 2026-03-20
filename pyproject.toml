@@ -72,6 +72,7 @@ claude_code_analytics = [
     "scripts/**/*",
     "prompts/**/*",
     "hooks/**/*",
+    "static/dist/**/*",
     ".env.example",
 ]
 
@@ -81,7 +82,7 @@ target-version = ['py310', 'py311', 'py312']
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 
 # Enable select linting rules
 [tool.ruff.lint]
@@ -127,7 +128,7 @@ skips = [
 # Note: B607 (start_process_with_partial_path) is NOT skipped - we use shutil.which() to resolve full paths
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true

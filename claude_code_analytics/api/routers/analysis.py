@@ -1,10 +1,12 @@
 """Analysis endpoints for LLM-powered session analysis."""
 
 import asyncio
+import ipaddress
+import socket
 from datetime import datetime
-from typing import Optional
+from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from claude_code_analytics.api.dependencies import get_analysis_service
@@ -16,27 +18,80 @@ from claude_code_analytics.services.llm_providers import (
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
+# Well-known local LLM provider ports allowed on loopback addresses
+_ALLOWED_LOCAL_PORTS = {11434, 1234, 8001}
+
+
+def validate_base_url(url: str) -> str:
+    """Validate that a base_url does not target internal/private networks.
+
+    Allows public http/https URLs and localhost on known local-provider ports
+    (Ollama 11434, LM Studio 1234, vLLM 8001).
+
+    Raises HTTPException(422) for disallowed URLs.
+    """
+    parsed = urlparse(url)
+
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid URL scheme '{parsed.scheme}'. Only http and https are allowed.",
+        )
+
+    hostname = parsed.hostname
+    if not hostname:
+        raise HTTPException(status_code=422, detail="URL must include a hostname.")
+
+    try:
+        addr_infos = socket.getaddrinfo(hostname, parsed.port, proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        raise HTTPException(status_code=422, detail=f"Cannot resolve hostname '{hostname}'.")
+
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+
+    for _family, _type, _proto, _canonname, sockaddr in addr_infos:
+        ip = ipaddress.ip_address(sockaddr[0])
+
+        if ip.is_loopback:
+            if port in _ALLOWED_LOCAL_PORTS:
+                continue
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Loopback addresses are only allowed on ports "
+                    f"{sorted(_ALLOWED_LOCAL_PORTS)}."
+                ),
+            )
+
+        if ip.is_private or ip.is_reserved or ip.is_link_local:
+            raise HTTPException(
+                status_code=422,
+                detail="URLs pointing to private/internal network addresses are not allowed.",
+            )
+
+    return url
+
 
 class AnalysisRequest(BaseModel):
     """Request body for running an analysis."""
 
     session_id: str
     analysis_type: AnalysisType
-    custom_prompt: Optional[str] = None
-    model: Optional[str] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    message_index: Optional[int] = None
+    custom_prompt: str | None = None
+    model: str | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    message_index: int | None = None
     context_window: int = 20
-    base_url: Optional[str] = None
-    api_key: Optional[str] = None
+    base_url: str | None = None
+    api_key: str | None = None
 
 
 class PublishRequest(BaseModel):
     """Request body for publishing analysis to a Gist."""
 
     analysis_content: str
-    session_content: Optional[str] = None
+    session_content: str | None = None
     description: str = "Claude Code Analysis"
     is_public: bool = False
 
@@ -50,6 +105,7 @@ async def run_analysis(
     # Create a one-off provider if the client sent a custom base_url
     override_provider = None
     if req.base_url:
+        validate_base_url(req.base_url)
         override_provider = OpenAICompatibleProvider(
             base_url=req.base_url,
             api_key=req.api_key,
@@ -140,12 +196,13 @@ def get_provider_info(svc: AnalysisService = Depends(get_analysis_service)):
 
 class ModelsRequest(BaseModel):
     base_url: str
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
 
 @router.post("/models")
 async def list_provider_models(req: ModelsRequest):
     """Fetch available models from an OpenAI-compatible provider (proxy to avoid CORS)."""
+    validate_base_url(req.base_url)
     loop = asyncio.get_event_loop()
     try:
         raw_models = await loop.run_in_executor(
@@ -168,10 +225,23 @@ def list_analysis_types(svc: AnalysisService = Depends(get_analysis_service)):
 
 
 @router.post("/publish")
-async def publish_analysis(req: PublishRequest):
-    """Publish analysis result to a GitHub Gist."""
+async def publish_analysis(req: PublishRequest, request: Request):
+    """Publish analysis result to a GitHub Gist.
+
+    Security note: This endpoint uses the server's GITHUB_TOKEN to create Gists.
+    This is intentional for localhost use — the tool is designed to run locally.
+    Access is restricted to localhost (127.0.0.1 / ::1) as an additional safeguard.
+    """
     from claude_code_analytics import config
     from claude_code_analytics.services.gist_publisher import GistPublisher
+
+    # Restrict to localhost callers only
+    client_host = request.client.host if request.client else None
+    if client_host not in ("127.0.0.1", "::1"):
+        raise HTTPException(
+            status_code=403,
+            detail="Publishing is only allowed from localhost",
+        )
 
     if not config.GITHUB_TOKEN:
         raise HTTPException(status_code=400, detail="GITHUB_TOKEN not configured")

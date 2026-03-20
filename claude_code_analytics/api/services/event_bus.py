@@ -33,6 +33,6 @@ class EventBus:
         async with self._lock:
             for queue in self._subscribers:
                 try:
-                    queue.put_nowait(event)
+                    queue.put_nowait(event.copy())
                 except asyncio.QueueFull:
                     logger.warning("Subscriber queue full, dropping event")

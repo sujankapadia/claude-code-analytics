@@ -27,6 +27,10 @@ export function TokenTimelineChart({
 }) {
   const [c1, c2, c3] = getChartColors();
 
+  if (data.length === 0) {
+    return null;
+  }
+
   const startTime = new Date(data[0].timestamp).getTime();
 
   let cumInput = 0;
