@@ -28,8 +28,11 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-# Check Python version (requires 3.9+)
-PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+# Capture the validated interpreter path so the same python3 is used throughout
+PYTHON="$(command -v python3)"
+
+# Check Python version (requires 3.10+)
+PYTHON_VERSION=$("$PYTHON" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 REQUIRED_VERSION="3.10"
 
 # POSIX-compatible version comparison (sort -V not available on macOS BSD)
@@ -64,12 +67,12 @@ if ! command -v npm &> /dev/null; then
 fi
 echo -e "${GREEN}✓ npm $(npm -v) detected${NC}"
 
-if ! python3 -m pip --version &> /dev/null; then
+if ! "$PYTHON" -m pip --version &> /dev/null; then
     echo -e "${RED}Error: pip is not available for python3.${NC}"
-    echo -e "${YELLOW}Install with: python3 -m ensurepip --upgrade${NC}"
+    echo -e "${YELLOW}Install with: $PYTHON -m ensurepip --upgrade${NC}"
     exit 1
 fi
-echo -e "${GREEN}✓ pip $(python3 -m pip --version | awk '{print $2}') detected${NC}"
+echo -e "${GREEN}✓ pip $("$PYTHON" -m pip --version | awk '{print $2}') detected${NC}"
 
 if ! command -v jq &> /dev/null; then
     echo -e "${YELLOW}Warning: jq is not installed. Will use manual JSON editing.${NC}"
@@ -116,7 +119,7 @@ fi
 # ── Install Python package ───────────────────────────────────────────
 
 echo "📦 Installing Python package and dependencies..."
-python3 -m pip install -e "$SCRIPT_DIR"
+"$PYTHON" -m pip install -e "$SCRIPT_DIR"
 echo -e "${GREEN}✓ Installed claude-code-analytics package${NC}"
 
 # ── Build React frontend ─────────────────────────────────────────────
