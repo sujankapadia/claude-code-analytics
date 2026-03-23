@@ -169,14 +169,16 @@ class FileWatcher:
     def _embed_session(self, session_id: str) -> None:
         """Embed messages for a session into ChromaDB. Skips silently on failure."""
         try:
-            from claude_code_analytics.api.dependencies import get_embedding_service
-            from claude_code_analytics.services.database_service import DatabaseService
+            from claude_code_analytics.api.dependencies import (
+                get_db_service,
+                get_embedding_service,
+            )
 
             embedding_service = get_embedding_service()
             if embedding_service is None:
                 return
 
-            db = DatabaseService()
+            db = get_db_service()
             messages = db.get_messages_for_session(session_id)
             if not messages:
                 return
