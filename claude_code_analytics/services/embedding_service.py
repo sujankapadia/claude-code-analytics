@@ -5,6 +5,7 @@ Supports persistent storage across restarts and incremental indexing.
 """
 
 import logging
+import threading
 from typing import Any
 
 import chromadb
@@ -39,6 +40,7 @@ class EmbeddingService:
         if persist_dir is None:
             persist_dir = str(config.CHROMA_DATA_DIR)
 
+        self._lock = threading.Lock()
         self._client = chromadb.PersistentClient(path=persist_dir)
         self._collection = self._client.get_or_create_collection(
             name=_COLLECTION_NAME,
@@ -47,7 +49,8 @@ class EmbeddingService:
 
     def collection_count(self) -> int:
         """Number of documents in the collection."""
-        return self._collection.count()
+        with self._lock:
+            return self._collection.count()
 
     def embed_session(
         self,
@@ -98,11 +101,12 @@ class EmbeddingService:
             return 0
 
         # Upsert handles both new and re-imported messages
-        self._collection.upsert(
-            documents=docs,
-            ids=ids,
-            metadatas=metadatas,
-        )
+        with self._lock:
+            self._collection.upsert(
+                documents=docs,
+                ids=ids,
+                metadatas=metadatas,
+            )
 
         return len(docs)
 
@@ -116,13 +120,15 @@ class EmbeddingService:
         Returns:
             List of dicts with session_id, message_index, similarity, text, project.
         """
-        if self._collection.count() == 0:
-            return []
+        with self._lock:
+            count = self._collection.count()
+            if count == 0:
+                return []
 
-        results = self._collection.query(
-            query_texts=[query],
-            n_results=min(n_results, self._collection.count()),
-        )
+            results = self._collection.query(
+                query_texts=[query],
+                n_results=min(n_results, count),
+            )
 
         hits = []
         for j in range(len(results["ids"][0])):

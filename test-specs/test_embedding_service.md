@@ -35,4 +35,5 @@ Test: `tests/test_embedding_service.py`
 
 ## Notes
 - All tests use in-memory ChromaDB (ephemeral Client) with unique collection names for isolation
+- InMemoryEmbeddingService must initialize `_lock` (threading.Lock) since it bypasses the parent `__init__`
 - ChromaDB's default sentence-transformer model runs locally, no API needed

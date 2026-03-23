@@ -1,5 +1,6 @@
 """Tests for EmbeddingService (ChromaDB message-level embeddings)."""
 
+import threading
 from unittest.mock import MagicMock
 
 import chromadb
@@ -16,6 +17,7 @@ class InMemoryEmbeddingService(EmbeddingService):
     def __init__(self):
         global _test_counter
         _test_counter += 1
+        self._lock = threading.Lock()
         self._client = chromadb.Client()
         self._collection = self._client.get_or_create_collection(
             name=f"test_messages_{_test_counter}",

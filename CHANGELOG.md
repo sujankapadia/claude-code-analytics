@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **ChromaDB thread safety** — Added threading lock to all ChromaDB operations in `EmbeddingService` to prevent data corruption from concurrent access by the file watcher and API routes. Previously, the file watcher's embed step could write to the HNSW index simultaneously with API reads, corrupting the on-disk data and causing SIGKILL (exit code 139) segfaults on subsequent access.
+- **File watcher singleton reuse** — File watcher now uses the shared `DatabaseService` singleton via `get_db_service()` instead of creating a new instance per embed operation.
+
 ### Added
 
 - **FastAPI Backend** - Full REST API replacing direct database access from the Streamlit frontend
