@@ -340,7 +340,7 @@ export function ConversationViewer({
         </div>
 
         {/* Virtualized message list */}
-        <div ref={parentRef} className="flex-1 overflow-auto">
+        <div ref={parentRef} data-testid="conversation-scroll" className="flex-1 overflow-auto">
           <div
             className="relative w-full"
             style={{ height: `${virtualizer.getTotalSize()}px` }}

@@ -45,3 +45,7 @@ ENV/
 .DS_Store
 Thumbs.db
 *.egg-info/
+
+# Demo pipeline artifacts
+demo/output/
+demo/models/
