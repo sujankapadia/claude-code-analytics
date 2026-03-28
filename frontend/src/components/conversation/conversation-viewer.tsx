@@ -10,7 +10,7 @@ import {
   deleteBookmark,
 } from "@/api/client";
 import { ConversationMessage } from "./conversation-message";
-import { ConversationMinimap } from "./conversation-minimap";
+import { ScrollProgress } from "./scroll-progress";
 import { BookmarkDialog } from "./bookmark-dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -155,14 +155,18 @@ export function ConversationViewer({
     });
   }, [messages, toolsByMessage, roleFilter]);
 
-  // Tool count by message_index for minimap
-  const toolCountByIndex = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const [idx, tools] of toolsByMessage) {
-      map.set(idx, tools.length);
-    }
-    return map;
-  }, [toolsByMessage]);
+  // Scroll progress tracking
+  const [scrollProgress, setScrollProgress] = useState(0);
+  useEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const max = el.scrollHeight - el.clientHeight;
+      setScrollProgress(max > 0 ? el.scrollTop / max : 0);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Search matches
   const searchMatches = useMemo(() => {
@@ -197,11 +201,7 @@ export function ConversationViewer({
     overscan: 5,
   });
 
-  // Visible range for minimap
   const virtualItems = virtualizer.getVirtualItems();
-  const visibleRange: [number, number] = virtualItems.length > 0
-    ? [virtualItems[0].index, virtualItems[virtualItems.length - 1].index]
-    : [0, 0];
 
   // Scroll to initial message_index (convert from message_index to visible array position)
   useEffect(() => {
@@ -212,12 +212,15 @@ export function ConversationViewer({
     }
   }, [initialIndex, visibleMessages, virtualizer]);
 
-  // Jump to message from minimap
-  const handleMinimapJump = useCallback(
-    (index: number) => {
-      virtualizer.scrollToIndex(index, { align: "start" });
+  // Jump to position from progress bar seek
+  const handleProgressJump = useCallback(
+    (ratio: number) => {
+      const el = parentRef.current;
+      if (!el) return;
+      const clamped = Math.max(0, Math.min(ratio, 1));
+      el.scrollTop = clamped * (el.scrollHeight - el.clientHeight);
     },
-    [virtualizer]
+    []
   );
 
   // Navigate search matches
@@ -255,16 +258,7 @@ export function ConversationViewer({
     : 0;
 
   return (
-    <div className="flex h-[calc(100vh-14rem)] gap-2">
-      {/* Minimap */}
-      <ConversationMinimap
-        messages={visibleMessages}
-        toolCountByIndex={toolCountByIndex}
-        visibleRange={visibleRange}
-        onJump={handleMinimapJump}
-        className="hidden w-10 shrink-0 lg:block"
-      />
-
+    <div className="flex h-[calc(100vh-14rem)]">
       {/* Main conversation area */}
       <div className="flex flex-1 flex-col overflow-hidden rounded-lg border">
         {/* Search bar */}
@@ -376,6 +370,13 @@ export function ConversationViewer({
             })}
           </div>
         </div>
+
+        {/* Scroll progress */}
+        <ScrollProgress
+          progress={scrollProgress}
+          messageCount={visibleMessages.length}
+          onSeek={handleProgressJump}
+        />
 
         {/* Token usage bar */}
         {tokens && totalTokens > 0 && (
