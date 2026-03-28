@@ -33,6 +33,8 @@ export function ScrollProgress({
       <div className="flex items-center gap-2">
         <input
           type="range"
+          aria-label="Conversation scroll position"
+          aria-valuetext={`${percent}% through conversation`}
           min={0}
           max={100}
           value={percent}

@@ -212,13 +212,15 @@ export function ConversationViewer({
     }
   }, [initialIndex, visibleMessages, virtualizer]);
 
-  // Jump to position from progress bar click
+  // Jump to position from progress bar seek
   const handleProgressJump = useCallback(
     (ratio: number) => {
-      const idx = Math.floor(ratio * visibleMessages.length);
-      virtualizer.scrollToIndex(Math.max(0, Math.min(idx, visibleMessages.length - 1)), { align: "start" });
+      const el = parentRef.current;
+      if (!el) return;
+      const clamped = Math.max(0, Math.min(ratio, 1));
+      el.scrollTop = clamped * (el.scrollHeight - el.clientHeight);
     },
-    [visibleMessages.length, virtualizer]
+    []
   );
 
   // Navigate search matches
