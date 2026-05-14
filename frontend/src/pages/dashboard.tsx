@@ -29,7 +29,7 @@ export default function DashboardPage() {
 
   const { data: dailyStats } = useQuery({
     queryKey: ["analytics", "daily"],
-    queryFn: () => fetchDailyStats(30),
+    queryFn: () => fetchDailyStats({ days: 30 }),
   });
 
   const { data: activity } = useQuery({

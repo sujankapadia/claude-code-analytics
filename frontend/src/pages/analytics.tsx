@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
@@ -18,15 +19,54 @@ import { ActiveTimeBarChart } from "@/components/charts/active-time-bar-chart";
 import { formatNumber, formatDuration, shortProjectName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+type DateRange = "30d" | "90d" | "month" | "year" | "all";
+
+const RANGE_LABELS: Record<DateRange, string> = {
+  "30d": "Last 30 days",
+  "90d": "Last 90 days",
+  month: "This month",
+  year: "This year",
+  all: "All time",
+};
+
+function rangeToParams(range: DateRange): {
+  days?: number;
+  start_date?: string;
+  end_date?: string;
+} {
+  const now = new Date();
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  switch (range) {
+    case "30d":
+      return { days: 30 };
+    case "90d":
+      return { days: 90 };
+    case "month":
+      return {
+        start_date: iso(new Date(now.getFullYear(), now.getMonth(), 1)),
+        end_date: iso(now),
+      };
+    case "year":
+      return {
+        start_date: `${now.getFullYear()}-01-01`,
+        end_date: iso(now),
+      };
+    case "all":
+      return { days: 100000 };
+  }
+}
+
 export default function AnalyticsPage() {
+  const [range, setRange] = useState<DateRange>("30d");
+
   const { data: tools } = useQuery({
     queryKey: ["analytics", "tools"],
     queryFn: fetchToolStats,
   });
 
   const { data: daily } = useQuery({
-    queryKey: ["analytics", "daily", 30],
-    queryFn: () => fetchDailyStats(30),
+    queryKey: ["analytics", "daily", range],
+    queryFn: () => fetchDailyStats(rangeToParams(range)),
   });
 
   const { data: mcp } = useQuery({
@@ -65,7 +105,25 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Analytics</h1>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <h1 className="text-2xl font-bold">Analytics</h1>
+        <div className="flex gap-1 rounded-lg border bg-card p-1">
+          {(Object.keys(RANGE_LABELS) as DateRange[]).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={cn(
+                "rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                range === r
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {RANGE_LABELS[r]}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Top row: charts */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
