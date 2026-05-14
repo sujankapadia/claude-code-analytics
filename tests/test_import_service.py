@@ -34,6 +34,8 @@ def sample_session_file(tmp_path):
     project_dir.mkdir()
     session_file = project_dir / "test-session-123.jsonl"
     entries = [
+        # Interactive-session marker (required by session_filter)
+        {"entrypoint": "cli", "sessionId": "test-session-123"},
         {
             "ts": "2024-01-01T00:00:00Z",
             "message": {
@@ -92,6 +94,8 @@ class TestImportServiceThreadSafety:
         project_dir.mkdir(parents=True)
         session_file = project_dir / "test-session.jsonl"
         entries = [
+            # Interactive-session marker (required by session_filter)
+            {"entrypoint": "cli", "sessionId": "test-session"},
             {
                 "ts": "2024-01-01T00:00:00Z",
                 "message": {
@@ -137,6 +141,8 @@ class TestToolResultBackfill:
 
         # Phase 1: Write session with tool_use but no tool_result yet
         phase1_entries = [
+            # Interactive-session marker (required by session_filter)
+            {"entrypoint": "cli", "sessionId": "test-session-backfill"},
             {
                 "ts": "2024-01-01T00:00:00Z",
                 "message": {

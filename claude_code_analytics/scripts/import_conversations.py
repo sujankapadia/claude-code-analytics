@@ -512,9 +512,16 @@ def import_project(project_dir: Path, conn: sqlite3.Connection) -> tuple[int, in
     total_messages = 0
     total_tool_uses = 0
 
+    # Import lazily to avoid a circular import at module load time
+    from claude_code_analytics.services.session_filter import is_interactive_session
+
     for session_file in jsonl_files:
         # Skip compact files — compacted summaries of existing sessions
         if "-acompact-" in session_file.stem:
+            continue
+        # Skip Claude Agent SDK subprocess sessions — not user-driven (#70)
+        if not is_interactive_session(session_file):
+            logger.debug(f"  ⏭  Skipping SDK subprocess session: {session_file.name}")
             continue
         logger.info(f"  📄 Importing session: {session_file.name}")
         try:
