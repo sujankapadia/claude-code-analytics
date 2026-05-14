@@ -20,6 +20,7 @@ from claude_code_analytics.scripts.import_conversations import (
     normalize_timestamp,
     parse_jsonl_file,
 )
+from claude_code_analytics.services.session_filter import is_interactive_session
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,11 @@ def import_single_session(session_path: Path, db_path: str | None = None) -> tup
 
     # Skip compact files — they're compacted summaries of existing sessions
     if "-acompact-" in session_path.stem:
+        return None
+
+    # Skip Claude Agent SDK subprocess sessions — they aren't user-driven and
+    # would inflate analytics if treated as real interactive sessions (#70).
+    if not is_interactive_session(session_path):
         return None
 
     # Derive project_id from parent directory.

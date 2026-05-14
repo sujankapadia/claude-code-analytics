@@ -74,6 +74,11 @@ def _get_claude_processes() -> list[dict]:
             if not is_claude:
                 continue
 
+            # Skip Claude Agent SDK subprocesses — they bundle their own claude
+            # binary at .../claude_agent_sdk/_bundled/claude and aren't user-driven (#70).
+            if cmdline and "claude_agent_sdk/_bundled/claude" in cmdline[0]:
+                continue
+
             # Skip subprocesses (--child, --mcp, etc.)
             cmdline_str = " ".join(cmdline)
             if "--child" in cmdline_str or "--mcp" in cmdline_str:
