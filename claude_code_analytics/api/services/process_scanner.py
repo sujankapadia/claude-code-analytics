@@ -36,6 +36,7 @@ class ActiveSession:
     status: str = "running"
     recent_messages: list[str] = field(default_factory=list)
     duration_minutes: int = 0
+    latest_session_id: str | None = None
 
 
 @dataclass
@@ -220,9 +221,13 @@ def scan_active_sessions() -> list[ActiveSession]:
         project_name = Path(cwd).name
         started_at = proc["started_at"]
         duration = now - started_at
-        # Extract recent user messages from JSONL
+        # Extract recent user messages from JSONL.
+        # The JSONL stem is also the session_id — use it directly as the click target
+        # so the active card is always consistent with what the user is looking at,
+        # rather than relying on a separate DB query that may pick a stale session.
         jsonl_path = _find_latest_jsonl(cwd)
         recent_messages = _extract_recent_messages(jsonl_path) if jsonl_path else []
+        latest_session_id = jsonl_path.stem if jsonl_path else None
 
         sessions.append(
             ActiveSession(
@@ -233,6 +238,7 @@ def scan_active_sessions() -> list[ActiveSession]:
                 started_at=started_at.isoformat(),
                 recent_messages=recent_messages,
                 duration_minutes=int(duration.total_seconds() / 60),
+                latest_session_id=latest_session_id,
             )
         )
 
