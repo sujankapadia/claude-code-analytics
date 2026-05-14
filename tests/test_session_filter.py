@@ -13,8 +13,8 @@ def _write_jsonl(tmp_path, name, lines):
     return p
 
 
-def test_interactive_session_recognized(tmp_path):
-    """A JSONL whose first event has entrypoint == 'cli' is interactive."""
+def test_interactive_session_with_entrypoint_recognized(tmp_path):
+    """Real interactive session with entrypoint marker is accepted."""
     p = _write_jsonl(
         tmp_path,
         "interactive.jsonl",
@@ -25,9 +25,34 @@ def test_interactive_session_recognized(tmp_path):
                 "version": "2.1.81",
                 "cwd": "/some/dir",
                 "sessionId": "abc",
-            },
-            {"type": "user", "content": "hello"},
+            }
         ],
+    )
+    assert is_interactive_session(p) is True
+
+
+def test_interactive_session_with_snapshot_event_recognized(tmp_path):
+    """Real interactive sessions can start with file-history-snapshot."""
+    p = _write_jsonl(
+        tmp_path,
+        "snapshot.jsonl",
+        [
+            {
+                "type": "file-history-snapshot",
+                "messageId": "abc",
+                "snapshot": {"trackedFileBackups": {}},
+            }
+        ],
+    )
+    assert is_interactive_session(p) is True
+
+
+def test_interactive_session_with_permission_mode_recognized(tmp_path):
+    """Real interactive sessions can start with permission-mode."""
+    p = _write_jsonl(
+        tmp_path,
+        "perm.jsonl",
+        [{"type": "permission-mode", "permissionMode": "default", "sessionId": "abc"}],
     )
     assert is_interactive_session(p) is True
 
@@ -65,12 +90,6 @@ def test_malformed_first_line_rejected(tmp_path):
     """A non-JSON first line is rejected (don't import unknown formats)."""
     p = tmp_path / "bad.jsonl"
     p.write_text("not json at all\n")
-    assert is_interactive_session(p) is False
-
-
-def test_unknown_entrypoint_rejected(tmp_path):
-    """Be conservative: unknown entrypoint values are rejected."""
-    p = _write_jsonl(tmp_path, "unknown.jsonl", [{"entrypoint": "something-else"}])
     assert is_interactive_session(p) is False
 
 

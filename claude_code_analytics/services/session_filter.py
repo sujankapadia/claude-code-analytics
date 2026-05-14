@@ -4,10 +4,12 @@ SDK-spawned subprocesses (Claude Agent SDK) write JSONL files to ~/.claude/proje
 identically to interactive sessions, but they are not user-driven and would inflate
 analytics if treated as real sessions.
 
-The reliable signal is in the first event of the JSONL:
-    - Interactive sessions start with a rich event including ``"entrypoint": "cli"``
-    - SDK subprocess sessions start with ``"type": "queue-operation"`` and lack
-      the ``entrypoint`` field
+The reliable signal is the SDK's input-queueing mechanism: SDK subprocesses
+emit a ``{"type": "queue-operation", "operation": "enqueue", ...}`` event as
+their first JSONL entry. Real interactive sessions can start with many
+different event types (snapshot, permission-mode, progress, hook events, etc.)
+depending on Claude Code version and configured hooks, but never with a
+queue-operation enqueue.
 """
 
 import json
@@ -20,13 +22,15 @@ def is_interactive_session(jsonl_path: Path) -> bool:
     SDK-spawned subprocess sessions return False and should be excluded from
     import / analytics.
 
-    Behavior on edge cases:
-        - Missing or unreadable file -> False (treat as not importable)
-        - Empty file -> False
-        - Malformed first JSON line -> False
-        - First event with ``entrypoint == "cli"`` -> True
-        - First event with ``type == "queue-operation"`` -> False
-        - Anything else -> False (be conservative; don't import unknown formats)
+    Behavior:
+        - First event with ``type == "queue-operation"`` -> False (SDK)
+        - Any other valid first event -> True (interactive)
+
+    Edge cases (all return False — treat as not importable):
+        - Missing or unreadable file
+        - Empty file
+        - Malformed first JSON line
+        - First JSON value isn't an object
     """
     try:
         with open(jsonl_path) as f:
@@ -45,4 +49,4 @@ def is_interactive_session(jsonl_path: Path) -> bool:
     if not isinstance(event, dict):
         return False
 
-    return event.get("entrypoint") == "cli"
+    return event.get("type") != "queue-operation"
