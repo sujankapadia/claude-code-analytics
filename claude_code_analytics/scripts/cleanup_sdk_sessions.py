@@ -71,15 +71,17 @@ def main() -> int:
     rows = cursor.fetchall()
     print(f"Scanning {len(rows)} sessions...")
 
-    to_delete_sdk: list[str] = []
-    to_delete_orphan: list[str] = []
+    # Track (session_id, project_id) pairs so deletion matches the same key
+    # we used to classify, rather than session_id alone.
+    to_delete_sdk: list[tuple[str, str]] = []
+    to_delete_orphan: list[tuple[str, str]] = []
 
     for session_id, project_id in rows:
         jsonl = find_jsonl(project_id, session_id)
         if jsonl is None:
-            to_delete_orphan.append(session_id)
+            to_delete_orphan.append((session_id, project_id))
         elif not is_interactive_session(jsonl):
-            to_delete_sdk.append(session_id)
+            to_delete_sdk.append((session_id, project_id))
 
     print(f"  SDK subprocess sessions: {len(to_delete_sdk)}")
     print(f"  Orphaned sessions (no JSONL on disk): {len(to_delete_orphan)}")
@@ -92,13 +94,14 @@ def main() -> int:
         print("\n[DRY RUN] No changes made. Re-run without --dry-run to delete.")
         return 0
 
-    # Batch delete in chunks to avoid SQLITE_MAX_VARIABLE_NUMBER limits
-    all_ids = to_delete_sdk + to_delete_orphan
-    chunk = 500
-    for i in range(0, len(all_ids), chunk):
-        batch = all_ids[i : i + chunk]
-        placeholders = ",".join("?" for _ in batch)
-        cursor.execute(f"DELETE FROM sessions WHERE session_id IN ({placeholders})", batch)
+    # Delete each row by both session_id and project_id (defense in depth —
+    # session_id is the PK today but matching on the same key we classified
+    # with is safer if the schema ever changes).
+    all_pairs = to_delete_sdk + to_delete_orphan
+    cursor.executemany(
+        "DELETE FROM sessions WHERE session_id = ? AND project_id = ?",
+        all_pairs,
+    )
     conn.commit()
     conn.close()
 
