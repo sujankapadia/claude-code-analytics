@@ -98,8 +98,11 @@ export const fetchSimilarSessions = (params: {
 
 // -- Analytics --
 
-export const fetchDailyStats = (days?: number) =>
-  get<DailyStats[]>("/analytics/daily", { days });
+export const fetchDailyStats = (params?: {
+  days?: number;
+  start_date?: string;
+  end_date?: string;
+}) => get<DailyStats[]>("/analytics/daily", params);
 
 export const fetchToolStats = () => get<ToolUsageSummary[]>("/analytics/tools");
 

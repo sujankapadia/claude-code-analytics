@@ -9,9 +9,18 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 @router.get("/daily")
-def get_daily_stats(days: int = 30, db: DatabaseService = Depends(get_db_service)):
-    """Get daily aggregated statistics."""
-    return db.get_daily_statistics(days=days)
+def get_daily_stats(
+    days: int = 30,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    db: DatabaseService = Depends(get_db_service),
+):
+    """Get daily aggregated statistics.
+
+    If start_date and/or end_date (YYYY-MM-DD) are provided, they take precedence
+    over `days`. end_date is inclusive.
+    """
+    return db.get_daily_statistics(days=days, start_date=start_date, end_date=end_date)
 
 
 @router.get("/tools")

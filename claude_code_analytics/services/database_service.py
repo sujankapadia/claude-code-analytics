@@ -1705,35 +1705,73 @@ class DatabaseService:
             "avg_active_time_per_session": avg_active,
         }
 
-    def get_daily_statistics(self, days: int = 30) -> list[dict[str, Any]]:
+    def get_daily_statistics(
+        self,
+        days: int = 30,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Get daily aggregated statistics.
 
+        If start_date and/or end_date are provided, they take precedence over `days`.
+        Dates must be ISO format (YYYY-MM-DD). end_date is inclusive.
+
         Args:
-            days: Number of days to include
+            days: Number of days to include (used when no date range is given)
+            start_date: Inclusive lower bound (YYYY-MM-DD)
+            end_date: Inclusive upper bound (YYYY-MM-DD)
 
         Returns:
             Daily statistics
         """
         conn = self._get_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT
-                DATE(timestamp) as date,
-                COUNT(DISTINCT session_id) as sessions,
-                COUNT(*) as messages,
-                SUM(CASE WHEN role = 'user' THEN 1 ELSE 0 END) as user_messages,
-                SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END) as assistant_messages,
-                SUM(COALESCE(input_tokens, 0)) as input_tokens,
-                SUM(COALESCE(output_tokens, 0)) as output_tokens
-            FROM messages
-            WHERE timestamp >= datetime('now', '-' || ? || ' days')
-            GROUP BY DATE(timestamp)
-            ORDER BY date DESC
-            """,
-            (days,),
-        )
+        if start_date or end_date:
+            clauses = []
+            params: list[Any] = []
+            if start_date:
+                clauses.append("DATE(timestamp) >= ?")
+                params.append(start_date)
+            if end_date:
+                clauses.append("DATE(timestamp) <= ?")
+                params.append(end_date)
+            where = " AND ".join(clauses)
+            cursor.execute(
+                f"""
+                SELECT
+                    DATE(timestamp) as date,
+                    COUNT(DISTINCT session_id) as sessions,
+                    COUNT(*) as messages,
+                    SUM(CASE WHEN role = 'user' THEN 1 ELSE 0 END) as user_messages,
+                    SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END) as assistant_messages,
+                    SUM(COALESCE(input_tokens, 0)) as input_tokens,
+                    SUM(COALESCE(output_tokens, 0)) as output_tokens
+                FROM messages
+                WHERE {where}
+                GROUP BY DATE(timestamp)
+                ORDER BY date DESC
+                """,
+                params,
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT
+                    DATE(timestamp) as date,
+                    COUNT(DISTINCT session_id) as sessions,
+                    COUNT(*) as messages,
+                    SUM(CASE WHEN role = 'user' THEN 1 ELSE 0 END) as user_messages,
+                    SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END) as assistant_messages,
+                    SUM(COALESCE(input_tokens, 0)) as input_tokens,
+                    SUM(COALESCE(output_tokens, 0)) as output_tokens
+                FROM messages
+                WHERE timestamp >= datetime('now', '-' || ? || ' days')
+                GROUP BY DATE(timestamp)
+                ORDER BY date DESC
+                """,
+                (days,),
+            )
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
